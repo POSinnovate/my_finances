@@ -1,0 +1,17 @@
+{
+  "name": "PosInnovate Finanzas Personales",
+  "short_name": "Finanzas",
+  "description": "Control de gastos personales, presupuesto mensual y metas estilo PosInnovate",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#070F1E",
+  "theme_color": "#00ADB5",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

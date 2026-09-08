@@ -1,0 +1,84 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@/lib/db/client';
+import { hashPassword, signToken } from '@/lib/auth';
+import { createDefaultCategoriesForUser } from '@/lib/db/categories-default';
+import { randomUUID } from 'crypto';
+
+export async function POST(req: NextRequest) {
+  try {
+    const { name, email, password, monthly_income } = await req.json();
+
+    if (!name || !email || !password) {
+      return NextResponse.json({ error: 'Nombre, correo y contraseña son obligatorios' }, { status: 400 });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+
+    // Check if user already exists
+    const existing = db.prepare('SELECT id FROM users WHERE LOWER(email) = ?').get(cleanEmail);
+    if (existing) {
+      return NextResponse.json({ error: 'Ya existe una cuenta con este correo electrónico' }, { status: 400 });
+    }
+
+    const id = randomUUID();
+    const now = new Date().toISOString();
+    const passwordHash = hashPassword(password);
+    
+    // SECURITY: Public registration is ALWAYS forced to 'USER' role
+    const assignedRole = 'USER';
+    const income = Number(monthly_income) || 2000000;
+
+    db.prepare(`
+      INSERT INTO users (id, name, email, password_hash, role, monthly_income, current_cash, payday_day, is_active, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      id,
+      name.trim(),
+      cleanEmail,
+      passwordHash,
+      assignedRole,
+      income,
+      200000, // Saldo inicial estimado
+      30,
+      1,
+      now,
+      now
+    );
+
+    // Automatically initialize private default categories for the new user
+    createDefaultCategoriesForUser(id);
+
+    // Generate session token so the user is immediately logged in
+    const token = await signToken({
+      userId: id,
+      email: cleanEmail,
+      name: name.trim(),
+      role: 'USER',
+    });
+
+    const response = NextResponse.json({
+      success: true,
+      user: {
+        id,
+        name: name.trim(),
+        email: cleanEmail,
+        role: 'USER',
+      },
+    });
+
+    response.cookies.set({
+      name: 'pos_auth_token',
+      value: token,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 30, // 30 days
+    });
+
+    return response;
+  } catch (err: unknown) {
+    console.error('Register error:', err);
+    return NextResponse.json({ error: 'Error interno al registrar cuenta' }, { status: 500 });
+  }
+}
