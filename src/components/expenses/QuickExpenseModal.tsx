@@ -208,7 +208,7 @@ export function QuickExpenseModal({ isOpen, onClose, onExpenseAdded, categories 
                 placeholder="Ej: Empanada, Domicilio, Pasaje"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] text-white text-xs px-3 py-2.5 rounded-xl focus:outline-none"
+                className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] text-white text-base sm:text-xs px-3 py-2.5 rounded-xl focus:outline-none"
               />
             </div>
             <div>
@@ -217,7 +217,7 @@ export function QuickExpenseModal({ isOpen, onClose, onExpenseAdded, categories 
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] text-white text-xs px-3 py-2.5 rounded-xl focus:outline-none"
+                className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] text-white text-base sm:text-xs px-3 py-2.5 rounded-xl focus:outline-none"
               />
             </div>
           </div>

@@ -76,7 +76,7 @@ export default function RegisterPage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Tu nombre"
-                  className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] text-white text-xs pl-10 pr-4 py-2.5 rounded-xl focus:outline-none transition-all placeholder:text-slate-600"
+                  className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] text-white text-base sm:text-xs pl-10 pr-4 py-2.5 rounded-xl focus:outline-none transition-all placeholder:text-slate-600"
                   required
                 />
               </div>
@@ -91,7 +91,7 @@ export default function RegisterPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="tu@correo.com"
-                  className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] text-white text-xs pl-10 pr-4 py-2.5 rounded-xl focus:outline-none transition-all placeholder:text-slate-600"
+                  className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] text-white text-base sm:text-xs pl-10 pr-4 py-2.5 rounded-xl focus:outline-none transition-all placeholder:text-slate-600"
                   required
                 />
               </div>
@@ -106,7 +106,7 @@ export default function RegisterPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Crea una contraseña segura"
-                  className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] text-white text-xs pl-10 pr-4 py-2.5 rounded-xl focus:outline-none transition-all placeholder:text-slate-600"
+                  className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] text-white text-base sm:text-xs pl-10 pr-4 py-2.5 rounded-xl focus:outline-none transition-all placeholder:text-slate-600"
                   required
                 />
               </div>
@@ -119,7 +119,7 @@ export default function RegisterPage() {
                 value={monthlyIncome}
                 onChange={(e) => setMonthlyIncome(e.target.value)}
                 placeholder="2000000"
-                className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] text-white text-xs px-3 py-2.5 rounded-xl focus:outline-none transition-all placeholder:text-slate-600"
+                className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] text-white text-base sm:text-xs px-3 py-2.5 rounded-xl focus:outline-none transition-all placeholder:text-slate-600"
               />
               <span className="text-[10px] text-slate-500 mt-0.5 block">Puedes modificarlo después en cualquier momento.</span>
             </div>
