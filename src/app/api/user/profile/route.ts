@@ -7,25 +7,30 @@ export async function PUT(req: NextRequest) {
     const auth = await requireAuth();
     const { monthly_income, current_cash, payday_day } = await req.json();
 
-    const now = new Date().toISOString();
-
-    db.prepare(`
+    await db.prepare(`
       UPDATE users 
       SET 
         monthly_income = COALESCE(?, monthly_income),
         current_cash = COALESCE(?, current_cash),
         payday_day = COALESCE(?, payday_day),
-        updated_at = ?
+        updated_at = NOW()
       WHERE id = ?
-    `).run(monthly_income, current_cash, payday_day, now, auth.userId);
+    `).run(monthly_income, current_cash, payday_day, auth.userId);
 
-    const updated = db.prepare(`
+    const updated = await db.prepare(`
       SELECT id, name, email, role, monthly_income, current_cash, payday_day
       FROM users
       WHERE id = ?
-    `).get(auth.userId);
+    `).get(auth.userId) as any;
 
-    return NextResponse.json({ success: true, user: updated });
+    return NextResponse.json({
+      success: true,
+      user: {
+        ...updated,
+        monthly_income: Number(updated.monthly_income),
+        current_cash: Number(updated.current_cash),
+      }
+    });
   } catch (err: unknown) {
     if ((err as Error).message === 'UNAUTHORIZED') {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });

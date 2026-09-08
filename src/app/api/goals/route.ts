@@ -7,32 +7,30 @@ export async function GET() {
   try {
     const auth = await requireAuth();
 
-    const goals = db.prepare(`
+    const goals = await db.prepare(`
       SELECT id, title, target_amount, current_amount, monthly_contribution, target_date, created_at
       FROM goals
       WHERE user_id = ?
       ORDER BY created_at DESC
-    `).all(auth.userId) as {
-      id: string;
-      title: string;
-      target_amount: number;
-      current_amount: number;
-      monthly_contribution: number;
-      target_date: string | null;
-      created_at: string;
-    }[];
+    `).all(auth.userId) as any[];
 
     const goalsWithStats = goals.map(g => {
-      const remaining = Math.max(0, g.target_amount - g.current_amount);
-      const progress = g.target_amount > 0 ? Math.min(100, Math.round((g.current_amount / g.target_amount) * 100)) : 0;
+      const target = Number(g.target_amount) || 0;
+      const current = Number(g.current_amount) || 0;
+      const contribution = Number(g.monthly_contribution) || 0;
+      const remaining = Math.max(0, target - current);
+      const progress = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
       
       let monthsToAchieve = 0;
-      if (remaining > 0 && g.monthly_contribution > 0) {
-        monthsToAchieve = Math.ceil(remaining / g.monthly_contribution);
+      if (remaining > 0 && contribution > 0) {
+        monthsToAchieve = Math.ceil(remaining / contribution);
       }
 
       return {
         ...g,
+        target_amount: target,
+        current_amount: current,
+        monthly_contribution: contribution,
         remaining_amount: remaining,
         progress_percentage: progress,
         months_to_achieve: monthsToAchieve,
@@ -58,11 +56,10 @@ export async function POST(req: NextRequest) {
     }
 
     const id = randomUUID();
-    const now = new Date().toISOString();
 
-    db.prepare(`
-      INSERT INTO goals (id, user_id, title, target_amount, current_amount, monthly_contribution, target_date, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    await db.prepare(`
+      INSERT INTO goals (id, user_id, title, target_amount, current_amount, monthly_contribution, target_date)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       auth.userId,
@@ -70,8 +67,7 @@ export async function POST(req: NextRequest) {
       Number(target_amount),
       Number(current_amount) || 0,
       Number(monthly_contribution) || 0,
-      target_date || null,
-      now
+      target_date || null
     );
 
     return NextResponse.json({ success: true, id });
@@ -94,13 +90,13 @@ export async function PUT(req: NextRequest) {
 
     if (add_funds !== undefined) {
       const fundAmount = Number(add_funds);
-      db.prepare(`
+      await db.prepare(`
         UPDATE goals
         SET current_amount = current_amount + ?
         WHERE id = ? AND user_id = ?
       `).run(fundAmount, id, auth.userId);
     } else {
-      db.prepare(`
+      await db.prepare(`
         UPDATE goals
         SET
           title = COALESCE(?, title),
@@ -139,7 +135,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'ID requerido' }, { status: 400 });
     }
 
-    db.prepare(`DELETE FROM goals WHERE id = ? AND user_id = ?`).run(id, auth.userId);
+    await db.prepare(`DELETE FROM goals WHERE id = ? AND user_id = ?`).run(id, auth.userId);
     return NextResponse.json({ success: true });
   } catch (err: unknown) {
     if ((err as Error).message === 'UNAUTHORIZED') {

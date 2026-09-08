@@ -1,8 +1,7 @@
 import { randomUUID } from 'crypto';
 import { db } from './client';
 
-export function createDefaultCategoriesForUser(userId: string) {
-  const now = new Date().toISOString();
+export async function createDefaultCategoriesForUser(userId: string) {
   const defaultCategories = [
     { name: 'Hogar & Aporte Familiar', icon: 'Home', color: '#06B6D4', budget: 350000, isFixed: 1 },
     { name: 'Alimentación & Domicilios', icon: 'Utensils', color: '#EF4444', budget: 350000, isFixed: 0 },
@@ -14,12 +13,10 @@ export function createDefaultCategoriesForUser(userId: string) {
     { name: 'Ahorro / Fondo Emergencia', icon: 'PiggyBank', color: '#00ADB5', budget: 500000, isFixed: 0 },
   ];
 
-  const stmt = db.prepare(`
-    INSERT INTO categories (id, user_id, name, icon, color, monthly_budget, is_fixed, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
   for (const cat of defaultCategories) {
-    stmt.run(randomUUID(), userId, cat.name, cat.icon, cat.color, cat.budget, cat.isFixed, now);
+    await db.prepare(`
+      INSERT INTO categories (id, user_id, name, icon, color, monthly_budget, is_fixed)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(randomUUID(), userId, cat.name, cat.icon, cat.color, cat.budget, cat.isFixed);
   }
 }

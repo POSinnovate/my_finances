@@ -37,9 +37,14 @@ export async function GET(req: NextRequest) {
 
     query += ` ORDER BY e.date DESC, e.created_at DESC`;
 
-    const expenses = db.prepare(query).all(...params);
+    const expenses = await db.prepare(query).all(...params) as any[];
 
-    return NextResponse.json({ expenses });
+    const mapped = expenses.map(e => ({
+      ...e,
+      amount: Number(e.amount),
+    }));
+
+    return NextResponse.json({ expenses: mapped });
   } catch (err: unknown) {
     if ((err as Error).message === 'UNAUTHORIZED') {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
@@ -65,33 +70,26 @@ export async function POST(req: NextRequest) {
 
     const expenseDate = date || new Date().toISOString().split('T')[0];
     const id = randomUUID();
-    const now = new Date().toISOString();
 
-    // Transaction to insert expense and deduct from current_cash
-    const insertTransaction = db.transaction(() => {
-      db.prepare(`
-        INSERT INTO expenses (id, user_id, category_id, amount, payment_method, notes, date, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        id,
-        auth.userId,
-        category_id,
-        parsedAmount,
-        payment_method || 'Nequi',
-        notes?.trim() || null,
-        expenseDate,
-        now
-      );
+    await db.prepare(`
+      INSERT INTO expenses (id, user_id, category_id, amount, payment_method, notes, date)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      id,
+      auth.userId,
+      category_id,
+      parsedAmount,
+      payment_method || 'Nequi',
+      notes?.trim() || null,
+      expenseDate
+    );
 
-      db.prepare(`
-        UPDATE users
-        SET current_cash = MAX(0, current_cash - ?),
-            updated_at = ?
-        WHERE id = ?
-      `).run(parsedAmount, now, auth.userId);
-    });
-
-    insertTransaction();
+    await db.prepare(`
+      UPDATE users
+      SET current_cash = GREATEST(0, current_cash - ?),
+          updated_at = NOW()
+      WHERE id = ?
+    `).run(parsedAmount, auth.userId);
 
     return NextResponse.json({ success: true, id });
   } catch (err: unknown) {

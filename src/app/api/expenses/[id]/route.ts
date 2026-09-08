@@ -10,7 +10,7 @@ export async function DELETE(
     const auth = await requireAuth();
     const { id } = await params;
 
-    const expense = db.prepare(`
+    const expense = await db.prepare(`
       SELECT amount, user_id FROM expenses WHERE id = ? AND user_id = ?
     `).get(id, auth.userId) as { amount: number; user_id: string } | undefined;
 
@@ -18,21 +18,14 @@ export async function DELETE(
       return NextResponse.json({ error: 'Gasto no encontrado' }, { status: 404 });
     }
 
-    const now = new Date().toISOString();
-
-    const deleteTransaction = db.transaction(() => {
-      db.prepare(`DELETE FROM expenses WHERE id = ? AND user_id = ?`).run(id, auth.userId);
-      
-      // Restore refunded/deleted amount back to cash
-      db.prepare(`
-        UPDATE users
-        SET current_cash = current_cash + ?,
-            updated_at = ?
-        WHERE id = ?
-      `).run(expense.amount, now, auth.userId);
-    });
-
-    deleteTransaction();
+    await db.prepare(`DELETE FROM expenses WHERE id = ? AND user_id = ?`).run(id, auth.userId);
+    
+    await db.prepare(`
+      UPDATE users
+      SET current_cash = current_cash + ?,
+          updated_at = NOW()
+      WHERE id = ?
+    `).run(Number(expense.amount), auth.userId);
 
     return NextResponse.json({ success: true });
   } catch (err: unknown) {

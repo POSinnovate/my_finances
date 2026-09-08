@@ -9,7 +9,7 @@ export async function GET() {
       return NextResponse.json({ user: null }, { status: 401 });
     }
 
-    const user = db.prepare(`
+    const user = await db.prepare(`
       SELECT id, name, email, role, monthly_income, current_cash, payday_day, is_active
       FROM users
       WHERE id = ?
@@ -28,7 +28,13 @@ export async function GET() {
       return NextResponse.json({ user: null }, { status: 401 });
     }
 
-    return NextResponse.json({ user });
+    return NextResponse.json({
+      user: {
+        ...user,
+        monthly_income: Number(user.monthly_income),
+        current_cash: Number(user.current_cash),
+      }
+    });
   } catch (err: unknown) {
     console.error('Me error:', err);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });

@@ -6,11 +6,9 @@ import { randomUUID } from 'crypto';
 export async function GET(req: NextRequest) {
   try {
     const auth = await requireAuth();
-    
-    // Current month filter: YYYY-MM
     const currentMonth = new Date().toISOString().slice(0, 7);
 
-    const categories = db.prepare(`
+    const categories = await db.prepare(`
       SELECT 
         c.id,
         c.name,
@@ -27,20 +25,11 @@ export async function GET(req: NextRequest) {
       WHERE c.user_id = ?
       GROUP BY c.id
       ORDER BY c.is_fixed DESC, c.monthly_budget DESC
-    `).all(currentMonth, auth.userId) as {
-      id: string;
-      name: string;
-      icon: string;
-      color: string;
-      monthly_budget: number;
-      is_fixed: number;
-      spent_this_month: number;
-      expense_count: number;
-    }[];
+    `).all(currentMonth, auth.userId) as any[];
 
     const categoriesWithStats = categories.map(cat => {
-      const budget = cat.monthly_budget || 0;
-      const spent = cat.spent_this_month || 0;
+      const budget = Number(cat.monthly_budget) || 0;
+      const spent = Number(cat.spent_this_month) || 0;
       const remaining = budget - spent;
       const percent = budget > 0 ? Math.round((spent / budget) * 100) : (spent > 0 ? 100 : 0);
 
@@ -53,6 +42,8 @@ export async function GET(req: NextRequest) {
 
       return {
         ...cat,
+        monthly_budget: budget,
+        spent_this_month: spent,
         remaining_budget: remaining,
         percentage_used: percent,
         status,
@@ -79,11 +70,10 @@ export async function POST(req: NextRequest) {
     }
 
     const id = randomUUID();
-    const now = new Date().toISOString();
 
-    db.prepare(`
-      INSERT INTO categories (id, user_id, name, icon, color, monthly_budget, is_fixed, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    await db.prepare(`
+      INSERT INTO categories (id, user_id, name, icon, color, monthly_budget, is_fixed)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       auth.userId,
@@ -91,8 +81,7 @@ export async function POST(req: NextRequest) {
       icon || 'Tag',
       color || '#00ADB5',
       Number(monthly_budget) || 0,
-      is_fixed ? 1 : 0,
-      now
+      is_fixed ? 1 : 0
     );
 
     return NextResponse.json({ success: true, id });
@@ -114,7 +103,7 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'ID requerido' }, { status: 400 });
     }
 
-    db.prepare(`
+    await db.prepare(`
       UPDATE categories
       SET 
         name = COALESCE(?, name),

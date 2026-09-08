@@ -14,23 +14,19 @@ export async function POST(req: NextRequest) {
 
     const cleanEmail = email.trim().toLowerCase();
 
-    // Check if user already exists
-    const existing = db.prepare('SELECT id FROM users WHERE LOWER(email) = ?').get(cleanEmail);
+    const existing = await db.prepare('SELECT id FROM users WHERE LOWER(email) = ?').get(cleanEmail);
     if (existing) {
       return NextResponse.json({ error: 'Ya existe una cuenta con este correo electrónico' }, { status: 400 });
     }
 
     const id = randomUUID();
-    const now = new Date().toISOString();
     const passwordHash = hashPassword(password);
-    
-    // SECURITY: Public registration is ALWAYS forced to 'USER' role
     const assignedRole = 'USER';
     const income = Number(monthly_income) || 2000000;
 
-    db.prepare(`
-      INSERT INTO users (id, name, email, password_hash, role, monthly_income, current_cash, payday_day, is_active, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    await db.prepare(`
+      INSERT INTO users (id, name, email, password_hash, role, monthly_income, current_cash, payday_day, is_active)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       name.trim(),
@@ -38,17 +34,13 @@ export async function POST(req: NextRequest) {
       passwordHash,
       assignedRole,
       income,
-      200000, // Saldo inicial estimado
+      200000,
       30,
-      1,
-      now,
-      now
+      1
     );
 
-    // Automatically initialize private default categories for the new user
-    createDefaultCategoriesForUser(id);
+    await createDefaultCategoriesForUser(id);
 
-    // Generate session token so the user is immediately logged in
     const token = await signToken({
       userId: id,
       email: cleanEmail,
@@ -73,7 +65,7 @@ export async function POST(req: NextRequest) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 60 * 60 * 24 * 30, // 30 days
+      maxAge: 60 * 60 * 24 * 30,
     });
 
     return response;

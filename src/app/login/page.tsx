@@ -5,8 +5,8 @@ import { Wallet, Lock, Mail, ArrowRight, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('admin@posinnovate.com');
-  const [password, setPassword] = useState('admin123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -105,17 +105,9 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Quick Demo Access */}
+          {/* Register Link */}
           <div className="mt-5 pt-4 border-t border-[#1E3A5F] text-center">
-            <div className="flex items-center justify-center gap-1.5 text-xs text-slate-400 mb-2">
-              <ShieldCheck className="w-3.5 h-3.5 text-[#00ADB5]" />
-              <span>Acceso Administrador Precargado:</span>
-            </div>
-            <div className="text-[11px] bg-[#102A43] border border-[#243B55] rounded-lg p-2 text-slate-300 font-mono">
-              admin@posinnovate.com / admin123
-            </div>
-
-            <p className="text-xs text-slate-400 mt-4">
+            <p className="text-xs text-slate-400">
               ¿No tienes una cuenta aún?{' '}
               <a href="/register" className="text-[#00ADB5] font-bold hover:underline">
                 Regístrate aquí

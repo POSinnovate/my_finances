@@ -8,7 +8,7 @@ export async function GET() {
   try {
     await requireAdmin();
 
-    const users = db.prepare(`
+    const users = await db.prepare(`
       SELECT 
         u.id,
         u.name,
@@ -23,9 +23,16 @@ export async function GET() {
       LEFT JOIN expenses e ON e.user_id = u.id
       GROUP BY u.id
       ORDER BY u.created_at DESC
-    `).all();
+    `).all() as any[];
 
-    return NextResponse.json({ users });
+    const mapped = users.map(u => ({
+      ...u,
+      monthly_income: Number(u.monthly_income),
+      current_cash: Number(u.current_cash),
+      total_expenses_count: Number(u.total_expenses_count),
+    }));
+
+    return NextResponse.json({ users: mapped });
   } catch (err: unknown) {
     if ((err as Error).message === 'FORBIDDEN' || (err as Error).message === 'UNAUTHORIZED') {
       return NextResponse.json({ error: 'Acceso denegado: Solo el Administrador puede gestionar usuarios' }, { status: 403 });
@@ -44,19 +51,18 @@ export async function POST(req: NextRequest) {
     }
 
     const cleanEmail = email.trim().toLowerCase();
-    const existing = db.prepare('SELECT id FROM users WHERE LOWER(email) = ?').get(cleanEmail);
+    const existing = await db.prepare('SELECT id FROM users WHERE LOWER(email) = ?').get(cleanEmail);
     if (existing) {
       return NextResponse.json({ error: 'Ya existe un usuario con este correo electrónico' }, { status: 400 });
     }
 
     const id = randomUUID();
-    const now = new Date().toISOString();
     const passwordHash = hashPassword(password);
     const assignedRole = role === 'ADMIN' ? 'ADMIN' : 'USER';
 
-    db.prepare(`
-      INSERT INTO users (id, name, email, password_hash, role, monthly_income, current_cash, payday_day, is_active, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    await db.prepare(`
+      INSERT INTO users (id, name, email, password_hash, role, monthly_income, current_cash, payday_day, is_active)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       name.trim(),
@@ -66,13 +72,10 @@ export async function POST(req: NextRequest) {
       Number(monthly_income) || 2000000,
       Number(current_cash) || 200000,
       30,
-      1,
-      now,
-      now
+      1
     );
 
-    // Populate initial default budget categories for this friend!
-    createDefaultCategoriesForUser(id);
+    await createDefaultCategoriesForUser(id);
 
     return NextResponse.json({ success: true, id, message: `Usuario creado exitosamente para ${name}` });
   } catch (err: unknown) {
@@ -93,26 +96,23 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'ID requerido' }, { status: 400 });
     }
 
-    // Prevent admin from locking himself out
     if (id === admin.userId && is_active === 0) {
       return NextResponse.json({ error: 'No puedes desactivar tu propia cuenta de administrador' }, { status: 400 });
     }
 
-    const now = new Date().toISOString();
-
     if (reset_password) {
       const newHash = hashPassword(reset_password);
-      db.prepare(`UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?`).run(newHash, now, id);
+      await db.prepare(`UPDATE users SET password_hash = ?, updated_at = NOW() WHERE id = ?`).run(newHash, id);
     }
 
-    db.prepare(`
+    await db.prepare(`
       UPDATE users
       SET 
         is_active = COALESCE(?, is_active),
         role = COALESCE(?, role),
-        updated_at = ?
+        updated_at = NOW()
       WHERE id = ?
-    `).run(is_active !== undefined ? (is_active ? 1 : 0) : null, role || null, now, id);
+    `).run(is_active !== undefined ? (is_active ? 1 : 0) : null, role || null, id);
 
     return NextResponse.json({ success: true, message: 'Usuario actualizado' });
   } catch (err: unknown) {
