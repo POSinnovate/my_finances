@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { LogOut, Wallet, User as UserIcon, Shield, Edit3, X, Check } from 'lucide-react';
+import { LogOut, Wallet, Edit3, X, Check, Shield } from 'lucide-react';
 import { formatCOP } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -11,9 +11,7 @@ interface UserData {
   name: string;
   email: string;
   role: 'ADMIN' | 'USER';
-  monthly_income: number;
   current_cash: number;
-  payday_day: number;
 }
 
 interface HeaderProps {
@@ -49,7 +47,7 @@ export function Header({ user, onUserUpdate }: HeaderProps) {
         body: JSON.stringify({ current_cash: parsed }),
       });
       if (res.ok) {
-        toast.success('Saldo disponible actualizado');
+        toast.success('Fondo disponible actualizado');
         setIsEditingCash(false);
         if (onUserUpdate) onUserUpdate();
       } else {
@@ -63,37 +61,36 @@ export function Header({ user, onUserUpdate }: HeaderProps) {
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-[#0B192C]/90 backdrop-blur-md border-b border-[#1E3A5F] px-4 py-3">
-      <div className="max-w-5xl mx-auto flex items-center justify-between">
-        {/* Brand */}
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#00ADB5] to-[#06B6D4] flex items-center justify-center shadow-lg shadow-[#00ADB5]/20">
-            <Wallet className="w-5 h-5 text-[#0B192C]" />
+    <header className="sticky top-0 z-40 bg-[#0B192C]/95 backdrop-blur-md border-b border-[#1E3A5F] px-3 sm:px-4 py-2.5">
+      <div className="max-w-5xl mx-auto flex items-center justify-between gap-2">
+        {/* Brand Logo & Name */}
+        <Link href="/" className="flex items-center gap-2 shrink-0">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#00ADB5] to-[#06B6D4] flex items-center justify-center shadow-md shadow-[#00ADB5]/20 shrink-0">
+            <Wallet className="w-4 h-4 text-[#0B192C]" />
           </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-extrabold tracking-tight text-white text-base">POSINNOVATE</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#00ADB5]/20 text-[#00ADB5] font-semibold">FINANZAS</span>
-            </div>
-            <p className="text-[11px] text-slate-400 hidden sm:block">Control de Gastos & Presupuestos</p>
+          <div className="flex items-baseline gap-1">
+            <span className="font-black tracking-tight text-white text-sm sm:text-base">POSINNOVATE</span>
+            <span className="text-[9px] px-1 py-0.2 rounded bg-[#00ADB5]/20 text-[#00ADB5] font-bold hidden xs:inline">
+              BANK
+            </span>
           </div>
         </Link>
 
-        {/* User Info & Live Cash Pill */}
+        {/* Right Section: Available Fund Pill & Logout */}
         {user && (
-          <div className="flex items-center gap-2 sm:gap-4">
-            {/* Quick cash pill */}
-            <div className="bg-[#102A43] border border-[#243B55] px-3 py-1.5 rounded-xl flex items-center gap-2">
-              <Wallet className="w-4 h-4 text-[#00ADB5]" />
+          <div className="flex items-center gap-1.5 sm:gap-3">
+            {/* Live Cash Fund Pill */}
+            <div className="bg-[#102A43] border border-[#243B55] px-2.5 py-1 rounded-xl flex items-center gap-1.5 sm:gap-2 shrink-0">
+              <div className="w-2 h-2 rounded-full bg-[#00ADB5] animate-pulse shrink-0" />
               <div className="text-right">
-                <span className="block text-[10px] text-slate-400 font-medium leading-none">Saldo en Mano</span>
+                <span className="block text-[9px] text-slate-400 font-medium leading-none">Fondo Disponible</span>
                 {isEditingCash ? (
                   <div className="flex items-center gap-1 mt-0.5">
                     <input
                       type="number"
                       value={cashValue}
                       onChange={(e) => setCashValue(e.target.value)}
-                      className="w-24 text-xs bg-[#0B192C] text-white border border-[#00ADB5] rounded px-1 py-0.5 focus:outline-none"
+                      className="w-20 text-xs bg-[#0B192C] text-white border border-[#00ADB5] rounded px-1 py-0.5 focus:outline-none"
                       autoFocus
                     />
                     <button
@@ -114,14 +111,16 @@ export function Header({ user, onUserUpdate }: HeaderProps) {
                   </div>
                 ) : (
                   <div className="flex items-center gap-1">
-                    <span className="text-xs sm:text-sm font-bold text-white">{formatCOP(user.current_cash)}</span>
+                    <span className="text-xs sm:text-sm font-black text-white">
+                      {formatCOP(user.current_cash)}
+                    </span>
                     <button
                       onClick={() => {
-                        setCashValue(user.current_cash.toString());
+                        setCashValue(user.current_cash?.toString() || '0');
                         setIsEditingCash(true);
                       }}
                       className="text-slate-400 hover:text-[#00ADB5] transition-colors p-0.5"
-                      title="Editar saldo real"
+                      title="Ajustar fondo manualmente"
                     >
                       <Edit3 className="w-3 h-3" />
                     </button>
@@ -130,23 +129,18 @@ export function Header({ user, onUserUpdate }: HeaderProps) {
               </div>
             </div>
 
-            {/* Profile badge */}
-            <div className="hidden md:flex items-center gap-2 border-l border-[#243B55] pl-3">
-              <div className="w-8 h-8 rounded-full bg-[#152E4D] border border-[#243B55] flex items-center justify-center text-slate-300">
-                {user.role === 'ADMIN' ? <Shield className="w-4 h-4 text-[#00ADB5]" /> : <UserIcon className="w-4 h-4" />}
+            {/* Role Badge (Desktop) */}
+            {user.role === 'ADMIN' && (
+              <div className="hidden sm:flex items-center gap-1 bg-[#00ADB5]/10 border border-[#00ADB5]/30 px-2 py-1 rounded-lg">
+                <Shield className="w-3 h-3 text-[#00ADB5]" />
+                <span className="text-[10px] font-bold text-[#00ADB5]">ADMIN</span>
               </div>
-              <div className="text-left">
-                <p className="text-xs font-semibold text-white leading-tight">{user.name}</p>
-                <span className={`text-[10px] font-bold uppercase tracking-wider ${user.role === 'ADMIN' ? 'text-[#00ADB5]' : 'text-slate-400'}`}>
-                  {user.role === 'ADMIN' ? 'Admin' : 'Usuario'}
-                </span>
-              </div>
-            </div>
+            )}
 
             {/* Logout button */}
             <button
               onClick={handleLogout}
-              className="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all"
+              className="p-1.5 sm:p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all shrink-0"
               title="Cerrar sesión"
             >
               <LogOut className="w-4 h-4" />

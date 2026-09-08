@@ -50,7 +50,8 @@ export async function initDatabaseSchema() {
     CREATE TABLE IF NOT EXISTS expenses (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      category_id TEXT NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+      category_id TEXT REFERENCES categories(id) ON DELETE CASCADE,
+      type VARCHAR(10) NOT NULL DEFAULT 'EXPENSE', -- 'EXPENSE' | 'INCOME'
       amount NUMERIC NOT NULL,
       payment_method TEXT NOT NULL DEFAULT 'Nequi',
       notes TEXT,

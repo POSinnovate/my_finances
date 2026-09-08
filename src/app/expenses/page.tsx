@@ -15,6 +15,7 @@ export default function ExpensesPage() {
   const [user, setUser] = useState<any>(null);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
+  const [selectedType, setSelectedType] = useState<'ALL' | 'EXPENSE' | 'INCOME'>('ALL');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7));
@@ -38,6 +39,9 @@ export default function ExpensesPage() {
       }
 
       let expUrl = `/api/expenses?month=${selectedMonth}`;
+      if (selectedType !== 'ALL') {
+        expUrl += `&type=${selectedType}`;
+      }
       if (selectedCategory !== 'ALL') {
         expUrl += `&categoryId=${selectedCategory}`;
       }
@@ -51,18 +55,18 @@ export default function ExpensesPage() {
     } finally {
       setLoading(false);
     }
-  }, [router, selectedMonth, selectedCategory]);
+  }, [router, selectedMonth, selectedType, selectedCategory]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
   const handleDeleteExpense = async (id: string) => {
-    if (!confirm('¿Eliminar este gasto y restaurar el saldo?')) return;
+    if (!confirm('¿Eliminar este movimiento y actualizar el fondo disponible?')) return;
     try {
       const res = await fetch(`/api/expenses/${id}`, { method: 'DELETE' });
       if (res.ok) {
-        toast.success('Gasto eliminado');
+        toast.success('Movimiento eliminado y saldo actualizado');
         loadData();
       } else {
         toast.error('Error al eliminar');
@@ -82,7 +86,15 @@ export default function ExpensesPage() {
     );
   });
 
-  const totalFiltered = filteredExpenses.reduce((acc, curr) => acc + curr.amount, 0);
+  const totalExpensesAmount = filteredExpenses
+    .filter((e) => e.type !== 'INCOME')
+    .reduce((acc, curr) => acc + curr.amount, 0);
+
+  const totalIncomesAmount = filteredExpenses
+    .filter((e) => e.type === 'INCOME')
+    .reduce((acc, curr) => acc + curr.amount, 0);
+
+  const netBalance = totalIncomesAmount - totalExpensesAmount;
 
   return (
     <div className="min-h-screen bg-[#070F1E] flex flex-col">
@@ -99,8 +111,8 @@ export default function ExpensesPage() {
               <ArrowLeft className="w-4 h-4" />
             </Link>
             <div>
-              <h1 className="text-xl font-black text-white">Historial de Gastos</h1>
-              <p className="text-xs text-slate-400">Consulta y audita todos tus movimientos</p>
+              <h1 className="text-xl font-black text-white">Libro de Movimientos</h1>
+              <p className="text-xs text-slate-400">Historial completo de entradas y salidas de dinero</p>
             </div>
           </div>
 
@@ -116,115 +128,172 @@ export default function ExpensesPage() {
               className="py-2 px-3.5 rounded-xl bg-gradient-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] font-extrabold text-xs shadow-md shadow-[#00ADB5]/20 flex items-center gap-1.5"
             >
               <PlusCircle className="w-3.5 h-3.5" />
-              <span>+ Gasto</span>
+              <span>+ Movimiento</span>
             </button>
           </div>
         </div>
 
-        {/* Filters and Search */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="relative">
-            <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Buscar por nota, categoría o método..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[#0B192C] border border-[#1E3A5F] text-white text-xs pl-9 pr-3 py-2.5 rounded-xl focus:border-[#00ADB5] focus:outline-none"
-            />
-          </div>
-
-          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        {/* Filters: Type + Search + Categories */}
+        <div className="space-y-2.5">
+          {/* Movement Type Switcher (All / Expenses / Incomes) */}
+          <div className="flex items-center gap-2 bg-[#0B192C] border border-[#1E3A5F] p-1.5 rounded-2xl w-full sm:w-auto self-start">
             <button
-              onClick={() => setSelectedCategory('ALL')}
-              className={`text-xs px-3 py-2 rounded-xl whitespace-nowrap border font-medium transition-colors ${
-                selectedCategory === 'ALL'
-                  ? 'bg-[#00ADB5] text-[#0B192C] border-[#00ADB5] font-bold'
-                  : 'bg-[#102A43] text-slate-300 border-[#243B55]'
+              onClick={() => setSelectedType('ALL')}
+              className={`flex-1 sm:flex-initial text-xs px-4 py-2 rounded-xl font-bold transition-all ${
+                selectedType === 'ALL'
+                  ? 'bg-gradient-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] shadow'
+                  : 'text-slate-400 hover:text-white'
               }`}
             >
-              Todos los grupos
+              Todos ({expenses.length})
             </button>
-            {categories.map((c) => (
+            <button
+              onClick={() => setSelectedType('EXPENSE')}
+              className={`flex-1 sm:flex-initial text-xs px-4 py-2 rounded-xl font-bold transition-all ${
+                selectedType === 'EXPENSE'
+                  ? 'bg-rose-500 text-white shadow'
+                  : 'text-slate-400 hover:text-rose-400'
+              }`}
+            >
+              - Egresos
+            </button>
+            <button
+              onClick={() => setSelectedType('INCOME')}
+              className={`flex-1 sm:flex-initial text-xs px-4 py-2 rounded-xl font-bold transition-all ${
+                selectedType === 'INCOME'
+                  ? 'bg-emerald-500 text-[#0B192C] shadow'
+                  : 'text-slate-400 hover:text-emerald-400'
+              }`}
+            >
+              + Ingresos
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Buscar por descripción, grupo o método..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-[#0B192C] border border-[#1E3A5F] text-white text-xs pl-9 pr-3 py-2.5 rounded-xl focus:border-[#00ADB5] focus:outline-none"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
               <button
-                key={c.id}
-                onClick={() => setSelectedCategory(c.id)}
-                className={`text-xs px-3 py-2 rounded-xl whitespace-nowrap border font-medium transition-colors flex items-center gap-1.5 ${
-                  selectedCategory === c.id
+                onClick={() => setSelectedCategory('ALL')}
+                className={`text-xs px-3 py-2 rounded-xl whitespace-nowrap border font-medium transition-colors ${
+                  selectedCategory === 'ALL'
                     ? 'bg-[#00ADB5] text-[#0B192C] border-[#00ADB5] font-bold'
                     : 'bg-[#102A43] text-slate-300 border-[#243B55]'
                 }`}
               >
-                <span
-                  className="w-2 h-2 rounded-full shrink-0"
-                  style={{ backgroundColor: c.color }}
-                />
-                {c.name}
+                Todos los grupos
               </button>
-            ))}
+              {categories.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setSelectedCategory(c.id)}
+                  className={`text-xs px-3 py-2 rounded-xl whitespace-nowrap border font-medium transition-colors flex items-center gap-1.5 ${
+                    selectedCategory === c.id
+                      ? 'bg-[#00ADB5] text-[#0B192C] border-[#00ADB5] font-bold'
+                      : 'bg-[#102A43] text-slate-300 border-[#243B55]'
+                  }`}
+                >
+                  <span
+                    className="w-2 h-2 rounded-full shrink-0"
+                    style={{ backgroundColor: c.color }}
+                  />
+                  {c.name}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Summary Card of Filtered Result */}
-        <div className="bg-[#102A43] border border-[#243B55] rounded-2xl p-4 flex items-center justify-between">
-          <span className="text-xs text-slate-300">
-            Total en esta selección: <strong className="text-white font-bold">{filteredExpenses.length} movimientos</strong>
-          </span>
-          <span className="text-base font-black text-rose-400">
-            {formatCOP(totalFiltered)}
-          </span>
+        {/* Summary Breakdown Card */}
+        <div className="bg-[#102A43] border border-[#243B55] rounded-2xl p-4 grid grid-cols-3 gap-2 text-center">
+          <div>
+            <span className="block text-[10px] sm:text-[11px] font-semibold text-slate-400">Ingresos</span>
+            <span className="text-xs sm:text-sm font-black text-emerald-400">
+              +{formatCOP(totalIncomesAmount)}
+            </span>
+          </div>
+          <div className="border-x border-[#243B55] px-2">
+            <span className="block text-[10px] sm:text-[11px] font-semibold text-slate-400">Egresos</span>
+            <span className="text-xs sm:text-sm font-black text-rose-400">
+              -{formatCOP(totalExpensesAmount)}
+            </span>
+          </div>
+          <div>
+            <span className="block text-[10px] sm:text-[11px] font-semibold text-slate-400">Balance Neto</span>
+            <span className={`text-xs sm:text-sm font-black ${netBalance >= 0 ? 'text-[#00ADB5]' : 'text-rose-400'}`}>
+              {netBalance >= 0 ? `+${formatCOP(netBalance)}` : formatCOP(netBalance)}
+            </span>
+          </div>
         </div>
 
-        {/* Expenses Table / Cards */}
+        {/* Expenses / Movements Table / Cards */}
         <div className="bg-[#0B192C] border border-[#1E3A5F] rounded-3xl p-5 shadow-xl">
           {filteredExpenses.length === 0 ? (
             <div className="text-center py-12 text-slate-400">
               <Receipt className="w-10 h-10 mx-auto mb-2 opacity-30 text-[#00ADB5]" />
-              <p className="text-xs">No hay gastos que coincidan con estos filtros.</p>
+              <p className="text-xs">No hay movimientos que coincidan con estos filtros.</p>
             </div>
           ) : (
             <div className="space-y-2.5">
-              {filteredExpenses.map((exp) => (
-                <div
-                  key={exp.id}
-                  className="bg-[#102A43] hover:bg-[#152E4D] border border-[#243B55] rounded-2xl p-3.5 flex items-center justify-between gap-3 transition-colors"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className="w-3.5 h-3.5 rounded-full shrink-0 shadow-sm"
-                      style={{ backgroundColor: exp.category_color || '#00ADB5' }}
-                    />
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-white truncate">{exp.category_name}</span>
-                        <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#0B192C] text-slate-300 border border-[#243B55]">
-                          {exp.payment_method}
-                        </span>
-                        {exp.is_fixed === 1 && (
-                          <span className="text-[9px] text-cyan-400 font-bold uppercase tracking-wider">Fijo</span>
-                        )}
+              {filteredExpenses.map((exp) => {
+                const isIncome = exp.type === 'INCOME';
+                return (
+                  <div
+                    key={exp.id}
+                    className="bg-[#102A43] hover:bg-[#152E4D] border border-[#243B55] rounded-2xl p-3.5 flex items-center justify-between gap-3 transition-colors"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className="w-3.5 h-3.5 rounded-full shrink-0 shadow-sm"
+                        style={{ backgroundColor: isIncome ? '#10B981' : (exp.category_color || '#00ADB5') }}
+                      />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-white truncate">
+                            {isIncome ? (exp.category_name || 'Ingreso de Dinero') : exp.category_name}
+                          </span>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-md border ${
+                            isIncome
+                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 font-bold'
+                              : 'bg-[#0B192C] text-slate-300 border-[#243B55]'
+                          }`}>
+                            {isIncome ? 'Ingreso (+)' : exp.payment_method}
+                          </span>
+                          {!isIncome && exp.is_fixed === 1 && (
+                            <span className="text-[9px] text-cyan-400 font-bold uppercase tracking-wider">Fijo</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-400 truncate mt-0.5">
+                          {exp.notes ? <span className="text-slate-200">{exp.notes} • </span> : null}
+                          <span className="text-slate-500">{exp.date}</span>
+                        </p>
                       </div>
-                      <p className="text-xs text-slate-400 truncate mt-0.5">
-                        {exp.notes ? <span className="text-slate-200">{exp.notes} • </span> : null}
-                        <span className="text-slate-500">{exp.date}</span>
-                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className={`text-sm sm:text-base font-black ${isIncome ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {isIncome ? `+${formatCOP(exp.amount)}` : `-${formatCOP(exp.amount)}`}
+                      </span>
+                      <button
+                        onClick={() => handleDeleteExpense(exp.id)}
+                        className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                        title="Eliminar movimiento y actualizar saldo"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-sm sm:text-base font-black text-rose-400">
-                      -{formatCOP(exp.amount)}
-                    </span>
-                    <button
-                      onClick={() => handleDeleteExpense(exp.id)}
-                      className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
-                      title="Eliminar gasto"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

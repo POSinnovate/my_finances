@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Check, Edit3, X, AlertCircle } from 'lucide-react';
+import { Check, Edit3, X, AlertCircle, Trash2 } from 'lucide-react';
 import { formatCOP } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -26,6 +26,7 @@ interface BudgetCardProps {
 export function BudgetCard({ category, onBudgetUpdated }: BudgetCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [newBudget, setNewBudget] = useState(category.monthly_budget.toString());
+  const [newIsFixed, setNewIsFixed] = useState(category.is_fixed === 1);
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {
@@ -39,19 +40,38 @@ export function BudgetCard({ category, onBudgetUpdated }: BudgetCardProps) {
       const res = await fetch('/api/categories', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: category.id, monthly_budget: num }),
+        body: JSON.stringify({ 
+          id: category.id, 
+          monthly_budget: num,
+          is_fixed: newIsFixed
+        }),
       });
       if (res.ok) {
-        toast.success(`Presupuesto de ${category.name} actualizado`);
+        toast.success(`Grupo "${category.name}" actualizado`);
         setIsEditing(false);
         onBudgetUpdated();
       } else {
-        toast.error('Error guardando presupuesto');
+        toast.error('Error guardando grupo');
       }
     } catch {
       toast.error('Error de conexión');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDeleteCategory = async () => {
+    if (!confirm(`¿Eliminar el grupo "${category.name}"? Los movimientos registrados no se borrarán.`)) return;
+    try {
+      const res = await fetch(`/api/categories?id=${category.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        toast.success(`Grupo "${category.name}" eliminado`);
+        onBudgetUpdated();
+      } else {
+        toast.error('Error al eliminar');
+      }
+    } catch {
+      toast.error('Error de conexión');
     }
   };
 
@@ -107,31 +127,58 @@ export function BudgetCard({ category, onBudgetUpdated }: BudgetCardProps) {
 
       {/* Edit Form */}
       {isEditing && (
-        <div className="mt-3 p-2.5 bg-[#0B192C] border border-[#00ADB5]/40 rounded-xl flex items-center gap-2">
-          <span className="text-xs font-semibold text-slate-400">Presupuesto:</span>
-          <input
-            type="number"
-            value={newBudget}
-            onChange={(e) => setNewBudget(e.target.value)}
-            className="flex-1 bg-[#152E4D] border border-[#243B55] text-white text-xs px-2 py-1 rounded focus:outline-none"
-            placeholder="Monto estimado"
-            autoFocus
-          />
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="p-1 bg-[#00ADB5] text-[#0B192C] rounded hover:opacity-90"
-            title="Guardar"
-          >
-            <Check className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => setIsEditing(false)}
-            className="p-1 text-slate-400 hover:text-white"
-            title="Cancelar"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
+        <div className="mt-3 p-3 bg-[#0B192C] border border-[#00ADB5]/40 rounded-xl space-y-2.5">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-slate-400 shrink-0">Presupuesto:</span>
+            <input
+              type="number"
+              value={newBudget}
+              onChange={(e) => setNewBudget(e.target.value)}
+              className="flex-1 bg-[#152E4D] border border-[#243B55] text-white text-xs px-2.5 py-1.5 rounded-lg focus:outline-none focus:border-[#00ADB5]"
+              placeholder="Monto estimado"
+              autoFocus
+            />
+          </div>
+
+          <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+            <input
+              type="checkbox"
+              checked={newIsFixed}
+              onChange={(e) => setNewIsFixed(e.target.checked)}
+              className="rounded border-[#243B55] text-[#00ADB5] focus:ring-0"
+            />
+            <span>¿Es un gasto fijo mensual obligatorio?</span>
+          </label>
+
+          <div className="flex items-center justify-between pt-1 border-t border-[#1E3A5F]">
+            <button
+              onClick={handleDeleteCategory}
+              className="text-[11px] text-rose-400 hover:text-rose-300 flex items-center gap-1 hover:underline"
+              type="button"
+            >
+              <Trash2 className="w-3 h-3" />
+              <span>Eliminar grupo</span>
+            </button>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsEditing(false)}
+                className="px-2 py-1 text-xs text-slate-400 hover:text-white"
+                type="button"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="px-3 py-1 bg-[#00ADB5] text-[#0B192C] font-bold text-xs rounded-lg hover:opacity-90 flex items-center gap-1"
+                type="button"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>Guardar</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

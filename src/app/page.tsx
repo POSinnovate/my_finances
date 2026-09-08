@@ -33,6 +33,7 @@ interface UserData {
 
 interface Expense {
   id: string;
+  type?: 'EXPENSE' | 'INCOME';
   amount: number;
   payment_method: string;
   notes: string | null;
@@ -102,14 +103,14 @@ export default function DashboardPage() {
   }, [loadData]);
 
   const handleDeleteExpense = async (id: string) => {
-    if (!confirm('¿Eliminar este gasto y restaurar el saldo?')) return;
+    if (!confirm('¿Eliminar este movimiento y actualizar el fondo disponible?')) return;
     try {
       const res = await fetch(`/api/expenses/${id}`, { method: 'DELETE' });
       if (res.ok) {
-        toast.success('Gasto eliminado y saldo restaurado');
+        toast.success('Movimiento eliminado y saldo actualizado');
         loadData();
       } else {
-        toast.error('Error al eliminar gasto');
+        toast.error('Error al eliminar');
       }
     } catch {
       toast.error('Error de conexión');
@@ -149,7 +150,7 @@ export default function DashboardPage() {
             className="self-start sm:self-center py-2.5 px-4 rounded-2xl bg-gradient-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] font-extrabold text-xs shadow-lg shadow-[#00ADB5]/20 flex items-center gap-2 hover:opacity-95 active:scale-95 transition-all"
           >
             <PlusCircle className="w-4 h-4 stroke-[2.5px]" />
-            <span>+ Registrar Gasto</span>
+            <span>+ Registrar Movimiento</span>
           </button>
         </div>
 
@@ -269,53 +270,62 @@ export default function DashboardPage() {
           {recentExpenses.length === 0 ? (
             <div className="text-center py-8 text-slate-400">
               <Receipt className="w-8 h-8 mx-auto mb-2 opacity-30 text-[#00ADB5]" />
-              <p className="text-xs">Aún no has registrado ningún gasto este mes.</p>
+              <p className="text-xs">Aún no has registrado ningún movimiento este mes.</p>
               <button
                 onClick={() => setIsQuickExpenseOpen(true)}
                 className="mt-3 text-xs text-[#00ADB5] font-bold underline"
               >
-                Registrar el primer gasto ahora
+                Registrar el primer movimiento ahora
               </button>
             </div>
           ) : (
             <div className="space-y-2.5">
-              {recentExpenses.map((exp) => (
-                <div
-                  key={exp.id}
-                  className="bg-[#102A43] hover:bg-[#152E4D] border border-[#243B55] rounded-2xl p-3 flex items-center justify-between gap-3 transition-colors"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className="w-3 h-3 rounded-full shrink-0"
-                      style={{ backgroundColor: exp.category_color || '#00ADB5' }}
-                    />
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-white truncate">{exp.category_name}</span>
-                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#0B192C] text-slate-400 border border-[#243B55]">
-                          {exp.payment_method}
-                        </span>
+              {recentExpenses.map((exp) => {
+                const isIncome = exp.type === 'INCOME';
+                return (
+                  <div
+                    key={exp.id}
+                    className="bg-[#102A43] hover:bg-[#152E4D] border border-[#243B55] rounded-2xl p-3 flex items-center justify-between gap-3 transition-colors"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className="w-3 h-3 rounded-full shrink-0"
+                        style={{ backgroundColor: isIncome ? '#10B981' : (exp.category_color || '#00ADB5') }}
+                      />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-white truncate">
+                            {isIncome ? (exp.category_name || 'Ingreso de Dinero') : exp.category_name}
+                          </span>
+                          <span className={`text-[10px] px-1.5 py-0.2 rounded border ${
+                            isIncome 
+                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' 
+                              : 'bg-[#0B192C] text-slate-400 border-[#243B55]'
+                          }`}>
+                            {isIncome ? 'Ingreso (+)' : exp.payment_method}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                          {exp.notes || (isIncome ? 'Depósito a fondo' : 'Sin descripción')} • <span className="text-slate-500">{exp.date}</span>
+                        </p>
                       </div>
-                      <p className="text-[11px] text-slate-400 truncate mt-0.5">
-                        {exp.notes || 'Sin descripción'} • <span className="text-slate-500">{exp.date}</span>
-                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className={`text-sm font-extrabold ${isIncome ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {isIncome ? `+${formatCOP(exp.amount)}` : `-${formatCOP(exp.amount)}`}
+                      </span>
+                      <button
+                        onClick={() => handleDeleteExpense(exp.id)}
+                        className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                        title="Eliminar movimiento y actualizar saldo"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-sm font-extrabold text-rose-400">
-                      -{formatCOP(exp.amount)}
-                    </span>
-                    <button
-                      onClick={() => handleDeleteExpense(exp.id)}
-                      className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
-                      title="Eliminar gasto y restaurar saldo"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

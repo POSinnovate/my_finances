@@ -1,17 +1,19 @@
 'use client';
 
 import React from 'react';
-import { TrendingUp, ArrowDownRight, HeartHandshake, Sparkles } from 'lucide-react';
+import { TrendingUp, ArrowDownRight, HeartHandshake, Scale } from 'lucide-react';
 import { formatCOP } from '@/lib/utils';
 
 interface SummaryData {
-  monthly_income: number;
-  current_cash: number;
+  total_income: number;
+  income_count: number;
   total_spent: number;
   fixed_spent: number;
   variable_spent: number;
+  fixed_budget: number;
   expense_count: number;
-  free_cash_flow: number;
+  net_difference: number;
+  current_cash: number;
 }
 
 interface FinancialOverviewCardProps {
@@ -19,46 +21,64 @@ interface FinancialOverviewCardProps {
 }
 
 export function FinancialOverviewCard({ summary }: FinancialOverviewCardProps) {
+  const isPositive = summary.net_difference >= 0;
+
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-      {/* Monthly Income */}
-      <div className="bg-[#102A43] border border-[#243B55] rounded-2xl p-3.5 shadow-lg">
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-[11px] font-semibold text-slate-400">Ingreso Mensual</span>
-          <TrendingUp className="w-4 h-4 text-emerald-400" />
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
+      {/* 1. Real Monthly Income */}
+      <div className="bg-[#102A43] border border-[#243B55] rounded-2xl p-3 sm:p-3.5 shadow-lg">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400">Ingresos del Mes</span>
+          <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" />
         </div>
-        <p className="text-base sm:text-lg font-black text-white">{formatCOP(summary.monthly_income)}</p>
-        <span className="text-[10px] text-emerald-400/90 font-medium">Base mensual</span>
+        <p className="text-sm sm:text-lg font-black text-emerald-400 truncate">
+          +{formatCOP(summary.total_income)}
+        </p>
+        <span className="text-[9px] sm:text-[10px] text-slate-400 block mt-0.5">
+          {summary.income_count} ingresos reg.
+        </span>
       </div>
 
-      {/* Spent This Month */}
-      <div className="bg-[#102A43] border border-[#243B55] rounded-2xl p-3.5 shadow-lg">
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-[11px] font-semibold text-slate-400">Gastado Este Mes</span>
-          <ArrowDownRight className="w-4 h-4 text-rose-400" />
+      {/* 2. Total Expenses This Month */}
+      <div className="bg-[#102A43] border border-[#243B55] rounded-2xl p-3 sm:p-3.5 shadow-lg">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400">Egresos del Mes</span>
+          <ArrowDownRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-400" />
         </div>
-        <p className="text-base sm:text-lg font-black text-white">{formatCOP(summary.total_spent)}</p>
-        <span className="text-[10px] text-slate-400 font-medium">{summary.expense_count} registros</span>
+        <p className="text-sm sm:text-lg font-black text-rose-400 truncate">
+          -{formatCOP(summary.total_spent)}
+        </p>
+        <span className="text-[9px] sm:text-[10px] text-slate-400 block mt-0.5">
+          {summary.expense_count} gastos reg.
+        </span>
       </div>
 
-      {/* Fixed Parents Support */}
-      <div className="bg-[#102A43] border border-[#243B55] rounded-2xl p-3.5 shadow-lg">
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-[11px] font-semibold text-slate-400">Apoyo a Papás</span>
-          <HeartHandshake className="w-4 h-4 text-[#06B6D4]" />
+      {/* 3. Fixed Expenses Committed / Paid */}
+      <div className="bg-[#102A43] border border-[#243B55] rounded-2xl p-3 sm:p-3.5 shadow-lg">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400">Gastos Fijos</span>
+          <HeartHandshake className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#06B6D4]" />
         </div>
-        <p className="text-base sm:text-lg font-black text-[#06B6D4]">{formatCOP(summary.fixed_spent)}</p>
-        <span className="text-[10px] text-slate-400 font-medium">Compromiso fijo</span>
+        <p className="text-sm sm:text-lg font-black text-[#06B6D4] truncate">
+          {formatCOP(summary.fixed_spent)}
+        </p>
+        <span className="text-[9px] sm:text-[10px] text-slate-400 block mt-0.5">
+          de {formatCOP(summary.fixed_budget)} fijos
+        </span>
       </div>
 
-      {/* Free Cash / Margin */}
-      <div className="bg-[#102A43] border border-[#243B55] rounded-2xl p-3.5 shadow-lg">
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-[11px] font-semibold text-slate-400">Margen Disponible</span>
-          <Sparkles className="w-4 h-4 text-[#00ADB5]" />
+      {/* 4. Net Difference (Savings / Deficit) */}
+      <div className="bg-[#102A43] border border-[#243B55] rounded-2xl p-3 sm:p-3.5 shadow-lg">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400">Diferencia Neta</span>
+          <Scale className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isPositive ? 'text-[#00ADB5]' : 'text-rose-400'}`} />
         </div>
-        <p className="text-base sm:text-lg font-black text-[#00ADB5]">{formatCOP(summary.free_cash_flow)}</p>
-        <span className="text-[10px] text-slate-400 font-medium">Ingresos - Gastos</span>
+        <p className={`text-sm sm:text-lg font-black truncate ${isPositive ? 'text-[#00ADB5]' : 'text-rose-400'}`}>
+          {isPositive ? `+${formatCOP(summary.net_difference)}` : formatCOP(summary.net_difference)}
+        </p>
+        <span className="text-[9px] sm:text-[10px] text-slate-400 block mt-0.5">
+          {isPositive ? 'Ahorro del mes' : 'Déficit del mes'}
+        </span>
       </div>
     </div>
   );

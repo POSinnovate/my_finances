@@ -93,14 +93,19 @@ export default function BudgetsPage() {
     }
   };
 
-  const totalBudgeted = categories.reduce((acc, c) => acc + (c.monthly_budget || 0), 0);
+  const fixedCategories = categories.filter((c) => c.is_fixed === 1);
+  const variableCategories = categories.filter((c) => c.is_fixed !== 1);
+
+  const totalFixedBudgeted = fixedCategories.reduce((acc, c) => acc + (c.monthly_budget || 0), 0);
+  const totalVariableBudgeted = variableCategories.reduce((acc, c) => acc + (c.monthly_budget || 0), 0);
+  const totalBudgeted = totalFixedBudgeted + totalVariableBudgeted;
   const totalSpent = categories.reduce((acc, c) => acc + (c.spent_this_month || 0), 0);
 
   return (
     <div className="min-h-screen bg-[#070F1E] flex flex-col">
       <Header user={user} onUserUpdate={loadData} />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-5 space-y-4">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-5 space-y-5">
         {/* Top Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0B192C] border border-[#1E3A5F] rounded-3xl p-5 shadow-xl">
           <div className="flex items-center gap-3">
@@ -111,8 +116,8 @@ export default function BudgetsPage() {
               <ArrowLeft className="w-4 h-4" />
             </Link>
             <div>
-              <h1 className="text-xl font-black text-white">Grupos & Presupuestos</h1>
-              <p className="text-xs text-slate-400">Controla topes mensuales por cada rubro de gasto</p>
+              <h1 className="text-xl font-black text-white">Grupos & Gastos Fijos</h1>
+              <p className="text-xs text-slate-400">Define tus compromisos fijos y topes de gastos variables</p>
             </div>
           </div>
 
@@ -126,18 +131,22 @@ export default function BudgetsPage() {
         </div>
 
         {/* Total Budget vs Actual Spend Banner */}
-        <div className="bg-[#102A43] border border-[#243B55] rounded-2xl p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div>
-            <span className="text-[11px] font-semibold text-slate-400">Total Presupuestado</span>
-            <p className="text-lg font-black text-white">{formatCOP(totalBudgeted)}</p>
+        <div className="bg-[#102A43] border border-[#243B55] rounded-3xl p-4 sm:p-5 grid grid-cols-2 sm:grid-cols-4 gap-3 shadow-lg">
+          <div className="p-2 rounded-xl bg-[#0B192C]/50 border border-[#1E3A5F]">
+            <span className="text-[10px] sm:text-[11px] font-semibold text-cyan-400 block">Compromisos Fijos</span>
+            <p className="text-sm sm:text-base font-black text-white mt-0.5">{formatCOP(totalFixedBudgeted)}</p>
           </div>
-          <div>
-            <span className="text-[11px] font-semibold text-slate-400">Total Gastado este Mes</span>
-            <p className="text-lg font-black text-rose-400">{formatCOP(totalSpent)}</p>
+          <div className="p-2 rounded-xl bg-[#0B192C]/50 border border-[#1E3A5F]">
+            <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 block">Tope Variable</span>
+            <p className="text-sm sm:text-base font-black text-white mt-0.5">{formatCOP(totalVariableBudgeted)}</p>
           </div>
-          <div>
-            <span className="text-[11px] font-semibold text-slate-400">Restante para el Mes</span>
-            <p className={`text-lg font-black ${totalBudgeted - totalSpent >= 0 ? 'text-[#00ADB5]' : 'text-rose-400'}`}>
+          <div className="p-2 rounded-xl bg-[#0B192C]/50 border border-[#1E3A5F]">
+            <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 block">Total Gastado Mes</span>
+            <p className="text-sm sm:text-base font-black text-rose-400 mt-0.5">{formatCOP(totalSpent)}</p>
+          </div>
+          <div className="p-2 rounded-xl bg-[#0B192C]/50 border border-[#1E3A5F]">
+            <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 block">Margen Restante</span>
+            <p className={`text-sm sm:text-base font-black mt-0.5 ${totalBudgeted - totalSpent >= 0 ? 'text-[#00ADB5]' : 'text-rose-400'}`}>
               {formatCOP(totalBudgeted - totalSpent)}
             </p>
           </div>
@@ -233,15 +242,72 @@ export default function BudgetsPage() {
           </div>
         )}
 
-        {/* Categories Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-          {categories.map((cat) => (
-            <BudgetCard
-              key={cat.id}
-              category={cat}
-              onBudgetUpdated={loadData}
-            />
-          ))}
+        {/* Fixed Commitments Section */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-cyan-400" />
+                <span>Compromisos Fijos Mensuales</span>
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                Gastos ineludibles al mes (apoyo familiar a papás, suscripciones fijas, servicios)
+              </p>
+            </div>
+            <span className="text-xs font-black text-cyan-400">
+              {fixedCategories.length} {fixedCategories.length === 1 ? 'fijo' : 'fijos'}
+            </span>
+          </div>
+
+          {fixedCategories.length === 0 ? (
+            <div className="p-4 rounded-2xl bg-[#0B192C] border border-[#1E3A5F] text-center text-xs text-slate-400">
+              No tienes ningún grupo marcado como gasto fijo. Crea uno o edita un grupo existente.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              {fixedCategories.map((cat) => (
+                <BudgetCard
+                  key={cat.id}
+                  category={cat}
+                  onBudgetUpdated={loadData}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Variable Categories Section */}
+        <div className="space-y-3 pt-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#00ADB5]" />
+                <span>Presupuestos de Gastos Variables</span>
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                Topes recomendados para frenar fugas diarias de dinero y compras hormiga
+              </p>
+            </div>
+            <span className="text-xs font-black text-[#00ADB5]">
+              {variableCategories.length} {variableCategories.length === 1 ? 'grupo' : 'grupos'}
+            </span>
+          </div>
+
+          {variableCategories.length === 0 ? (
+            <div className="p-4 rounded-2xl bg-[#0B192C] border border-[#1E3A5F] text-center text-xs text-slate-400">
+              No tienes grupos de gastos variables registrados.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              {variableCategories.map((cat) => (
+                <BudgetCard
+                  key={cat.id}
+                  category={cat}
+                  onBudgetUpdated={loadData}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </main>
 

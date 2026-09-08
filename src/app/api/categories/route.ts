@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
       FROM categories c
       LEFT JOIN expenses e ON e.category_id = c.id 
         AND e.user_id = c.user_id 
+        AND (e.type IS NULL OR e.type = 'EXPENSE')
         AND strftime('%Y-%m', e.date) = ?
       WHERE c.user_id = ?
       GROUP BY c.id
@@ -120,5 +121,38 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
     return NextResponse.json({ error: 'Error al actualizar categoría' }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const auth = await requireAuth();
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'ID requerido' }, { status: 400 });
+    }
+
+    // Unlink expenses from this category (set category_id = null)
+    await db.prepare(`
+      UPDATE expenses
+      SET category_id = NULL
+      WHERE category_id = ? AND user_id = ?
+    `).run(id, auth.userId);
+
+    // Delete category
+    await db.prepare(`
+      DELETE FROM categories
+      WHERE id = ? AND user_id = ?
+    `).run(id, auth.userId);
+
+    return NextResponse.json({ success: true });
+  } catch (err: unknown) {
+    if ((err as Error).message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+    console.error('Categories DELETE error:', err);
+    return NextResponse.json({ error: 'Error al eliminar categoría' }, { status: 500 });
   }
 }
