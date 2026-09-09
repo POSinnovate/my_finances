@@ -34,4 +34,24 @@ export async function createDefaultCategoriesForUser(userId: string) {
       VALUES (?, ?, ?, ?, ?, 0, 0, 'INCOME')
     `).run(randomUUID(), userId, cat.name, cat.icon, cat.color);
   }
+
+  await createDefaultPaymentMethodsForUser(userId);
+}
+
+export async function createDefaultPaymentMethodsForUser(userId: string) {
+  const defaultPaymentMethods = [
+    { name: 'Nequi', type: 'WALLET', icon: 'Smartphone', color: '#8B5CF6' },
+    { name: 'Bancolombia', type: 'BANK', icon: 'Building2', color: '#EAB308' },
+    { name: 'Daviplata', type: 'WALLET', icon: 'Smartphone', color: '#EF4444' },
+    { name: 'Efectivo', type: 'CASH', icon: 'Banknote', color: '#10B981' },
+    { name: 'Tarjeta de Crédito', type: 'CARD', icon: 'CreditCard', color: '#3B82F6' },
+    { name: 'Transferencia PSE', type: 'BANK', icon: 'ArrowRightLeft', color: '#06B6D4' },
+  ];
+
+  for (const pm of defaultPaymentMethods) {
+    await db.prepare(`
+      INSERT INTO payment_methods (id, user_id, name, type, color, icon)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(randomUUID(), userId, pm.name, pm.type, pm.color, pm.icon);
+  }
 }

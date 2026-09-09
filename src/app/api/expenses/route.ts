@@ -42,6 +42,12 @@ export async function GET(req: NextRequest) {
       params.push(categoryId);
     }
 
+    const paymentMethod = searchParams.get('paymentMethod');
+    if (paymentMethod && paymentMethod !== 'ALL') {
+      query += ` AND LOWER(e.payment_method) = LOWER(?)`;
+      params.push(paymentMethod);
+    }
+
     query += ` ORDER BY e.date DESC, e.created_at DESC`;
 
     const expenses = await db.prepare(query).all(...params) as any[];

@@ -41,8 +41,13 @@ export async function initDatabaseSchema() {
       color TEXT NOT NULL DEFAULT '#00ADB5',
       monthly_budget NUMERIC NOT NULL DEFAULT 0,
       is_fixed INTEGER NOT NULL DEFAULT 0,
+      type VARCHAR(10) NOT NULL DEFAULT 'EXPENSE',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+  `;
+
+  await sql`
+    ALTER TABLE categories ADD COLUMN IF NOT EXISTS type VARCHAR(10) NOT NULL DEFAULT 'EXPENSE';
   `;
 
   // 3. Expenses table
@@ -74,10 +79,24 @@ export async function initDatabaseSchema() {
     );
   `;
 
+  // 5. Payment methods table
+  await sql`
+    CREATE TABLE IF NOT EXISTS payment_methods (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'BANK', -- 'WALLET' | 'BANK' | 'CASH' | 'CARD' | 'OTHER'
+      color TEXT NOT NULL DEFAULT '#00ADB5',
+      icon TEXT NOT NULL DEFAULT 'Wallet',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `;
+
   // Indexes
   await sql`CREATE INDEX IF NOT EXISTS idx_expenses_user_date ON expenses(user_id, date);`;
   await sql`CREATE INDEX IF NOT EXISTS idx_categories_user ON categories(user_id);`;
   await sql`CREATE INDEX IF NOT EXISTS idx_goals_user ON goals(user_id);`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_payment_methods_user ON payment_methods(user_id);`;
 
   console.log('✅ Tablas creadas exitosamente.');
 

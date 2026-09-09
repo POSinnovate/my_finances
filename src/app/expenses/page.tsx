@@ -18,6 +18,8 @@ export default function ExpensesPage() {
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedType, setSelectedType] = useState<'ALL' | 'EXPENSE' | 'INCOME'>('ALL');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+  const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7));
   const [isQuickExpenseOpen, setIsQuickExpenseOpen] = useState(false);
@@ -40,12 +42,21 @@ export default function ExpensesPage() {
         setCategories(catData.categories || []);
       }
 
+      const pmRes = await fetch('/api/payment-methods');
+      if (pmRes.ok) {
+        const pmData = await pmRes.json();
+        setPaymentMethods(pmData.paymentMethods || []);
+      }
+
       let expUrl = `/api/expenses?month=${selectedMonth}`;
       if (selectedType !== 'ALL') {
         expUrl += `&type=${selectedType}`;
       }
       if (selectedCategory !== 'ALL') {
         expUrl += `&categoryId=${selectedCategory}`;
+      }
+      if (selectedPaymentMethod !== 'ALL') {
+        expUrl += `&paymentMethod=${encodeURIComponent(selectedPaymentMethod)}`;
       }
       const expRes = await fetch(expUrl);
       if (expRes.ok) {
@@ -57,7 +68,7 @@ export default function ExpensesPage() {
     } finally {
       setLoading(false);
     }
-  }, [router, selectedMonth, selectedType, selectedCategory]);
+  }, [router, selectedMonth, selectedType, selectedCategory, selectedPaymentMethod]);
 
   useEffect(() => {
     loadData();
@@ -209,6 +220,37 @@ export default function ExpensesPage() {
                     style={{ backgroundColor: c.color }}
                   />
                   {c.name}
+                </button>
+              ))}
+            </div>
+
+            {/* Payment Method Chips */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              <button
+                onClick={() => setSelectedPaymentMethod('ALL')}
+                className={`text-xs px-2.5 py-1.5 rounded-xl whitespace-nowrap border font-medium transition-colors ${
+                  selectedPaymentMethod === 'ALL'
+                    ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 font-bold'
+                    : 'bg-[#102A43] text-slate-400 border-[#243B55]'
+                }`}
+              >
+                Todos los medios
+              </button>
+              {paymentMethods.map((pm) => (
+                <button
+                  key={pm.id}
+                  onClick={() => setSelectedPaymentMethod(pm.name)}
+                  className={`text-xs px-2.5 py-1.5 rounded-xl whitespace-nowrap border font-medium transition-colors flex items-center gap-1.5 ${
+                    selectedPaymentMethod === pm.name
+                      ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 font-bold'
+                      : 'bg-[#102A43] text-slate-400 border-[#243B55]'
+                  }`}
+                >
+                  <span
+                    className="w-2 h-2 rounded-full shrink-0"
+                    style={{ backgroundColor: pm.color || '#00ADB5' }}
+                  />
+                  {pm.name}
                 </button>
               ))}
             </div>

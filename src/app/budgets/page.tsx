@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
-import { BudgetCard, CategoryWithBudget } from '@/components/budgets/BudgetCard';
+import { BudgetCard } from '@/components/budgets/BudgetCard';
 import { IncomeSourceCard } from '@/components/budgets/IncomeSourceCard';
 import { QuickExpenseModal } from '@/components/expenses/QuickExpenseModal';
 import { formatCOP } from '@/lib/utils';
@@ -14,12 +14,17 @@ import {
   PlusCircle, 
   Check, 
   X, 
-  TrendingUp, 
   Briefcase, 
   Wallet, 
-  Tag, 
   Award,
-  Layers
+  Layers,
+  CreditCard,
+  Building2,
+  Smartphone,
+  Banknote,
+  Trash2,
+  ArrowDownRight,
+  ArrowUpRight
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -29,22 +34,38 @@ const COLOR_OPTIONS = [
   '#EC4899', '#EF4444', '#F59E0B', '#10B981'
 ];
 
+const METHOD_TYPES = [
+  { id: 'WALLET', label: 'Billetera Digital (Nequi, Daviplata, etc.)', icon: Smartphone },
+  { id: 'BANK', label: 'Cuenta Bancaria (Bancolombia, etc.)', icon: Building2 },
+  { id: 'CASH', label: 'Efectivo en Mano', icon: Banknote },
+  { id: 'CARD', label: 'Tarjeta de Crédito', icon: CreditCard },
+  { id: 'OTHER', label: 'Otro Medio', icon: Wallet },
+];
+
 export default function BudgetsPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [categories, setCategories] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'EXPENSE' | 'INCOME'>('EXPENSE');
+  const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'EXPENSE' | 'INCOME' | 'PAYMENT_METHODS'>('EXPENSE');
   const [loading, setLoading] = useState(true);
   const [isQuickExpenseOpen, setIsQuickExpenseOpen] = useState(false);
-  const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
 
-  // New Category Form
+  // New Category Form Modal
+  const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
   const [newCatType, setNewCatType] = useState<'EXPENSE' | 'INCOME'>('EXPENSE');
   const [newCatName, setNewCatName] = useState('');
   const [newCatBudget, setNewCatBudget] = useState('');
   const [newCatColor, setNewCatColor] = useState(COLOR_OPTIONS[0]);
   const [newCatIsFixed, setNewCatIsFixed] = useState(false);
   const [isSubmittingCat, setIsSubmittingCat] = useState(false);
+
+  // New Payment Method Form Modal
+  const [isAddMethodOpen, setIsAddMethodOpen] = useState(false);
+  const [newMethodName, setNewMethodName] = useState('');
+  const [newMethodType, setNewMethodType] = useState('BANK');
+  const [newMethodColor, setNewMethodColor] = useState(COLOR_OPTIONS[0]);
+  const [isSubmittingMethod, setIsSubmittingMethod] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -56,10 +77,18 @@ export default function BudgetsPage() {
       const meData = await meRes.json();
       setUser(meData.user);
 
+      // Categories
       const catRes = await fetch('/api/categories');
       if (catRes.ok) {
         const catData = await catRes.json();
         setCategories(catData.categories || []);
+      }
+
+      // Payment Methods
+      const pmRes = await fetch('/api/payment-methods');
+      if (pmRes.ok) {
+        const pmData = await pmRes.json();
+        setPaymentMethods(pmData.paymentMethods || []);
       }
     } catch (err) {
       console.error(err);
@@ -72,10 +101,14 @@ export default function BudgetsPage() {
     loadData();
   }, [loadData]);
 
-  const handleOpenAdd = (type: 'EXPENSE' | 'INCOME') => {
-    setNewCatType(type);
-    setNewCatColor(type === 'INCOME' ? '#10B981' : '#00ADB5');
-    setIsAddCategoryOpen(true);
+  const handleOpenAdd = () => {
+    if (activeTab === 'PAYMENT_METHODS') {
+      setIsAddMethodOpen(true);
+    } else {
+      setNewCatType(activeTab);
+      setNewCatColor(activeTab === 'INCOME' ? '#10B981' : '#00ADB5');
+      setIsAddCategoryOpen(true);
+    }
   };
 
   const handleCreateCategory = async (e: React.FormEvent) => {
@@ -104,14 +137,69 @@ export default function BudgetsPage() {
         setNewCatName('');
         setNewCatBudget('');
         setIsAddCategoryOpen(false);
-        loadData();
+        await loadData();
       } else {
-        toast.error('Error al crear');
+        toast.error('Error al crear el grupo');
       }
     } catch {
       toast.error('Error de conexión');
     } finally {
       setIsSubmittingCat(false);
+    }
+  };
+
+  const handleCreatePaymentMethod = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMethodName.trim()) {
+      toast.error('El nombre del método es obligatorio');
+      return;
+    }
+
+    setIsSubmittingMethod(true);
+    try {
+      const res = await fetch('/api/payment-methods', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newMethodName.trim(),
+          type: newMethodType,
+          color: newMethodColor,
+          icon: newMethodType === 'WALLET' ? 'Smartphone' : newMethodType === 'CASH' ? 'Banknote' : newMethodType === 'CARD' ? 'CreditCard' : 'Building2',
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(`Método "${newMethodName.trim()}" creado`);
+        setNewMethodName('');
+        setIsAddMethodOpen(false);
+        await loadData();
+      } else {
+        toast.error(data.error || 'Error al crear método');
+      }
+    } catch {
+      toast.error('Error de conexión');
+    } finally {
+      setIsSubmittingMethod(false);
+    }
+  };
+
+  const handleDeleteMethod = async (id: string, name: string) => {
+    if (!confirm(`¿Eliminar el método de pago "${name}"? Los movimientos asociados pasarán a Efectivo.`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/payment-methods?id=${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(`Método "${name}" eliminado`);
+        await loadData();
+      } else {
+        toast.error(data.error || 'No se pudo eliminar el método');
+      }
+    } catch {
+      toast.error('Error de conexión');
     }
   };
 
@@ -152,22 +240,28 @@ export default function BudgetsPage() {
               <ArrowLeft className="w-4 h-4" />
             </Link>
             <div>
-              <h1 className="text-xl font-black text-white">Grupos & Fuentes de Dinero</h1>
-              <p className="text-xs text-slate-400">Administra tus gastos fijos y conoce tus entradas más fuertes</p>
+              <h1 className="text-xl font-black text-white">Grupos, Fuentes & Métodos</h1>
+              <p className="text-xs text-slate-400">Controla tus gastos fijos, entradas más fuertes y medios de pago</p>
             </div>
           </div>
 
           <button
-            onClick={() => handleOpenAdd(activeTab)}
-            className="py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] font-extrabold text-xs shadow-md shadow-[#00ADB5]/20 flex items-center gap-1.5 self-start sm:self-center"
+            onClick={handleOpenAdd}
+            className="py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] font-extrabold text-xs shadow-md shadow-[#00ADB5]/20 flex items-center gap-1.5 self-start sm:self-center hover:opacity-95 active:scale-95 transition-all"
           >
             <Plus className="w-4 h-4 stroke-[3px]" />
-            <span>{activeTab === 'INCOME' ? '+ Nueva Fuente' : '+ Nuevo Grupo'}</span>
+            <span>
+              {activeTab === 'INCOME'
+                ? '+ Nueva Fuente'
+                : activeTab === 'PAYMENT_METHODS'
+                ? '+ Nuevo Método'
+                : '+ Nuevo Grupo'}
+            </span>
           </button>
         </div>
 
-        {/* Tab Switcher: Gastos & Fijos vs Fuentes de Ingreso */}
-        <div className="flex items-center gap-2 bg-[#0B192C] border border-[#1E3A5F] p-1.5 rounded-2xl">
+        {/* Tab Switcher: Gastos vs Ingresos vs Métodos de Pago */}
+        <div className="flex flex-wrap items-center gap-2 bg-[#0B192C] border border-[#1E3A5F] p-1.5 rounded-2xl">
           <button
             onClick={() => setActiveTab('EXPENSE')}
             className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition-all ${
@@ -177,7 +271,7 @@ export default function BudgetsPage() {
             }`}
           >
             <Layers className="w-4 h-4" />
-            <span>Grupos de Gasto & Fijos ({expenseCategories.length})</span>
+            <span>Grupos de Gasto ({expenseCategories.length})</span>
           </button>
 
           <button
@@ -190,6 +284,18 @@ export default function BudgetsPage() {
           >
             <Briefcase className="w-4 h-4" />
             <span>Fuentes de Ingreso ({incomeCategories.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('PAYMENT_METHODS')}
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition-all ${
+              activeTab === 'PAYMENT_METHODS'
+                ? 'bg-[#102A43] border border-cyan-400 text-cyan-400 shadow-md'
+                : 'text-slate-400 hover:text-cyan-400'
+            }`}
+          >
+            <Wallet className="w-4 h-4" />
+            <span>Métodos de Pago ({paymentMethods.length})</span>
           </button>
         </div>
 
@@ -339,7 +445,7 @@ export default function BudgetsPage() {
                   <Briefcase className="w-8 h-8 text-emerald-400 mx-auto mb-2 opacity-40" />
                   <p className="text-slate-300 font-bold">No tienes fuentes de ingreso creadas</p>
                   <button
-                    onClick={() => handleOpenAdd('INCOME')}
+                    onClick={handleOpenAdd}
                     className="mt-3 text-xs text-emerald-400 underline font-bold"
                   >
                     Crear tu primera fuente (ej: Quincena, Suscripciones)
@@ -358,6 +464,113 @@ export default function BudgetsPage() {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3: PAYMENT METHODS CONTENT */}
+        {activeTab === 'PAYMENT_METHODS' && (
+          <div className="space-y-5">
+            {/* Payment Methods Banner */}
+            <div className="bg-[#102A43] border border-[#243B55] rounded-3xl p-5 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-base font-black text-white flex items-center gap-2">
+                  <Wallet className="w-5 h-5 text-cyan-400" />
+                  <span>Control de Cuentas & Métodos de Pago</span>
+                </h2>
+                <p className="text-xs text-slate-300 mt-1 max-w-xl">
+                  Cada usuario tiene sus propios métodos de pago aislados. Puedes agregar tus cuentas bancarias, billeteras (Nequi, Daviplata, Dale) o tarjetas para saber por dónde sale y entra cada peso.
+                </p>
+              </div>
+
+              <button
+                onClick={() => setIsAddMethodOpen(true)}
+                className="py-2.5 px-4 rounded-xl bg-cyan-400 text-slate-950 font-black text-xs hover:bg-cyan-300 flex items-center gap-1.5 shadow-md shadow-cyan-400/20 shrink-0"
+              >
+                <Plus className="w-4 h-4 stroke-[3px]" />
+                <span>+ Agregar Cuenta / Medio</span>
+              </button>
+            </div>
+
+            {/* Payment Methods Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              {paymentMethods.map((pm) => {
+                const IconComponent =
+                  pm.type === 'WALLET'
+                    ? Smartphone
+                    : pm.type === 'CASH'
+                    ? Banknote
+                    : pm.type === 'CARD'
+                    ? CreditCard
+                    : Building2;
+
+                return (
+                  <div
+                    key={pm.id}
+                    className="p-4 rounded-2xl bg-[#0B192C] border border-[#1E3A5F] hover:border-[#243B55] transition-all space-y-3 shadow-lg"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div
+                          className="w-8 h-8 rounded-xl flex items-center justify-center text-white"
+                          style={{ backgroundColor: pm.color || '#00ADB5' }}
+                        >
+                          <IconComponent className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-black text-white">{pm.name}</h4>
+                          <span className="text-[10px] text-slate-400 uppercase font-semibold">
+                            {pm.type === 'WALLET'
+                              ? 'Billetera'
+                              : pm.type === 'CASH'
+                              ? 'Efectivo'
+                              : pm.type === 'CARD'
+                              ? 'Tarjeta'
+                              : 'Banco / PSE'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {paymentMethods.length > 1 && (
+                        <button
+                          onClick={() => handleDeleteMethod(pm.id, pm.name)}
+                          className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
+                          title="Eliminar método"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-1 border-t border-[#1E3A5F]/60">
+                      <div className="p-2 rounded-xl bg-[#102A43]/60">
+                        <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1">
+                          <ArrowDownRight className="w-3 h-3" />
+                          <span>Ingresó</span>
+                        </span>
+                        <p className="text-xs font-black text-white mt-0.5">
+                          {formatCOP(pm.income_this_month || 0)}
+                        </p>
+                      </div>
+
+                      <div className="p-2 rounded-xl bg-[#102A43]/60">
+                        <span className="text-[10px] text-rose-400 font-bold flex items-center gap-1">
+                          <ArrowUpRight className="w-3 h-3" />
+                          <span>Salió</span>
+                        </span>
+                        <p className="text-xs font-black text-white mt-0.5">
+                          {formatCOP(pm.expense_this_month || 0)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] text-slate-400 pt-0.5">
+                      <span>Movimientos este mes:</span>
+                      <span className="font-extrabold text-white">{pm.movement_count || 0}</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -485,6 +698,94 @@ export default function BudgetsPage() {
                 >
                   <Check className="w-3.5 h-3.5 stroke-[3px]" />
                   <span>Guardar</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Modal / Inline Drawer for New Payment Method */}
+        {isAddMethodOpen && (
+          <div className="bg-[#0B192C] border border-cyan-400 rounded-3xl p-5 shadow-2xl animate-in fade-in duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-[#1E3A5F]">
+              <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                <Wallet className="w-4 h-4 text-cyan-400" />
+                <span>Agregar Nuevo Método / Cuenta de Pago</span>
+              </span>
+
+              <button
+                onClick={() => setIsAddMethodOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreatePaymentMethod} className="mt-4 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Nombre del Medio o Cuenta
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Nu Colombia, Dale, Davivienda, Caja Oficina"
+                    value={newMethodName}
+                    onChange={(e) => setNewMethodName(e.target.value)}
+                    className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2 rounded-xl focus:border-cyan-400 focus:outline-none"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Tipo de Cuenta / Medio
+                  </label>
+                  <select
+                    value={newMethodType}
+                    onChange={(e) => setNewMethodType(e.target.value)}
+                    className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2 rounded-xl focus:border-cyan-400 focus:outline-none"
+                  >
+                    {METHOD_TYPES.map((mt) => (
+                      <option key={mt.id} value={mt.id}>
+                        {mt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Color selector */}
+              <div className="flex items-center gap-2 pt-1">
+                <span className="text-xs font-semibold text-slate-400 mr-1">Color Distintivo:</span>
+                {COLOR_OPTIONS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setNewMethodColor(c)}
+                    className={`w-6 h-6 rounded-full border-2 transition-transform ${
+                      newMethodColor === c ? 'scale-110 border-white' : 'border-transparent'
+                    }`}
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddMethodOpen(false)}
+                  className="px-3 py-1.5 rounded-xl text-xs text-slate-400 hover:text-white"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingMethod}
+                  className="px-4 py-2 rounded-xl bg-cyan-400 text-slate-950 font-extrabold text-xs shadow-md hover:bg-cyan-300 flex items-center gap-1.5"
+                >
+                  <Check className="w-3.5 h-3.5 stroke-[3px]" />
+                  <span>Guardar Método</span>
                 </button>
               </div>
             </form>

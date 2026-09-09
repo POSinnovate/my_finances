@@ -6,7 +6,10 @@ const DATABASE_URL = process.env.DATABASE_URL;
 function adaptQuery(query: string): string {
   let index = 1;
   return query
-    .replace(/strftime\('%Y-%m',\s*([^)]+)\)/g, "to_char($1, 'YYYY-MM')")
+    .replace(/strftime\('([^']+)',\s*([^)]+)\)/g, (_match, fmt, col) => {
+      const pgFmt = fmt.replace(/%Y/g, 'YYYY').replace(/%m/g, 'MM').replace(/%d/g, 'DD');
+      return `to_char(${col}, '${pgFmt}')`;
+    })
     .replace(/\?/g, () => `$${index++}`);
 }
 
