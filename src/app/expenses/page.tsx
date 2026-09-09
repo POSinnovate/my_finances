@@ -23,7 +23,12 @@ import {
   Receipt,
   Calendar,
   Layers,
-  Wallet
+  Wallet,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  ArrowRightLeft,
+  ArrowDownRight,
+  ArrowUpRight
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -230,43 +235,47 @@ export default function ExpensesPage() {
             <div className="flex items-center gap-1.5 bg-[#0B192C] border border-[#1E3A5F] p-1.5 rounded-xl overflow-x-auto scrollbar-none whitespace-nowrap shrink-0">
               <button
                 onClick={() => setSelectedType('ALL')}
-                className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap shrink-0 ${
+                className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
                   selectedType === 'ALL'
                     ? 'bg-gradient-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] shadow'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                Todos ({expenses.length})
+                <Layers className="w-3.5 h-3.5" />
+                <span>Todos ({expenses.length})</span>
               </button>
               <button
                 onClick={() => setSelectedType('EXPENSE')}
-                className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap shrink-0 ${
+                className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
                   selectedType === 'EXPENSE'
                     ? 'bg-rose-500 text-white shadow'
                     : 'text-slate-400 hover:text-rose-400'
                 }`}
               >
-                - Egresos
+                <ArrowDownCircle className="w-3.5 h-3.5" />
+                <span>Egresos</span>
               </button>
               <button
                 onClick={() => setSelectedType('INCOME')}
-                className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap shrink-0 ${
+                className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
                   selectedType === 'INCOME'
                     ? 'bg-emerald-500 text-[#0B192C] shadow'
                     : 'text-slate-400 hover:text-emerald-400'
                 }`}
               >
-                + Ingresos
+                <ArrowUpCircle className="w-3.5 h-3.5" />
+                <span>Ingresos</span>
               </button>
               <button
                 onClick={() => setSelectedType('TRANSFER')}
-                className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap shrink-0 ${
+                className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
                   selectedType === 'TRANSFER'
                     ? 'bg-cyan-500 text-[#0B192C] shadow'
                     : 'text-slate-400 hover:text-cyan-400'
                 }`}
               >
-                🔁 Transferencias
+                <ArrowRightLeft className="w-3.5 h-3.5" />
+                <span>Transferencias</span>
               </button>
             </div>
           </div>
@@ -396,15 +405,22 @@ export default function ExpensesPage() {
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div
-                        className="w-3.5 h-3.5 rounded-full shrink-0 shadow-sm"
-                        style={{
-                          backgroundColor: isTransfer
-                            ? '#00ADB5'
+                        className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${
+                          isTransfer
+                            ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30'
                             : isIncome
-                            ? '#10B981'
-                            : (exp.category_color || '#00ADB5')
-                        }}
-                      />
+                            ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                            : 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+                        }`}
+                      >
+                        {isTransfer ? (
+                          <ArrowRightLeft className="w-4 h-4" />
+                        ) : isIncome ? (
+                          <ArrowUpCircle className="w-4 h-4" />
+                        ) : (
+                          <ArrowDownCircle className="w-4 h-4" />
+                        )}
+                      </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-bold text-white group-hover:text-[#00ADB5] transition-colors truncate">
@@ -415,16 +431,24 @@ export default function ExpensesPage() {
                               : exp.category_name}
                           </span>
                           {isTransfer ? (
-                            <span className="text-[10px] px-2 py-0.5 rounded-md border font-bold bg-cyan-950/40 text-cyan-300 border-cyan-800/40 whitespace-nowrap shrink-0">
-                              🔁 {exp.payment_method} ➔ {exp.destination_method || 'Efectivo'}
+                            <span className="text-[10px] px-2 py-0.5 rounded-md border font-semibold bg-cyan-950/50 text-cyan-300 border-cyan-800/50 whitespace-nowrap shrink-0 flex items-center gap-1">
+                              <ArrowRightLeft className="w-3 h-3 text-cyan-400 shrink-0" />
+                              <span>{exp.payment_method}</span>
+                              <span className="text-slate-400">➔</span>
+                              <span>{exp.destination_method || 'Efectivo'}</span>
                             </span>
                           ) : (
-                            <span className={`text-[10px] px-2 py-0.5 rounded-md border font-medium whitespace-nowrap shrink-0 ${
+                            <span className={`text-[10px] px-2 py-0.5 rounded-md border font-medium whitespace-nowrap shrink-0 flex items-center gap-1 ${
                               isIncome
                                 ? 'bg-emerald-950/40 text-emerald-300 border-emerald-800/40'
                                 : 'bg-[#0B192C] text-slate-300 border-[#243B55]'
                             }`}>
-                              {exp.payment_method || (isIncome ? 'Fondo' : 'Efectivo')}
+                              {isIncome ? (
+                                <ArrowUpRight className="w-3 h-3 text-emerald-400 shrink-0" />
+                              ) : (
+                                <ArrowDownRight className="w-3 h-3 text-rose-400 shrink-0" />
+                              )}
+                              <span>{exp.payment_method || (isIncome ? 'Fondo' : 'Efectivo')}</span>
                             </span>
                           )}
                           {!isIncome && !isTransfer && exp.is_fixed === 1 && (

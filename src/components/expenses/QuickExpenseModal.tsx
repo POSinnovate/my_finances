@@ -271,7 +271,7 @@ export function QuickExpenseModal({ isOpen, onClose, onExpenseAdded, categories:
         if (txType === 'INCOME') {
           toast.success(`+${formatCOP(numAmount)} sumados a tu fondo disponible`);
         } else if (txType === 'TRANSFER') {
-          toast.success(`🔁 ${formatCOP(numAmount)} transferidos de ${paymentMethod} a ${destinationMethod}`);
+          toast.success(`${formatCOP(numAmount)} transferidos de ${paymentMethod} a ${destinationMethod}`);
         } else {
           toast.success(`-${formatCOP(numAmount)} descontados de tu fondo`);
         }
