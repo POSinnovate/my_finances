@@ -85,7 +85,7 @@ export function Header({ user, onUserUpdate }: HeaderProps) {
         <div className="flex items-center gap-1.5 sm:gap-2.5">
           <InstallPwaButton />
 
-          {user && (
+          {user ? (
             <>
               {/* Live Cash Fund Pill */}
               <div className="bg-[#102A43] border border-[#243B55] px-2.5 py-1 rounded-xl flex items-center gap-1.5 sm:gap-2 shrink-0">
@@ -146,6 +146,21 @@ export function Header({ user, onUserUpdate }: HeaderProps) {
                 <LogOut className="w-4 h-4" />
               </button>
             </>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Link
+                href="/login"
+                className="text-xs font-bold px-3 py-1.5 rounded-xl bg-[#102A43] hover:bg-[#152E4D] border border-[#243B55] text-slate-200 hover:text-white transition-colors whitespace-nowrap"
+              >
+                Ingresar
+              </Link>
+              <Link
+                href="/register"
+                className="text-xs font-black px-3 py-1.5 rounded-xl bg-[#00ADB5] hover:bg-[#06B6D4] text-[#0B192C] transition-colors whitespace-nowrap shadow-sm shadow-[#00ADB5]/20"
+              >
+                Registrarse
+              </Link>
+            </div>
           )}
         </div>
       </div>

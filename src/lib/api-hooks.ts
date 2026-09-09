@@ -5,11 +5,18 @@ export function useUser() {
     queryKey: ['auth', 'me'],
     queryFn: async () => {
       const res = await fetch('/api/auth/me');
+      if (res.status === 401) {
+        if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/register')) {
+          window.location.href = '/login';
+        }
+        throw new Error('Unauthorized');
+      }
       if (!res.ok) throw new Error('Unauthorized');
       const data = await res.json();
       return data.user;
     },
     staleTime: 1000 * 60 * 5, // 5 min cache
+    retry: false,
   });
 }
 
