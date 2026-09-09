@@ -76,7 +76,7 @@ export default function DashboardPage() {
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-5 space-y-5">
         {/* Welcome & Quick Action Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-[#0B192C] to-[#102A43] border border-[#1E3A5F] rounded-3xl p-5 shadow-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-linear-to-r from-[#0B192C] to-[#102A43] border border-[#1E3A5F] rounded-3xl p-5 shadow-xl">
           <div>
             <span className="text-[11px] font-bold text-[#00ADB5] uppercase tracking-wider whitespace-nowrap">
               Diagnóstico Financiero en Vivo
@@ -91,7 +91,7 @@ export default function DashboardPage() {
 
           <button
             onClick={() => setIsQuickExpenseOpen(true)}
-            className="self-start sm:self-center py-2.5 px-4 rounded-2xl bg-gradient-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] font-extrabold text-xs shadow-lg shadow-[#00ADB5]/20 flex items-center gap-2 hover:opacity-95 active:scale-95 transition-all whitespace-nowrap shrink-0"
+            className="self-start sm:self-center py-2.5 px-4 rounded-2xl bg-linear-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] font-extrabold text-xs shadow-lg shadow-[#00ADB5]/20 flex items-center gap-2 hover:opacity-95 active:scale-95 transition-all whitespace-nowrap shrink-0"
           >
             <PlusCircle className="w-4 h-4 stroke-[2.5px]" />
             <span>Registrar Movimiento</span>

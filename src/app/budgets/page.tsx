@@ -351,7 +351,7 @@ export default function BudgetsPage() {
 
           <button
             onClick={handleOpenAdd}
-            className="py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] font-extrabold text-xs shadow-md shadow-[#00ADB5]/20 flex items-center gap-1.5 self-start sm:self-center hover:opacity-95 active:scale-95 transition-all whitespace-nowrap shrink-0"
+            className="py-2.5 px-4 rounded-xl bg-linear-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] font-extrabold text-xs shadow-md shadow-[#00ADB5]/20 flex items-center gap-1.5 self-start sm:self-center hover:opacity-95 active:scale-95 transition-all whitespace-nowrap shrink-0"
           >
             <Plus className="w-4 h-4 stroke-[3px]" />
             <span>
@@ -513,7 +513,7 @@ export default function BudgetsPage() {
         {activeTab === 'INCOME' && (
           <div className="space-y-5">
             {/* Income Summary Banner */}
-            <div className="bg-gradient-to-r from-[#0B192C] to-[#102A43] border border-emerald-500/30 rounded-3xl p-5 shadow-xl grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="bg-linear-to-r from-[#0B192C] to-[#102A43] border border-emerald-500/30 rounded-3xl p-5 shadow-xl grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="p-3 rounded-2xl bg-[#0B192C]/80 border border-[#243B55]">
                 <span className="text-[11px] font-semibold text-slate-400 block whitespace-nowrap">Total Entradas del Mes</span>
                 <p className="text-xl font-black text-emerald-400 mt-0.5 whitespace-nowrap">{formatCOP(totalIncomeThisMonth)}</p>

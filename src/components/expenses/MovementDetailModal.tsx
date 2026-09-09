@@ -74,10 +74,10 @@ export function MovementDetailModal({
         <div
           className={`absolute top-0 left-0 right-0 h-1.5 ${
             isTransfer
-              ? 'bg-gradient-to-r from-cyan-500 to-indigo-500'
+              ? 'bg-linear-to-r from-cyan-500 to-indigo-500'
               : isIncome
-              ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
-              : 'bg-gradient-to-r from-rose-500 to-red-600'
+              ? 'bg-linear-to-r from-emerald-500 to-teal-400'
+              : 'bg-linear-to-r from-rose-500 to-red-600'
           }`}
         />
 
@@ -216,7 +216,7 @@ export function MovementDetailModal({
               <FileText className="w-3.5 h-3.5 text-[#00ADB5]" />
               <span>Concepto / Descripción:</span>
             </div>
-            <p className="text-xs font-semibold text-slate-200 bg-[#0B192C] border border-[#243B55] p-2.5 rounded-xl break-words">
+            <p className="text-xs font-semibold text-slate-200 bg-[#0B192C] border border-[#243B55] p-2.5 rounded-xl wrap-break-word">
               {movement.notes || 'Sin descripción adicional'}
             </p>
           </div>

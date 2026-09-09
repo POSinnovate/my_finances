@@ -641,10 +641,10 @@ export function QuickExpenseModal({ isOpen, onClose, onExpenseAdded, categories:
             disabled={isSubmitting}
             className={`w-full py-3.5 px-4 rounded-2xl font-black text-sm shadow-xl flex items-center justify-center gap-2 hover:opacity-95 active:scale-[0.99] transition-all disabled:opacity-50 ${
               isIncome
-                ? 'bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 shadow-emerald-500/20'
+                ? 'bg-linear-to-r from-emerald-500 to-teal-400 text-slate-950 shadow-emerald-500/20'
                 : isTransfer
-                ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-slate-950 shadow-cyan-500/25'
-                : 'bg-gradient-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] shadow-[#00ADB5]/25'
+                ? 'bg-linear-to-r from-cyan-500 to-blue-500 text-slate-950 shadow-cyan-500/25'
+                : 'bg-linear-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] shadow-[#00ADB5]/25'
             }`}
           >
             {isSubmitting ? (
