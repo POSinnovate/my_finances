@@ -19,7 +19,10 @@ import {
   Trash2,
   Clock,
   TrendingUp,
-  Coins
+  Coins,
+  Wallet,
+  ArrowDownRight,
+  ArrowUpRight
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -29,6 +32,7 @@ export default function GoalsPage() {
   const [user, setUser] = useState<any>(null);
   const [goals, setGoals] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isQuickExpenseOpen, setIsQuickExpenseOpen] = useState(false);
   const [isAddGoalOpen, setIsAddGoalOpen] = useState(false);
@@ -41,9 +45,17 @@ export default function GoalsPage() {
   const [goalDate, setGoalDate] = useState('');
   const [isSubmittingGoal, setIsSubmittingGoal] = useState(false);
 
-  // Deposit Modal
+  // Deposit State
   const [depositGoalId, setDepositGoalId] = useState<string | null>(null);
   const [depositAmount, setDepositAmount] = useState('');
+  const [depositMethod, setDepositMethod] = useState('Nequi');
+  const [isDepositing, setIsDepositing] = useState(false);
+
+  // Withdraw State
+  const [withdrawGoalId, setWithdrawGoalId] = useState<string | null>(null);
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawMethod, setWithdrawMethod] = useState('Nequi');
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
 
   // Interactive Reverse Calculator ("¿Cuánto debo ganar?")
   const [calcFixedExpenses, setCalcFixedExpenses] = useState<number>(350000);
@@ -76,6 +88,16 @@ export default function GoalsPage() {
         const catData = await catRes.json();
         setCategories(catData.categories || []);
       }
+
+      const pmRes = await fetch('/api/payment-methods');
+      if (pmRes.ok) {
+        const pmData = await pmRes.json();
+        if (pmData.paymentMethods?.length) {
+          setPaymentMethods(pmData.paymentMethods);
+          setDepositMethod((prev) => prev || pmData.paymentMethods[0].name);
+          setWithdrawMethod((prev) => prev || pmData.paymentMethods[0].name);
+        }
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -87,7 +109,7 @@ export default function GoalsPage() {
     loadData();
   }, [loadData]);
 
-  // Set quick target date presets
+  // Quick target date presets
   const handleSetPresetMonths = (months: number) => {
     const d = new Date();
     d.setMonth(d.getMonth() + months);
@@ -123,7 +145,7 @@ export default function GoalsPage() {
         setGoalMonthly('');
         setGoalDate('');
         setIsAddGoalOpen(false);
-        loadData();
+        await loadData();
       } else {
         toast.error('Error al crear meta');
       }
@@ -140,32 +162,79 @@ export default function GoalsPage() {
       toast.error('Ingresa un monto válido');
       return;
     }
+
+    setIsDepositing(true);
     try {
       const res = await fetch('/api/goals', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: goalId, add_funds: amount }),
+        body: JSON.stringify({ 
+          id: goalId, 
+          add_funds: amount, 
+          payment_method: depositMethod 
+        }),
       });
+      const data = await res.json();
       if (res.ok) {
-        toast.success(`Se abonaron ${formatCOP(amount)} a la meta`);
+        toast.success(`Se abonaron ${formatCOP(amount)} y se descontaron de tu saldo en mano`);
         setDepositGoalId(null);
         setDepositAmount('');
-        loadData();
+        await loadData();
       } else {
-        toast.error('Error al abonar');
+        toast.error(data.error || 'Error al abonar');
       }
     } catch {
-      toast.error('Error de red');
+      toast.error('Error de conexión');
+    } finally {
+      setIsDepositing(false);
     }
   };
 
-  const handleDeleteGoal = async (id: string) => {
-    if (!confirm('¿Eliminar esta meta?')) return;
+  const handleWithdrawFunds = async (goalId: string) => {
+    const amount = Number(withdrawAmount);
+    if (!amount || amount <= 0) {
+      toast.error('Ingresa un monto válido');
+      return;
+    }
+
+    setIsWithdrawing(true);
+    try {
+      const res = await fetch('/api/goals', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          id: goalId, 
+          withdraw_funds: amount, 
+          payment_method: withdrawMethod 
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(`Se regresaron ${formatCOP(amount)} a tu saldo disponible`);
+        setWithdrawGoalId(null);
+        setWithdrawAmount('');
+        await loadData();
+      } else {
+        toast.error(data.error || 'Error al retirar');
+      }
+    } catch {
+      toast.error('Error de conexión');
+    } finally {
+      setIsWithdrawing(false);
+    }
+  };
+
+  const handleDeleteGoal = async (id: string, currentAmount: number) => {
+    const msg = currentAmount > 0
+      ? `¿Eliminar esta meta? Los ${formatCOP(currentAmount)} acumulados se devolverán automáticamente a tu saldo disponible.`
+      : '¿Eliminar esta meta?';
+    if (!confirm(msg)) return;
+
     try {
       const res = await fetch(`/api/goals?id=${id}`, { method: 'DELETE' });
       if (res.ok) {
-        toast.success('Meta eliminada');
-        loadData();
+        toast.success('Meta eliminada y saldo reintegrado al fondo');
+        await loadData();
       } else {
         toast.error('Error al eliminar');
       }
@@ -196,6 +265,10 @@ export default function GoalsPage() {
   const userIncome = user?.monthly_income || 2200000;
   const incomeDifference = userIncome - requiredMonthlyIncome;
 
+  const totalSavedInGoals = goals.reduce((acc, g) => acc + (Number(g.current_amount) || 0), 0);
+  const totalTargetInGoals = goals.reduce((acc, g) => acc + (Number(g.target_amount) || 0), 0);
+  const availableCash = Number(user?.current_cash) || 0;
+
   return (
     <div className="min-h-screen bg-[#070F1E] flex flex-col">
       <Header user={user} onUserUpdate={loadData} />
@@ -212,17 +285,40 @@ export default function GoalsPage() {
             </Link>
             <div>
               <h1 className="text-xl font-black text-white">Metas & Plan de Ahorro</h1>
-              <p className="text-xs text-slate-400">Calcula cuánto guardar al día y quincena para cumplir tus sueños</p>
+              <p className="text-xs text-slate-400">Cada abono se descuenta de tu saldo en mano y queda registrado en tu historial</p>
             </div>
           </div>
 
           <button
             onClick={() => setIsAddGoalOpen(true)}
-            className="py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] font-extrabold text-xs shadow-md shadow-[#00ADB5]/20 flex items-center gap-1.5 self-start sm:self-center"
+            className="py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] font-extrabold text-xs shadow-md shadow-[#00ADB5]/20 flex items-center gap-1.5 self-start sm:self-center hover:opacity-95 active:scale-95 transition-all"
           >
             <Plus className="w-4 h-4 stroke-[3px]" />
             <span>+ Nueva Meta</span>
           </button>
+        </div>
+
+        {/* Global Savings & Cash Banner */}
+        <div className="bg-[#102A43] border border-[#243B55] rounded-3xl p-5 shadow-xl grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+          <div className="p-3.5 rounded-2xl bg-[#0B192C]/70 border border-[#1E3A5F]">
+            <span className="text-[11px] font-semibold text-[#00ADB5] block">Dinero Libre Disponible</span>
+            <p className="text-xl sm:text-2xl font-black text-white mt-0.5">{formatCOP(availableCash)}</p>
+            <span className="text-[10px] text-slate-400 mt-1 block">Saldo en mano para gastos diarios</span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-[#0B192C]/70 border border-[#1E3A5F]">
+            <span className="text-[11px] font-semibold text-emerald-400 block">Total Ahorrado en Metas</span>
+            <p className="text-xl sm:text-2xl font-black text-emerald-400 mt-0.5">{formatCOP(totalSavedInGoals)}</p>
+            <span className="text-[10px] text-slate-400 mt-1 block">Dinero apartado y protegido</span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-[#0B192C]/70 border border-[#1E3A5F]">
+            <span className="text-[11px] font-semibold text-cyan-400 block">Objetivo Total Acumulado</span>
+            <p className="text-xl sm:text-2xl font-black text-white mt-0.5">{formatCOP(totalTargetInGoals)}</p>
+            <span className="text-[10px] text-slate-400 mt-1 block">
+              {totalTargetInGoals > 0 ? `${Math.round((totalSavedInGoals / totalTargetInGoals) * 100)}% de avance global` : 'Sin metas creadas'}
+            </span>
+          </div>
         </div>
 
         {/* Active Goals List */}
@@ -254,69 +350,79 @@ export default function GoalsPage() {
               {goals.map((goal) => {
                 const progress = goal.progress_percentage || 0;
                 const isDone = progress >= 100;
+                const isDepositingThis = depositGoalId === goal.id;
+                const isWithdrawingThis = withdrawGoalId === goal.id;
+
                 return (
                   <div
                     key={goal.id}
                     className="bg-[#102A43] border border-[#243B55] hover:border-[#1E3A5F] rounded-3xl p-5 shadow-xl flex flex-col justify-between transition-all"
                   >
                     <div>
-                      {/* Title & Badge */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-xl bg-[#00ADB5]/20 text-[#00ADB5] flex items-center justify-center">
-                            <Target className="w-4 h-4" />
+                      {/* Card Header */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-2.5 rounded-2xl bg-[#00ADB5]/15 border border-[#00ADB5]/30 text-[#00ADB5]">
+                            <Target className="w-5 h-5" />
                           </div>
                           <div>
-                            <h4 className="text-base font-black text-white">{goal.title}</h4>
-                            {goal.target_date && (
-                              <span className="text-[11px] text-slate-400 flex items-center gap-1">
-                                <Calendar className="w-3 h-3 text-[#00ADB5]" />
-                                Meta: {formatDateSpanish(goal.target_date)}
-                              </span>
-                            )}
+                            <h4 className="text-sm font-black text-white">{goal.title}</h4>
+                            <p className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
+                              <Calendar className="w-3 h-3 text-[#00ADB5]" />
+                              <span>{formatDateSpanish(goal.target_date)}</span>
+                            </p>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2">
-                          <span className={`text-xs font-black px-2.5 py-0.5 rounded-full ${
-                            isDone ? 'bg-emerald-500/20 text-emerald-400' : 'bg-[#00ADB5]/20 text-[#00ADB5]'
-                          }`}>
-                            {progress}%
-                          </span>
-                          <button
-                            onClick={() => handleDeleteGoal(goal.id)}
-                            className="p-1 text-slate-500 hover:text-rose-400 transition-colors"
-                            title="Eliminar meta"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                        <button
+                          onClick={() => handleDeleteGoal(goal.id, Number(goal.current_amount) || 0)}
+                          className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                          title="Eliminar meta"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* Amounts Display */}
+                      <div className="mt-4 flex items-baseline justify-between">
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-slate-400">Ahorrado</span>
+                          <p className="text-lg font-black text-emerald-400">{formatCOP(goal.current_amount)}</p>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] uppercase font-bold text-slate-400">Objetivo</span>
+                          <p className="text-lg font-black text-white">{formatCOP(goal.target_amount)}</p>
                         </div>
                       </div>
 
-                      {/* Figures & Progress Bar */}
-                      <div className="mt-4">
-                        <div className="flex justify-between text-xs text-slate-400 mb-1 font-semibold">
-                          <span>Ahorrado: <strong className="text-emerald-400 font-extrabold">{formatCOP(goal.current_amount)}</strong></span>
-                          <span>Objetivo: <strong className="text-white font-extrabold">{formatCOP(goal.target_amount)}</strong></span>
+                      {/* Progress Bar */}
+                      <div className="mt-2">
+                        <div className="flex items-center justify-between text-[11px] mb-1 font-semibold">
+                          <span className="text-slate-400">Progreso</span>
+                          <span className="text-[#00ADB5] font-black">{progress}%</span>
                         </div>
-                        <div className="w-full h-2.5 bg-[#0B192C] rounded-full overflow-hidden">
+                        <div className="w-full h-2.5 rounded-full bg-[#0B192C] overflow-hidden border border-[#1E3A5F]">
                           <div
-                            className="h-full bg-gradient-to-r from-[#00ADB5] to-[#06B6D4] rounded-full transition-all duration-500"
-                            style={{ width: `${Math.min(100, progress)}%` }}
+                            className={`h-full transition-all duration-500 rounded-full ${
+                              isDone
+                                ? 'bg-emerald-400'
+                                : 'bg-gradient-to-r from-[#00ADB5] to-[#06B6D4]'
+                            }`}
+                            style={{ width: `${progress}%` }}
                           />
                         </div>
                       </div>
 
-                      {/* Daily Savings Plan Indicator (The user's key requirement) */}
+                      {/* DAILY SAVING METRIC BADGE */}
                       {!isDone && (
-                        <div className="mt-4 p-3 rounded-2xl bg-[#0B192C]/80 border border-[#243B55] space-y-1.5">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-slate-400 flex items-center gap-1 font-medium">
-                              <Coins className="w-3.5 h-3.5 text-amber-400" />
-                              <span>Ahorro diario sugerido:</span>
+                        <div className="mt-3.5 p-3 rounded-2xl bg-[#0B192C] border border-[#00ADB5]/30 space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
+                              <Sparkles className="w-3.5 h-3.5 text-[#00ADB5]" />
+                              <span>Ahorro diario requerido:</span>
                             </span>
-                            <span className="font-black text-amber-400 text-sm">
-                              {formatCOP(goal.daily_saving_needed || 0)} / día
+                            <span className="text-xs font-black text-[#00ADB5] bg-[#00ADB5]/10 px-2 py-0.5 rounded-lg border border-[#00ADB5]/30">
+                              {formatCOP(goal.daily_saving_needed)} / día
                             </span>
                           </div>
 
@@ -339,50 +445,166 @@ export default function GoalsPage() {
                       )}
                     </div>
 
-                    {/* Deposit Action */}
+                    {/* Deposit & Withdraw Actions */}
                     <div className="mt-4 pt-3 border-t border-[#243B55]">
-                      {depositGoalId === goal.id ? (
-                        <div className="space-y-2">
+                      {/* MODE 1: DEPOSIT PANEL */}
+                      {isDepositingThis && (
+                        <div className="p-3 rounded-2xl bg-[#0B192C] border border-[#00ADB5] space-y-2.5 animate-in fade-in duration-150">
                           <div className="flex items-center justify-between">
-                            <span className="text-[11px] text-slate-400">Monto a abonar a esta meta:</span>
+                            <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                              <ArrowDownRight className="w-3.5 h-3.5 text-[#00ADB5]" />
+                              <span>Abonar a esta meta</span>
+                            </span>
                             {Number(depositAmount) > 0 && (
-                              <span className="text-xs font-bold text-emerald-400">
+                              <span className="text-xs font-black text-[#00ADB5]">
                                 {formatCOP(Number(depositAmount))}
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="number"
-                              placeholder="Ej: 50000"
-                              value={depositAmount}
-                              onChange={(e) => setDepositAmount(e.target.value)}
-                              className="flex-1 bg-[#0B192C] border border-[#00ADB5] text-white text-xs px-2.5 py-1.5 rounded-lg focus:outline-none"
-                              autoFocus
-                            />
-                            <button
-                              onClick={() => handleDepositFunds(goal.id)}
-                              className="px-3 py-1.5 bg-[#00ADB5] text-[#0B192C] rounded-lg font-bold text-xs flex items-center gap-1"
+
+                          <input
+                            type="number"
+                            placeholder="Monto a guardar (ej: 50000)"
+                            value={depositAmount}
+                            onChange={(e) => setDepositAmount(e.target.value)}
+                            className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2 rounded-xl focus:border-[#00ADB5] focus:outline-none"
+                            autoFocus
+                          />
+
+                          {/* Payment method selector */}
+                          <div className="flex items-center justify-between gap-2">
+                            <label className="text-[11px] text-slate-400 shrink-0">Medio / Cuenta:</label>
+                            <select
+                              value={depositMethod}
+                              onChange={(e) => setDepositMethod(e.target.value)}
+                              className="flex-1 bg-[#102A43] border border-[#243B55] text-white text-xs px-2 py-1.5 rounded-lg focus:outline-none"
                             >
-                              <Check className="w-3.5 h-3.5 stroke-[3px]" />
-                              <span>Abonar</span>
+                              {paymentMethods.map((pm) => (
+                                <option key={pm.id} value={pm.name}>
+                                  {pm.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <p className="text-[10px] text-slate-400 bg-[#102A43]/60 p-2 rounded-lg border border-[#243B55]/50">
+                            🔻 Se restará de tu fondo libre (Saldo disponible actual: <strong className="text-white">{formatCOP(availableCash)}</strong>) y se registrará en tu historial.
+                          </p>
+
+                          <div className="flex items-center justify-end gap-2 pt-1">
+                            <button
+                              onClick={() => {
+                                setDepositGoalId(null);
+                                setDepositAmount('');
+                              }}
+                              className="px-2.5 py-1.5 text-xs text-slate-400 hover:text-white"
+                            >
+                              Cancelar
                             </button>
                             <button
-                              onClick={() => setDepositGoalId(null)}
-                              className="p-1.5 text-slate-400 hover:text-white"
+                              onClick={() => handleDepositFunds(goal.id)}
+                              disabled={isDepositing || !Number(depositAmount)}
+                              className="px-3.5 py-1.5 bg-[#00ADB5] text-[#0B192C] rounded-xl font-extrabold text-xs flex items-center gap-1 hover:opacity-90 disabled:opacity-50"
                             >
-                              <X className="w-4 h-4" />
+                              <Check className="w-3.5 h-3.5 stroke-[3px]" />
+                              <span>{isDepositing ? 'Guardando...' : 'Confirmar Abono'}</span>
                             </button>
                           </div>
                         </div>
-                      ) : (
-                        <button
-                          onClick={() => setDepositGoalId(goal.id)}
-                          className="w-full py-2.5 rounded-xl bg-[#152E4D] hover:bg-[#1E3A5F] border border-[#243B55] text-xs font-bold text-[#00ADB5] flex items-center justify-center gap-2 transition-colors"
-                        >
-                          <PiggyBank className="w-4 h-4" />
-                          <span>Abonar Dinero a Esta Meta</span>
-                        </button>
+                      )}
+
+                      {/* MODE 2: WITHDRAW PANEL */}
+                      {isWithdrawingThis && (
+                        <div className="p-3 rounded-2xl bg-[#0B192C] border border-amber-500/60 space-y-2.5 animate-in fade-in duration-150">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                              <ArrowUpRight className="w-3.5 h-3.5 text-amber-400" />
+                              <span>Retirar ahorro al fondo libre</span>
+                            </span>
+                            {Number(withdrawAmount) > 0 && (
+                              <span className="text-xs font-black text-amber-400">
+                                {formatCOP(Number(withdrawAmount))}
+                              </span>
+                            )}
+                          </div>
+
+                          <input
+                            type="number"
+                            placeholder={`Monto (Máximo ${formatCOP(goal.current_amount)})`}
+                            value={withdrawAmount}
+                            onChange={(e) => setWithdrawAmount(e.target.value)}
+                            className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2 rounded-xl focus:border-amber-400 focus:outline-none"
+                            autoFocus
+                          />
+
+                          <div className="flex items-center justify-between gap-2">
+                            <label className="text-[11px] text-slate-400 shrink-0">Recibir en:</label>
+                            <select
+                              value={withdrawMethod}
+                              onChange={(e) => setWithdrawMethod(e.target.value)}
+                              className="flex-1 bg-[#102A43] border border-[#243B55] text-white text-xs px-2 py-1.5 rounded-lg focus:outline-none"
+                            >
+                              {paymentMethods.map((pm) => (
+                                <option key={pm.id} value={pm.name}>
+                                  {pm.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <p className="text-[10px] text-slate-400 bg-[#102A43]/60 p-2 rounded-lg border border-[#243B55]/50">
+                            🟢 Regresará inmediatamente a tu dinero disponible en mano.
+                          </p>
+
+                          <div className="flex items-center justify-end gap-2 pt-1">
+                            <button
+                              onClick={() => {
+                                setWithdrawGoalId(null);
+                                setWithdrawAmount('');
+                              }}
+                              className="px-2.5 py-1.5 text-xs text-slate-400 hover:text-white"
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              onClick={() => handleWithdrawFunds(goal.id)}
+                              disabled={isWithdrawing || !Number(withdrawAmount)}
+                              className="px-3.5 py-1.5 bg-amber-400 text-slate-950 rounded-xl font-extrabold text-xs flex items-center gap-1 hover:opacity-90 disabled:opacity-50"
+                            >
+                              <Check className="w-3.5 h-3.5 stroke-[3px]" />
+                              <span>{isWithdrawing ? 'Retirando...' : 'Confirmar Retiro'}</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* DEFAULT BUTTONS: ABONAR & RETIRAR */}
+                      {!isDepositingThis && !isWithdrawingThis && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              setDepositGoalId(goal.id);
+                              setWithdrawGoalId(null);
+                            }}
+                            className="flex-1 py-2 rounded-xl bg-[#00ADB5] hover:bg-[#06B6D4] text-[#0B192C] font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                          >
+                            <PiggyBank className="w-4 h-4" />
+                            <span>Abonar (+ Dinero)</span>
+                          </button>
+
+                          {Number(goal.current_amount) > 0 && (
+                            <button
+                              onClick={() => {
+                                setWithdrawGoalId(goal.id);
+                                setDepositGoalId(null);
+                              }}
+                              className="py-2 px-3 rounded-xl bg-[#152E4D] hover:bg-[#1E3A5F] border border-[#243B55] text-slate-300 hover:text-white text-xs font-bold transition-all"
+                              title="Retirar dinero de esta meta al fondo disponible"
+                            >
+                              Retirar
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -409,12 +631,14 @@ export default function GoalsPage() {
             </div>
 
             <form onSubmit={handleCreateGoal} className="mt-4 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Nombre de la Meta</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Título de la Meta
+                  </label>
                   <input
                     type="text"
-                    placeholder="Ej: Moto nueva, Fondo de Emergencia, Laptop"
+                    placeholder="Ej: Moto Nueva, Fondo de Emergencia, Viaje"
                     value={goalTitle}
                     onChange={(e) => setGoalTitle(e.target.value)}
                     className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2.5 rounded-xl focus:border-[#00ADB5] focus:outline-none"
@@ -425,10 +649,10 @@ export default function GoalsPage() {
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="text-xs font-semibold text-slate-300">
-                      Monto Total Objetivo ($ COP)
+                      Monto Objetivo ($ COP)
                     </label>
                     {numTarget > 0 && (
-                      <span className="text-xs font-bold text-[#00ADB5]">
+                      <span className="text-[11px] text-[#00ADB5] font-bold">
                         {formatCOP(numTarget)}
                       </span>
                     )}
@@ -442,79 +666,88 @@ export default function GoalsPage() {
                     required
                   />
                 </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-semibold text-slate-300">
-                      Monto Ya Ahorrado ($ COP)
-                    </label>
-                    {numCurrent > 0 && (
-                      <span className="text-xs font-bold text-emerald-400">
-                        {formatCOP(numCurrent)}
-                      </span>
-                    )}
-                  </div>
-                  <input
-                    type="number"
-                    placeholder="0"
-                    value={goalCurrent}
-                    onChange={(e) => setGoalCurrent(e.target.value)}
-                    className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2.5 rounded-xl focus:border-[#00ADB5] focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Fecha Límite Objetivo
-                  </label>
-                  <input
-                    type="date"
-                    value={goalDate}
-                    onChange={(e) => setGoalDate(e.target.value)}
-                    className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2.5 rounded-xl focus:border-[#00ADB5] focus:outline-none"
-                  />
-                  {/* Quick Presets */}
-                  <div className="flex items-center gap-1.5 mt-2">
-                    <span className="text-[10px] text-slate-500">Plazos rápidos:</span>
-                    {[3, 6, 12, 24].map((m) => (
-                      <button
-                        key={m}
-                        type="button"
-                        onClick={() => handleSetPresetMonths(m)}
-                        className="text-[10px] px-2 py-0.5 rounded bg-[#102A43] border border-[#243B55] text-slate-300 hover:text-[#00ADB5]"
-                      >
-                        {m === 12 ? '1 año' : m === 24 ? '2 años' : `${m}m`}
-                      </button>
-                    ))}
-                  </div>
-                </div>
               </div>
 
-              {/* Live Calculator Projection Banner inside form */}
+              {/* Target Date with Quick Presets */}
+              <div className="p-3.5 rounded-2xl bg-[#102A43]/60 border border-[#243B55]">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                  <label className="text-xs font-semibold text-white flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-[#00ADB5]" />
+                    <span>Fecha Límite Deseada</span>
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-slate-400 mr-1">Rápido:</span>
+                    <button
+                      type="button"
+                      onClick={() => handleSetPresetMonths(3)}
+                      className="text-[10px] bg-[#152E4D] hover:bg-[#1E3A5F] text-slate-300 px-2 py-0.5 rounded-lg border border-[#243B55]"
+                    >
+                      +3m
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSetPresetMonths(6)}
+                      className="text-[10px] bg-[#152E4D] hover:bg-[#1E3A5F] text-slate-300 px-2 py-0.5 rounded-lg border border-[#243B55]"
+                    >
+                      +6m
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSetPresetMonths(12)}
+                      className="text-[10px] bg-[#152E4D] hover:bg-[#1E3A5F] text-slate-300 px-2 py-0.5 rounded-lg border border-[#243B55]"
+                    >
+                      +1 año
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSetPresetMonths(24)}
+                      className="text-[10px] bg-[#152E4D] hover:bg-[#1E3A5F] text-slate-300 px-2 py-0.5 rounded-lg border border-[#243B55]"
+                    >
+                      +2 años
+                    </button>
+                  </div>
+                </div>
+
+                <input
+                  type="date"
+                  value={goalDate}
+                  onChange={(e) => setGoalDate(e.target.value)}
+                  className="w-full bg-[#0B192C] border border-[#243B55] text-white text-xs px-3 py-2 rounded-xl focus:border-[#00ADB5] focus:outline-none"
+                />
+              </div>
+
+              {/* LIVE DAILY SAVINGS SIMULATOR IN MODAL */}
               {remainingInModal > 0 && dailyInModal > 0 && (
-                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-950/50 to-teal-950/50 border border-emerald-500/40">
-                  <span className="text-[11px] font-bold text-emerald-400 flex items-center gap-1">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Plan de Ahorro Calculado en Tiempo Real</span>
-                  </span>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
-                    <div>
-                      <span className="text-[10px] text-slate-400 block">Ahorro Diario:</span>
-                      <strong className="text-sm font-black text-amber-400">{formatCOP(dailyInModal)}/día</strong>
+                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-[#0B192C] to-[#102A43] border border-[#00ADB5]/40 space-y-2 animate-in fade-in duration-150">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-[#00ADB5]" />
+                      <span>Plan de Ahorro Sugerido:</span>
+                    </span>
+                    <span className="text-xs font-black text-[#00ADB5]">
+                      {daysInModal} días faltantes
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <div className="p-2 rounded-xl bg-[#0B192C] border border-[#1E3A5F]">
+                      <span className="text-[10px] text-slate-400 block font-medium">Ahorro Diario Requerido</span>
+                      <p className="text-base font-black text-[#00ADB5] mt-0.5">
+                        {formatCOP(dailyInModal)} <span className="text-[10px] font-normal text-slate-400">/ día</span>
+                      </p>
                     </div>
-                    <div>
-                      <span className="text-[10px] text-slate-400 block">Ahorro Quincenal:</span>
-                      <strong className="text-sm font-black text-white">{formatCOP(quincenaInModal)}/quincena</strong>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-400 block">Tiempo Restante:</span>
-                      <strong className="text-sm font-black text-[#00ADB5]">{daysInModal} días</strong>
+
+                    <div className="p-2 rounded-xl bg-[#0B192C] border border-[#1E3A5F]">
+                      <span className="text-[10px] text-slate-400 block font-medium">Por Quincena (15 días)</span>
+                      <p className="text-base font-black text-white mt-0.5">
+                        {formatCOP(quincenaInModal)} <span className="text-[10px] font-normal text-slate-400">/ quincena</span>
+                      </p>
                     </div>
                   </div>
                 </div>
               )}
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-[#1E3A5F]">
+              <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setIsAddGoalOpen(false)}
@@ -535,24 +768,25 @@ export default function GoalsPage() {
           </div>
         )}
 
-        {/* Interactive Simulator: ¿CUÁNTO DEBO GANAR? */}
-        <div className="bg-gradient-to-br from-[#0B192C] to-[#102A43] border border-[#1E3A5F] rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-8 h-8 rounded-xl bg-[#00ADB5]/20 text-[#00ADB5] flex items-center justify-center">
-              <Calculator className="w-4 h-4" />
+        {/* Reverse Engineering Income Calculator */}
+        <div className="bg-[#102A43] border border-[#243B55] rounded-3xl p-5 shadow-xl space-y-4">
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-xl bg-cyan-400/20 text-[#00ADB5]">
+              <Calculator className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-extrabold text-white">Calculadora Inversa: ¿Cuánto Debo Ganar?</h2>
-              <p className="text-xs text-slate-400">Simula tu meta de ingresos según tus compromisos fijos y ahorro deseado</p>
+              <h2 className="text-base font-black text-white">Calculadora Inversa: ¿Cuánto Necesito Ganar al Mes?</h2>
+              <p className="text-xs text-slate-400">
+                Suma tus compromisos fijos, margen variable, metas de ahorro y margen de seguridad.
+              </p>
             </div>
           </div>
 
-          {/* Calculator Inputs with Live Formats */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="bg-[#0B192C] border border-[#243B55] rounded-2xl p-3">
               <div className="flex items-center justify-between mb-1">
                 <label className="text-[11px] font-semibold text-slate-400">
-                  1. Gastos Fijos (Papás / Serv.)
+                  1. Compromisos Fijos
                 </label>
                 <span className="text-[10px] text-cyan-400 font-bold">{formatCOP(calcFixedExpenses)}</span>
               </div>
@@ -565,15 +799,15 @@ export default function GoalsPage() {
                   className="w-full bg-[#152E4D] border border-[#243B55] text-white text-xs font-bold pl-7 pr-2 py-2 rounded-xl focus:border-[#00ADB5] focus:outline-none"
                 />
               </div>
-              <span className="text-[10px] text-slate-500 mt-1 block">Tu aporte fijo mensual</span>
+              <span className="text-[10px] text-slate-500 mt-1 block">Papás, arriendo, servicios, suscripciones</span>
             </div>
 
             <div className="bg-[#0B192C] border border-[#243B55] rounded-2xl p-3">
               <div className="flex items-center justify-between mb-1">
                 <label className="text-[11px] font-semibold text-slate-400">
-                  2. Gastos de Vida (Comida / Movilidad)
+                  2. Margen Variable (Tope)
                 </label>
-                <span className="text-[10px] text-slate-300 font-bold">{formatCOP(calcVariableExpenses)}</span>
+                <span className="text-[10px] text-[#00ADB5] font-bold">{formatCOP(calcVariableExpenses)}</span>
               </div>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-500 font-bold">$</span>
