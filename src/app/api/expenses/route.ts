@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
         e.type,
         e.payment_method,
         e.notes,
-        e.date,
+        strftime('%Y-%m-%d', e.date) as date,
         e.created_at,
         c.id as category_id,
         COALESCE(c.name, CASE WHEN e.type = 'INCOME' THEN 'Ingreso General' ELSE 'Gasto General' END) as category_name,
@@ -62,11 +62,21 @@ export async function GET(req: NextRequest) {
 
     const expenses = await db.prepare(query).all(...params) as any[];
 
-    const mapped = expenses.map(e => ({
-      ...e,
-      amount: Number(e.amount),
-      type: e.type || 'EXPENSE',
-    }));
+    const mapped = expenses.map(e => {
+      let cleanDate = e.date;
+      if (e.date instanceof Date) {
+        cleanDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(e.date);
+      } else if (typeof e.date === 'string') {
+        cleanDate = e.date.split('T')[0];
+      }
+
+      return {
+        ...e,
+        date: cleanDate,
+        amount: Number(e.amount),
+        type: e.type || 'EXPENSE',
+      };
+    });
 
     return NextResponse.json({ expenses: mapped });
   } catch (err: unknown) {
@@ -94,7 +104,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'La categoría del gasto es obligatoria' }, { status: 400 });
     }
 
-    const expenseDate = date || new Date().toISOString().split('T')[0];
+    const getTodayColombiaDate = () => {
+      try {
+        return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
+      } catch {
+        return new Date().toISOString().split('T')[0];
+      }
+    };
+
+    const expenseDate = date
+      ? (typeof date === 'string' ? date.split('T')[0] : date)
+      : getTodayColombiaDate();
     const id = randomUUID();
 
     await db.prepare(`

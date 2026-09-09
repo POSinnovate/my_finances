@@ -7,7 +7,7 @@ import { BottomNav } from '@/components/layout/BottomNav';
 import { QuickExpenseModal } from '@/components/expenses/QuickExpenseModal';
 import { MovementDetailModal, Movement } from '@/components/expenses/MovementDetailModal';
 import { formatCOP } from '@/lib/utils';
-import { formatShortDateSpanish } from '@/lib/dayjs';
+import { formatShortDateSpanish, getTodayColombiaDate } from '@/lib/dayjs';
 import { 
   useUser, 
   useExpenses, 
@@ -109,8 +109,8 @@ export default function ExpensesPage() {
 
   const netBalance = totalIncomesAmount - totalExpensesAmount;
 
-  // Generate quick month pills (current and previous 2 months)
-  const currentMonthISO = new Date().toISOString().slice(0, 7);
+  // Generate quick month pills (current and previous 2 months in Colombia)
+  const currentMonthISO = getTodayColombiaDate().slice(0, 7);
   const prevMonth1 = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 7);
   const prevMonth2 = new Date(Date.now() - 60 * 86400000).toISOString().slice(0, 7);
 

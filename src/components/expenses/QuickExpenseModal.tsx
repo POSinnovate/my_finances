@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { X, Check, ArrowDownCircle, ArrowUpCircle, Plus, Wallet, Tag } from 'lucide-react';
 import { formatCOP } from '@/lib/utils';
 import { toast } from 'sonner';
+import { getTodayColombiaDate } from '@/lib/dayjs';
 
 interface Category {
   id: string;
@@ -32,23 +33,14 @@ interface QuickExpenseModalProps {
 }
 
 const DEFAULT_METHODS: PaymentMethod[] = [
-  { id: '1', name: 'Nequi', type: 'WALLET', color: '#8B5CF6', icon: 'Smartphone' },
-  { id: '2', name: 'Bancolombia', type: 'BANK', color: '#EAB308', icon: 'Building2' },
-  { id: '3', name: 'Daviplata', type: 'WALLET', color: '#EF4444', icon: 'Smartphone' },
-  { id: '4', name: 'Efectivo', type: 'CASH', color: '#10B981', icon: 'Banknote' },
-  { id: '5', name: 'Tarjeta de Crédito', type: 'CARD', color: '#3B82F6', icon: 'CreditCard' },
+  { id: '1', name: 'Nequi', type: 'WALLET', color: '#00ADB5', icon: 'Smartphone' },
+  { id: '2', name: 'Bancolombia', type: 'BANK', color: '#3B82F6', icon: 'Building2' },
+  { id: '3', name: 'Efectivo', type: 'CASH', color: '#10B981', icon: 'Coins' },
+  { id: '4', name: 'Daviplata', type: 'WALLET', color: '#F59E0B', icon: 'CreditCard' },
 ];
 
 const QUICK_AMOUNTS_EXPENSE = [5000, 10000, 20000, 35000, 50000, 100000];
 const QUICK_AMOUNTS_INCOME = [100000, 200000, 500000, 1000000, 1500000, 2000000];
-
-const getTodayLocalDate = () => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
 
 export function QuickExpenseModal({ isOpen, onClose, onExpenseAdded, categories: initialCategories }: QuickExpenseModalProps) {
   const [txType, setTxType] = useState<'EXPENSE' | 'INCOME'>('EXPENSE');
@@ -56,7 +48,7 @@ export function QuickExpenseModal({ isOpen, onClose, onExpenseAdded, categories:
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<string>('Nequi');
   const [notes, setNotes] = useState<string>('');
-  const [date, setDate] = useState<string>(getTodayLocalDate());
+  const [date, setDate] = useState<string>(getTodayColombiaDate());
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Dynamic categories and payment methods
@@ -116,6 +108,7 @@ export function QuickExpenseModal({ isOpen, onClose, onExpenseAdded, categories:
   useEffect(() => {
     if (isOpen) {
       refreshPaymentMethods();
+      setDate(getTodayColombiaDate());
     }
   }, [isOpen, refreshPaymentMethods]);
 

@@ -6,7 +6,7 @@ import { calculateFinancialHealth, formatCOP } from '@/lib/utils';
 export async function GET() {
   try {
     const auth = await requireAuth();
-    const currentMonth = new Date().toISOString().slice(0, 7);
+    const currentMonth = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date()).slice(0, 7);
 
     // 1. User available fund and payday
     const user = await db.prepare(`

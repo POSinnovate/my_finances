@@ -35,7 +35,7 @@ export function MovementDetailModal({
   if (!isOpen || !movement) return null;
 
   const isIncome = movement.type === 'INCOME';
-  const dateInfo = formatMovementDetailDate(movement.date);
+  const dateInfo = formatMovementDetailDate(movement.date, movement.created_at);
 
   const handleDelete = async () => {
     if (!confirm('¿Deseas eliminar este movimiento? Tu fondo disponible se actualizará automáticamente.')) {
@@ -148,9 +148,9 @@ export function MovementDetailModal({
             </div>
             <div className="text-right">
               <span className="font-bold text-white block whitespace-nowrap">{dateInfo.dayName}, {dateInfo.formattedDate}</span>
-              {movement.created_at && (
+              {dateInfo.timeFormatted && (
                 <span className="text-[10px] text-slate-400 font-mono block whitespace-nowrap">
-                  Hora: {formatMovementDetailDate(movement.created_at).timeFormatted}
+                  Hora: {dateInfo.timeFormatted} (Col)
                 </span>
               )}
             </div>
