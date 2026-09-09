@@ -356,10 +356,10 @@ export default function BudgetsPage() {
             <Plus className="w-4 h-4 stroke-[3px]" />
             <span>
               {activeTab === 'INCOME'
-                ? '+ Nueva Fuente'
+                ? 'Nueva Fuente'
                 : activeTab === 'PAYMENT_METHODS'
-                ? '+ Nuevo Método'
-                : '+ Nuevo Grupo'}
+                ? 'Nuevo Método'
+                : 'Nuevo Grupo'}
             </span>
           </button>
         </div>
@@ -516,12 +516,12 @@ export default function BudgetsPage() {
             <div className="bg-gradient-to-r from-[#0B192C] to-[#102A43] border border-emerald-500/30 rounded-3xl p-5 shadow-xl grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="p-3 rounded-2xl bg-[#0B192C]/80 border border-[#243B55]">
                 <span className="text-[11px] font-semibold text-slate-400 block whitespace-nowrap">Total Entradas del Mes</span>
-                <p className="text-xl font-black text-emerald-400 mt-0.5 whitespace-nowrap">+{formatCOP(totalIncomeThisMonth)}</p>
+                <p className="text-xl font-black text-emerald-400 mt-0.5 whitespace-nowrap">{formatCOP(totalIncomeThisMonth)}</p>
                 <span className="text-[10px] text-slate-500 mt-1 block">Suma de todos tus ingresos</span>
               </div>
               <div className="p-3 rounded-2xl bg-[#0B192C]/80 border border-[#243B55]">
                 <span className="text-[11px] font-semibold text-slate-400 block whitespace-nowrap">Total Acumulado Año</span>
-                <p className="text-xl font-black text-white mt-0.5 whitespace-nowrap">+{formatCOP(totalIncomeThisYear)}</p>
+                <p className="text-xl font-black text-white mt-0.5 whitespace-nowrap">{formatCOP(totalIncomeThisYear)}</p>
                 <span className="text-[10px] text-slate-500 mt-1 block">Histórico anual en vivo</span>
               </div>
               <div className="p-3 rounded-2xl bg-emerald-950/40 border border-emerald-600/40">
@@ -604,7 +604,7 @@ export default function BudgetsPage() {
                 className="py-2.5 px-4 rounded-xl bg-cyan-400 text-slate-950 font-black text-xs hover:bg-cyan-300 flex items-center gap-1.5 shadow-md shadow-cyan-400/20 shrink-0 whitespace-nowrap"
               >
                 <Plus className="w-4 h-4 stroke-[3px]" />
-                <span>+ Agregar Cuenta / Medio</span>
+                <span>Agregar Cuenta / Medio</span>
               </button>
             </div>
 

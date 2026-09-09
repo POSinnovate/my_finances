@@ -155,7 +155,7 @@ export default function AdminUsersPage() {
             className="py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] font-extrabold text-xs shadow-md shadow-[#00ADB5]/20 flex items-center gap-1.5 self-start sm:self-center"
           >
             <UserPlus className="w-4 h-4 stroke-[2.5px]" />
-            <span>+ Crear Cuenta para Amigo</span>
+            <span>Crear Cuenta para Amigo</span>
           </button>
         </div>
 
