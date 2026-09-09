@@ -8,6 +8,7 @@ export async function GET(req: NextRequest) {
   try {
     const auth = await requireAuth();
     const currentMonth = new Date().toISOString().slice(0, 7);
+    const thirtyFiveDaysAgo = new Date(Date.now() - 35 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
     // Check if user has payment methods, if not seed defaults
     let methods = await db.prepare(`
@@ -27,17 +28,17 @@ export async function GET(req: NextRequest) {
       `).all(auth.userId) as any[];
     }
 
-    // Get statistics per payment method for the current month
+    // Get statistics per payment method for active period / month
     const stats = await db.prepare(`
       SELECT 
         payment_method,
         COUNT(id) as movement_count,
-        COALESCE(SUM(CASE WHEN type = 'INCOME' THEN amount ELSE 0 END), 0) as income_this_month,
-        COALESCE(SUM(CASE WHEN type = 'EXPENSE' OR type IS NULL THEN amount ELSE 0 END), 0) as expense_this_month
+        COALESCE(SUM(CASE WHEN type = 'INCOME' AND (strftime('%Y-%m', date) = ? OR date >= ?) THEN amount ELSE 0 END), 0) as income_this_month,
+        COALESCE(SUM(CASE WHEN (type = 'EXPENSE' OR type IS NULL) AND (strftime('%Y-%m', date) = ? OR date >= ?) THEN amount ELSE 0 END), 0) as expense_this_month
       FROM expenses
-      WHERE user_id = ? AND strftime('%Y-%m', date) = ?
+      WHERE user_id = ?
       GROUP BY payment_method
-    `).all(auth.userId, currentMonth) as any[];
+    `).all(currentMonth, thirtyFiveDaysAgo, currentMonth, thirtyFiveDaysAgo, auth.userId) as any[];
 
     const statsMap = new Map<string, any>();
     for (const s of stats) {

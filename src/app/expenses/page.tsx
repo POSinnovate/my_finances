@@ -21,7 +21,7 @@ export default function ExpensesPage() {
   const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7));
+  const [selectedMonth, setSelectedMonth] = useState<string>('ALL');
   const [isQuickExpenseOpen, setIsQuickExpenseOpen] = useState(false);
   const [selectedMovement, setSelectedMovement] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,7 +48,10 @@ export default function ExpensesPage() {
         setPaymentMethods(pmData.paymentMethods || []);
       }
 
-      let expUrl = `/api/expenses?month=${selectedMonth}`;
+      let expUrl = '/api/expenses?';
+      if (selectedMonth !== 'ALL') {
+        expUrl += `month=${selectedMonth}&`;
+      }
       if (selectedType !== 'ALL') {
         expUrl += `&type=${selectedType}`;
       }
@@ -129,13 +132,27 @@ export default function ExpensesPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <input
-              type="month"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2 rounded-xl focus:outline-none"
-            />
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setSelectedMonth(selectedMonth === 'ALL' ? new Date().toISOString().slice(0, 7) : 'ALL')}
+              className={`text-xs px-3 py-2 rounded-xl border font-bold transition-all ${
+                selectedMonth === 'ALL'
+                  ? 'bg-[#00ADB5] text-[#0B192C] border-[#00ADB5]'
+                  : 'bg-[#102A43] text-slate-300 border-[#243B55] hover:text-white'
+              }`}
+            >
+              {selectedMonth === 'ALL' ? 'Todo el Historial' : 'Ver Todo el Historial'}
+            </button>
+
+            {selectedMonth !== 'ALL' && (
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2 rounded-xl focus:outline-none"
+              />
+            )}
+
             <button
               onClick={() => setIsQuickExpenseOpen(true)}
               className="py-2 px-3.5 rounded-xl bg-gradient-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] font-extrabold text-xs shadow-md shadow-[#00ADB5]/20 flex items-center gap-1.5"
@@ -285,6 +302,14 @@ export default function ExpensesPage() {
             <div className="text-center py-12 text-slate-400">
               <Receipt className="w-10 h-10 mx-auto mb-2 opacity-30 text-[#00ADB5]" />
               <p className="text-xs">No hay movimientos que coincidan con estos filtros.</p>
+              {selectedMonth !== 'ALL' && (
+                <button
+                  onClick={() => setSelectedMonth('ALL')}
+                  className="mt-3 px-3.5 py-1.5 rounded-xl bg-[#102A43] text-[#00ADB5] border border-[#243B55] text-xs font-bold hover:bg-[#152E4D] transition-colors"
+                >
+                  Ver Todo el Historial (todos los meses)
+                </button>
+              )}
             </div>
           ) : (
             <div className="space-y-2.5">

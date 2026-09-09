@@ -42,13 +42,21 @@ const DEFAULT_METHODS: PaymentMethod[] = [
 const QUICK_AMOUNTS_EXPENSE = [5000, 10000, 20000, 35000, 50000, 100000];
 const QUICK_AMOUNTS_INCOME = [100000, 200000, 500000, 1000000, 1500000, 2000000];
 
+const getTodayLocalDate = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export function QuickExpenseModal({ isOpen, onClose, onExpenseAdded, categories: initialCategories }: QuickExpenseModalProps) {
   const [txType, setTxType] = useState<'EXPENSE' | 'INCOME'>('EXPENSE');
   const [amount, setAmount] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<string>('Nequi');
   const [notes, setNotes] = useState<string>('');
-  const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState<string>(getTodayLocalDate());
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Dynamic categories and payment methods

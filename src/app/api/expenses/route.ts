@@ -7,9 +7,10 @@ export async function GET(req: NextRequest) {
   try {
     const auth = await requireAuth();
     const searchParams = req.nextUrl.searchParams;
-    const month = searchParams.get('month') || new Date().toISOString().slice(0, 7);
+    const month = searchParams.get('month'); // Only filter if explicitly specified
     const categoryId = searchParams.get('categoryId');
     const type = searchParams.get('type'); // 'ALL' | 'EXPENSE' | 'INCOME'
+    const limit = searchParams.get('limit');
 
     let query = `
       SELECT 
@@ -27,10 +28,15 @@ export async function GET(req: NextRequest) {
         COALESCE(c.is_fixed, 0) as is_fixed
       FROM expenses e
       LEFT JOIN categories c ON c.id = e.category_id
-      WHERE e.user_id = ? AND strftime('%Y-%m', e.date) = ?
+      WHERE e.user_id = ?
     `;
 
-    const params: (string | number)[] = [auth.userId, month];
+    const params: (string | number)[] = [auth.userId];
+
+    if (month && month !== 'ALL') {
+      query += ` AND strftime('%Y-%m', e.date) = ?`;
+      params.push(month);
+    }
 
     if (type && type !== 'ALL') {
       query += ` AND e.type = ?`;
@@ -49,6 +55,10 @@ export async function GET(req: NextRequest) {
     }
 
     query += ` ORDER BY e.date DESC, e.created_at DESC`;
+
+    if (limit && Number(limit) > 0) {
+      query += ` LIMIT ${Number(limit)}`;
+    }
 
     const expenses = await db.prepare(query).all(...params) as any[];
 

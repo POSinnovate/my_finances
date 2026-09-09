@@ -9,7 +9,8 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const filterType = searchParams.get('type'); // 'EXPENSE' | 'INCOME' | undefined
     const currentMonth = new Date().toISOString().slice(0, 7);
-    const currentYear = new Date().getFullYear().toString();
+    const currentYear = new Date().toISOString().slice(0, 4);
+    const thirtyFiveDaysAgo = new Date(Date.now() - 35 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
     let query = `
       SELECT 
@@ -22,6 +23,7 @@ export async function GET(req: NextRequest) {
         COALESCE(c.type, 'EXPENSE') as type,
         COALESCE(SUM(CASE WHEN (e.type IS NULL OR e.type = 'EXPENSE') AND strftime('%Y-%m', e.date) = ? THEN e.amount ELSE 0 END), 0) as spent_this_month,
         COALESCE(SUM(CASE WHEN e.type = 'INCOME' AND strftime('%Y-%m', e.date) = ? THEN e.amount ELSE 0 END), 0) as earned_this_month,
+        COALESCE(SUM(CASE WHEN e.type = 'INCOME' AND e.date >= ? THEN e.amount ELSE 0 END), 0) as earned_recent,
         COALESCE(SUM(CASE WHEN e.type = 'INCOME' AND strftime('%Y', e.date) = ? THEN e.amount ELSE 0 END), 0) as earned_this_year,
         COUNT(e.id) as movement_count
       FROM categories c
@@ -29,7 +31,7 @@ export async function GET(req: NextRequest) {
       WHERE c.user_id = ?
     `;
 
-    const params: any[] = [currentMonth, currentMonth, currentYear, auth.userId];
+    const params: any[] = [currentMonth, currentMonth, thirtyFiveDaysAgo, currentYear, auth.userId];
 
     if (filterType && (filterType === 'EXPENSE' || filterType === 'INCOME')) {
       query += ` AND c.type = ?`;
@@ -46,7 +48,9 @@ export async function GET(req: NextRequest) {
     const categoriesWithStats = categories.map(cat => {
       const budget = Number(cat.monthly_budget) || 0;
       const spent = Number(cat.spent_this_month) || 0;
-      const earnedMonth = Number(cat.earned_this_month) || 0;
+      const earnedMonthRaw = Number(cat.earned_this_month) || 0;
+      const earnedRecent = Number(cat.earned_recent) || 0;
+      const earnedMonth = earnedMonthRaw > 0 ? earnedMonthRaw : earnedRecent;
       const earnedYear = Number(cat.earned_this_year) || 0;
       const remaining = budget - spent;
       const percent = budget > 0 ? Math.round((spent / budget) * 100) : (spent > 0 ? 100 : 0);

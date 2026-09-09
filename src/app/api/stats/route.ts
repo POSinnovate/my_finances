@@ -27,8 +27,26 @@ export async function GET() {
       WHERE user_id = ? AND type = 'INCOME' AND strftime('%Y-%m', date) = ?
     `).get(auth.userId, currentMonth) as any;
 
-    const totalIncomeThisMonth = Number(incomeRow?.total_income) || 0;
-    const incomeCount = Number(incomeRow?.count) || 0;
+    let totalIncomeThisMonth = Number(incomeRow?.total_income) || 0;
+    let incomeCount = Number(incomeRow?.count) || 0;
+
+    // If current calendar month has no registered income yet (e.g., paid on 30/31st of previous month for current quincena),
+    // use income from the last 35 days as active period income so stats and health are accurate.
+    if (totalIncomeThisMonth === 0) {
+      const thirtyFiveDaysAgo = new Date(Date.now() - 35 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const recentIncomeRow = await db.prepare(`
+        SELECT 
+          COALESCE(SUM(amount), 0) as total_income,
+          COUNT(id) as count
+        FROM expenses
+        WHERE user_id = ? AND type = 'INCOME' AND date >= ?
+      `).get(auth.userId, thirtyFiveDaysAgo) as any;
+
+      if (recentIncomeRow && Number(recentIncomeRow.total_income) > 0) {
+        totalIncomeThisMonth = Number(recentIncomeRow.total_income);
+        incomeCount = Number(recentIncomeRow.count);
+      }
+    }
 
     // 3. Real Expenses of the current month (Sum of all registered EXPENSE transactions)
     const expensesRow = await db.prepare(`

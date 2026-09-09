@@ -87,11 +87,11 @@ export default function DashboardPage() {
         setCategories(catData.categories || []);
       }
 
-      // 4. Recent Expenses
-      const expRes = await fetch('/api/expenses');
+      // 4. Recent Expenses (Latest registered movements across all time)
+      const expRes = await fetch('/api/expenses?limit=10');
       if (expRes.ok) {
         const expData = await expRes.json();
-        setRecentExpenses(expData.expenses?.slice(0, 5) || []);
+        setRecentExpenses(expData.expenses?.slice(0, 10) || []);
       }
     } catch (err) {
       console.error('Error loading dashboard data:', err);
@@ -272,7 +272,7 @@ export default function DashboardPage() {
           {recentExpenses.length === 0 ? (
             <div className="text-center py-8 text-slate-400">
               <Receipt className="w-8 h-8 mx-auto mb-2 opacity-30 text-[#00ADB5]" />
-              <p className="text-xs">Aún no has registrado ningún movimiento este mes.</p>
+              <p className="text-xs">Aún no has registrado ningún movimiento.</p>
               <button
                 onClick={() => setIsQuickExpenseOpen(true)}
                 className="mt-3 text-xs text-[#00ADB5] font-bold underline"
