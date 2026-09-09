@@ -199,7 +199,7 @@ export default function ExpensesPage() {
                   : 'bg-[#102A43] text-slate-300 border-[#243B55] hover:text-white'
               }`}
             >
-              Este Mes ({currentMonthISO})
+              Este Mes
             </button>
 
             <button
@@ -210,18 +210,7 @@ export default function ExpensesPage() {
                   : 'bg-[#102A43] text-slate-300 border-[#243B55] hover:text-white'
               }`}
             >
-              Mes Anterior ({prevMonth1})
-            </button>
-
-            <button
-              onClick={() => setSelectedMonth(prevMonth2)}
-              className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-all whitespace-nowrap shrink-0 ${
-                selectedMonth === prevMonth2
-                  ? 'bg-[#00ADB5] text-[#0B192C] border-[#00ADB5] font-bold'
-                  : 'bg-[#102A43] text-slate-300 border-[#243B55] hover:text-white'
-              }`}
-            >
-              {prevMonth2}
+              Mes Anterior
             </button>
 
             {/* Custom Month Picker */}
