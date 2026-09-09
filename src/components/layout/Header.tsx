@@ -68,10 +68,10 @@ export function Header({ user, onUserUpdate }: HeaderProps) {
           <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#00ADB5] to-[#06B6D4] flex items-center justify-center shadow-md shadow-[#00ADB5]/20 shrink-0">
             <Wallet className="w-4 h-4 text-[#0B192C]" />
           </div>
-          <div className="flex items-baseline gap-1">
+          <div className="flex flex-col leading-none">
             <span className="font-black tracking-tight text-white text-sm sm:text-base">POSINNOVATE</span>
-            <span className="text-[9px] px-1 py-0.2 rounded bg-[#00ADB5]/20 text-[#00ADB5] font-bold hidden xs:inline">
-              BANK
+            <span className="text-[10px] text-[#00ADB5] font-semibold tracking-wider uppercase">
+              Finanzas
             </span>
           </div>
         </Link>

@@ -21,9 +21,9 @@ export async function GET(req: NextRequest) {
         e.date,
         e.created_at,
         c.id as category_id,
-        COALESCE(c.name, 'Ingreso General') as category_name,
+        COALESCE(c.name, CASE WHEN e.type = 'INCOME' THEN 'Ingreso General' ELSE 'Gasto General' END) as category_name,
         c.icon as category_icon,
-        COALESCE(c.color, '#10B981') as category_color,
+        COALESCE(c.color, CASE WHEN e.type = 'INCOME' THEN '#10B981' ELSE '#00ADB5' END) as category_color,
         COALESCE(c.is_fixed, 0) as is_fixed
       FROM expenses e
       LEFT JOIN categories c ON c.id = e.category_id

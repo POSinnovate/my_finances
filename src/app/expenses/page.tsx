@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { QuickExpenseModal } from '@/components/expenses/QuickExpenseModal';
-import { formatCOP } from '@/lib/utils';
+import { MovementDetailModal } from '@/components/expenses/MovementDetailModal';
+import { formatCOP, formatDateSpanish } from '@/lib/utils';
 import { Receipt, Trash2, Filter, Search, PlusCircle, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -20,6 +21,7 @@ export default function ExpensesPage() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7));
   const [isQuickExpenseOpen, setIsQuickExpenseOpen] = useState(false);
+  const [selectedMovement, setSelectedMovement] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(async () => {
@@ -249,7 +251,8 @@ export default function ExpensesPage() {
                 return (
                   <div
                     key={exp.id}
-                    className="bg-[#102A43] hover:bg-[#152E4D] border border-[#243B55] rounded-2xl p-3.5 flex items-center justify-between gap-3 transition-colors"
+                    onClick={() => setSelectedMovement(exp)}
+                    className="bg-[#102A43] hover:bg-[#152E4D] border border-[#243B55] hover:border-[#00ADB5]/50 rounded-2xl p-3.5 flex items-center justify-between gap-3 transition-all cursor-pointer group"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div
@@ -258,7 +261,7 @@ export default function ExpensesPage() {
                       />
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-white truncate">
+                          <span className="text-xs font-bold text-white group-hover:text-[#00ADB5] transition-colors truncate">
                             {isIncome ? (exp.category_name || 'Ingreso de Dinero') : exp.category_name}
                           </span>
                           <span className={`text-[10px] px-2 py-0.5 rounded-md border ${
@@ -274,17 +277,20 @@ export default function ExpensesPage() {
                         </div>
                         <p className="text-xs text-slate-400 truncate mt-0.5">
                           {exp.notes ? <span className="text-slate-200">{exp.notes} • </span> : null}
-                          <span className="text-slate-500">{exp.date}</span>
+                          <span className="text-slate-300 font-medium">{formatDateSpanish(exp.date)}</span>
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3 shrink-0">
+                    <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                       <span className={`text-sm sm:text-base font-black ${isIncome ? 'text-emerald-400' : 'text-rose-400'}`}>
                         {isIncome ? `+${formatCOP(exp.amount)}` : `-${formatCOP(exp.amount)}`}
                       </span>
                       <button
-                        onClick={() => handleDeleteExpense(exp.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteExpense(exp.id);
+                        }}
                         className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
                         title="Eliminar movimiento y actualizar saldo"
                       >
@@ -309,6 +315,13 @@ export default function ExpensesPage() {
         onClose={() => setIsQuickExpenseOpen(false)}
         onExpenseAdded={loadData}
         categories={categories}
+      />
+
+      <MovementDetailModal
+        movement={selectedMovement}
+        isOpen={!!selectedMovement}
+        onClose={() => setSelectedMovement(null)}
+        onMovementDeleted={loadData}
       />
     </div>
   );

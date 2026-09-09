@@ -26,6 +26,22 @@ export async function GET() {
         monthsToAchieve = Math.ceil(remaining / contribution);
       }
 
+      let daysRemaining = 0;
+      let dailySavingNeeded = 0;
+      let quincenaSavingNeeded = 0;
+
+      if (g.target_date && remaining > 0) {
+        const targetTime = new Date(g.target_date).getTime();
+        const nowTime = new Date().setHours(0, 0, 0, 0);
+        daysRemaining = Math.max(1, Math.ceil((targetTime - nowTime) / (1000 * 60 * 60 * 24)));
+        dailySavingNeeded = Math.ceil(remaining / daysRemaining);
+        quincenaSavingNeeded = Math.ceil(dailySavingNeeded * 15);
+      } else if (contribution > 0 && remaining > 0) {
+        dailySavingNeeded = Math.ceil(contribution / 30);
+        quincenaSavingNeeded = Math.ceil(contribution / 2);
+        daysRemaining = monthsToAchieve * 30;
+      }
+
       return {
         ...g,
         target_amount: target,
@@ -34,6 +50,9 @@ export async function GET() {
         remaining_amount: remaining,
         progress_percentage: progress,
         months_to_achieve: monthsToAchieve,
+        days_remaining: daysRemaining,
+        daily_saving_needed: dailySavingNeeded,
+        quincena_saving_needed: quincenaSavingNeeded,
       };
     });
 

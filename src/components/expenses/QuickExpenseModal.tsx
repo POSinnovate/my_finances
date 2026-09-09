@@ -10,8 +10,9 @@ interface Category {
   name: string;
   icon: string;
   color: string;
-  monthly_budget: number;
-  spent_this_month: number;
+  monthly_budget?: number;
+  spent_this_month?: number;
+  type?: 'EXPENSE' | 'INCOME';
 }
 
 interface QuickExpenseModalProps {
@@ -23,10 +24,10 @@ interface QuickExpenseModalProps {
 
 const PAYMENT_METHODS = [
   { id: 'Nequi', label: 'Nequi', color: 'bg-purple-600/30 text-purple-300 border-purple-500/40' },
-  { id: 'Daviplata', label: 'Daviplata', color: 'bg-red-600/30 text-red-300 border-red-500/40' },
   { id: 'Bancolombia', label: 'Bancolombia', color: 'bg-yellow-600/30 text-yellow-300 border-yellow-500/40' },
+  { id: 'Daviplata', label: 'Daviplata', color: 'bg-red-600/30 text-red-300 border-red-500/40' },
   { id: 'Efectivo', label: 'Efectivo', color: 'bg-emerald-600/30 text-emerald-300 border-emerald-500/40' },
-  { id: 'Tarjeta', label: 'Tarjeta', color: 'bg-blue-600/30 text-blue-300 border-blue-500/40' },
+  { id: 'Tarjeta', label: 'Tarjeta / PSE', color: 'bg-blue-600/30 text-blue-300 border-blue-500/40' },
 ];
 
 const QUICK_AMOUNTS_EXPENSE = [5000, 10000, 20000, 35000, 50000, 100000];
@@ -41,18 +42,37 @@ export function QuickExpenseModal({ isOpen, onClose, onExpenseAdded, categories 
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const expenseCategories = categories.filter(c => c.type !== 'INCOME');
+  const incomeCategories = categories.filter(c => c.type === 'INCOME');
+
   useEffect(() => {
-    if (categories.length > 0 && !selectedCategory) {
-      const defaultCat = categories.find(c => c.name.includes('Hormiga') || c.name.includes('Alimentación')) || categories[0];
-      setSelectedCategory(defaultCat.id);
+    if (txType === 'EXPENSE' && expenseCategories.length > 0) {
+      if (!selectedCategory || !expenseCategories.some(c => c.id === selectedCategory)) {
+        const defaultCat = expenseCategories.find(c => c.name.includes('Hormiga') || c.name.includes('Alimentación')) || expenseCategories[0];
+        setSelectedCategory(defaultCat.id);
+      }
+    } else if (txType === 'INCOME' && incomeCategories.length > 0) {
+      if (!selectedCategory || !incomeCategories.some(c => c.id === selectedCategory)) {
+        const defaultIncome = incomeCategories.find(c => c.name.includes('Quincena') || c.name.includes('Salario')) || incomeCategories[0];
+        setSelectedCategory(defaultIncome.id);
+      }
     }
-  }, [categories, selectedCategory]);
+  }, [txType, categories, selectedCategory]);
 
   if (!isOpen) return null;
 
   const handleQuickAddAmount = (addValue: number) => {
     const current = Number(amount) || 0;
     setAmount((current + addValue).toString());
+  };
+
+  const handleSwitchType = (newType: 'EXPENSE' | 'INCOME') => {
+    setTxType(newType);
+    if (newType === 'EXPENSE') {
+      setSelectedCategory(expenseCategories[0]?.id || '');
+    } else {
+      setSelectedCategory(incomeCategories[0]?.id || '');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -76,7 +96,7 @@ export function QuickExpenseModal({ isOpen, onClose, onExpenseAdded, categories 
         body: JSON.stringify({
           type: txType,
           amount: numAmount,
-          category_id: txType === 'EXPENSE' ? selectedCategory : null,
+          category_id: selectedCategory || null,
           payment_method: paymentMethod,
           notes: notes?.trim() || (txType === 'INCOME' ? 'Ingreso registrado' : 'Gasto'),
           date,
@@ -105,6 +125,7 @@ export function QuickExpenseModal({ isOpen, onClose, onExpenseAdded, categories 
   };
 
   const isIncome = txType === 'INCOME';
+  const numericAmount = Number(amount) || 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
@@ -115,7 +136,7 @@ export function QuickExpenseModal({ isOpen, onClose, onExpenseAdded, categories 
           <div className="flex items-center bg-[#102A43] p-1 rounded-2xl border border-[#243B55]">
             <button
               type="button"
-              onClick={() => setTxType('EXPENSE')}
+              onClick={() => handleSwitchType('EXPENSE')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                 !isIncome
                   ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-sm'
@@ -127,7 +148,7 @@ export function QuickExpenseModal({ isOpen, onClose, onExpenseAdded, categories 
             </button>
             <button
               type="button"
-              onClick={() => setTxType('INCOME')}
+              onClick={() => handleSwitchType('INCOME')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                 isIncome
                   ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
@@ -148,11 +169,23 @@ export function QuickExpenseModal({ isOpen, onClose, onExpenseAdded, categories 
         </div>
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-          {/* Big Amount Input */}
+          {/* Big Amount Input with Live Conversion Preview */}
           <div>
-            <label className="block text-xs font-semibold text-slate-400 mb-1">
-              {isIncome ? 'Monto del Ingreso ($ COP)' : 'Monto del Gasto ($ COP)'}
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-semibold text-slate-400">
+                {isIncome ? 'Monto del Ingreso ($ COP)' : 'Monto del Gasto ($ COP)'}
+              </label>
+              {numericAmount > 0 && (
+                <span className={`text-xs font-extrabold px-2 py-0.5 rounded-lg border ${
+                  isIncome 
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' 
+                    : 'bg-[#00ADB5]/10 text-[#00ADB5] border-[#00ADB5]/30'
+                }`}>
+                  {formatCOP(numericAmount)}
+                </span>
+              )}
+            </div>
+
             <div className="relative">
               <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-black ${isIncome ? 'text-emerald-400' : 'text-[#00ADB5]'}`}>
                 $
@@ -167,6 +200,7 @@ export function QuickExpenseModal({ isOpen, onClose, onExpenseAdded, categories 
                 className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] text-white text-3xl font-extrabold pl-10 pr-4 py-3 rounded-2xl focus:outline-none transition-all placeholder:text-slate-600"
               />
             </div>
+
             {/* Quick amount chips */}
             <div className="flex flex-wrap gap-1.5 mt-2">
               {(isIncome ? QUICK_AMOUNTS_INCOME : QUICK_AMOUNTS_EXPENSE).map((val) => (
@@ -174,7 +208,7 @@ export function QuickExpenseModal({ isOpen, onClose, onExpenseAdded, categories 
                   key={val}
                   type="button"
                   onClick={() => handleQuickAddAmount(val)}
-                  className="text-xs bg-[#152E4D] hover:bg-[#1E3A5F] active:scale-95 text-slate-200 px-2.5 py-1 rounded-lg border border-[#243B55] transition-all"
+                  className="text-xs bg-[#152E4D] hover:bg-[#1E3A5F] active:scale-95 text-slate-200 px-2.5 py-1 rounded-lg border border-[#243B55] transition-all font-semibold"
                 >
                   +{formatCOP(val).replace('$', '').trim()}
                 </button>
@@ -182,35 +216,43 @@ export function QuickExpenseModal({ isOpen, onClose, onExpenseAdded, categories 
             </div>
           </div>
 
-          {/* If Expense: Show Category Picker */}
-          {!isIncome && (
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1.5">Grupo de Gasto</label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-40 overflow-y-auto pr-1">
-                {categories.map((cat) => {
-                  const isSelected = selectedCategory === cat.id;
-                  return (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => setSelectedCategory(cat.id)}
-                      className={`flex items-center gap-2 p-2.5 rounded-xl text-left border transition-all ${
-                        isSelected
-                          ? 'bg-[#00ADB5]/20 border-[#00ADB5] text-white shadow-md shadow-[#00ADB5]/10'
-                          : 'bg-[#102A43] border-[#243B55] text-slate-300 hover:border-slate-500'
-                      }`}
-                    >
-                      <div
-                        className="w-3.5 h-3.5 rounded-full shrink-0"
-                        style={{ backgroundColor: cat.color || '#00ADB5' }}
-                      />
-                      <span className="text-xs font-medium truncate">{cat.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
+          {/* Category / Group Picker (Expense Groups vs Income Sources) */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-semibold text-slate-400">
+                {isIncome ? 'Fuente / Grupo de Ingreso' : 'Grupo de Gasto'}
+              </label>
+              <span className="text-[10px] text-slate-500">
+                {isIncome ? `${incomeCategories.length} fuentes` : `${expenseCategories.length} grupos`}
+              </span>
             </div>
-          )}
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-40 overflow-y-auto pr-1">
+              {(isIncome ? incomeCategories : expenseCategories).map((cat) => {
+                const isSelected = selectedCategory === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setSelectedCategory(cat.id)}
+                    className={`flex items-center gap-2 p-2.5 rounded-xl text-left border transition-all ${
+                      isSelected
+                        ? isIncome
+                          ? 'bg-emerald-500/20 border-emerald-400 text-white shadow-md shadow-emerald-500/10'
+                          : 'bg-[#00ADB5]/20 border-[#00ADB5] text-white shadow-md shadow-[#00ADB5]/10'
+                        : 'bg-[#102A43] border-[#243B55] text-slate-300 hover:border-slate-500'
+                    }`}
+                  >
+                    <div
+                      className="w-3.5 h-3.5 rounded-full shrink-0"
+                      style={{ backgroundColor: cat.color || (isIncome ? '#10B981' : '#00ADB5') }}
+                    />
+                    <span className="text-xs font-medium truncate">{cat.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           {/* Payment Method Selector */}
           <div>
@@ -242,11 +284,11 @@ export function QuickExpenseModal({ isOpen, onClose, onExpenseAdded, categories 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-400 mb-1">
-                {isIncome ? 'Concepto (Ej: Pago Nómina, Quincena, Venta)' : 'Descripción (Ej: Taxi, Almuerzo)'}
+                {isIncome ? 'Concepto (Ej: Pago Nómina, Suscripción Cliente X)' : 'Descripción (Ej: Taxi, Almuerzo)'}
               </label>
               <input
                 type="text"
-                placeholder={isIncome ? 'Ej: Quincena' : 'Ej: Café / Domicilio'}
+                placeholder={isIncome ? 'Ej: Quincena / Licencia software' : 'Ej: Café / Domicilio'}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] text-white text-base sm:text-xs px-3 py-2.5 rounded-xl focus:outline-none"
