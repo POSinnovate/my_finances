@@ -18,13 +18,14 @@ export async function GET(req: NextRequest) {
         e.amount,
         e.type,
         e.payment_method,
+        e.destination_method,
         e.notes,
         strftime('%Y-%m-%d', e.date) as date,
         e.created_at,
         c.id as category_id,
-        COALESCE(c.name, CASE WHEN e.type = 'INCOME' THEN 'Ingreso General' ELSE 'Gasto General' END) as category_name,
-        c.icon as category_icon,
-        COALESCE(c.color, CASE WHEN e.type = 'INCOME' THEN '#10B981' ELSE '#00ADB5' END) as category_color,
+        COALESCE(c.name, CASE WHEN e.type = 'INCOME' THEN 'Ingreso General' WHEN e.type = 'TRANSFER' THEN 'Transferencia entre Cuentas' ELSE 'Gasto General' END) as category_name,
+        COALESCE(c.icon, CASE WHEN e.type = 'TRANSFER' THEN 'ArrowRightLeft' ELSE 'Tag' END) as category_icon,
+        COALESCE(c.color, CASE WHEN e.type = 'INCOME' THEN '#10B981' WHEN e.type = 'TRANSFER' THEN '#06B6D4' ELSE '#00ADB5' END) as category_color,
         COALESCE(c.is_fixed, 0) as is_fixed
       FROM expenses e
       LEFT JOIN categories c ON c.id = e.category_id
@@ -91,17 +92,26 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const auth = await requireAuth();
-    const { amount, category_id, payment_method, notes, date, type } = await req.json();
+    const { amount, category_id, payment_method, destination_method, notes, date, type } = await req.json();
 
     const parsedAmount = Number(amount);
     if (!parsedAmount || parsedAmount <= 0) {
       return NextResponse.json({ error: 'El monto debe ser un número positivo' }, { status: 400 });
     }
 
-    const txType = type === 'INCOME' ? 'INCOME' : 'EXPENSE';
+    const txType = type === 'INCOME' ? 'INCOME' : type === 'TRANSFER' ? 'TRANSFER' : 'EXPENSE';
 
     if (txType === 'EXPENSE' && !category_id) {
       return NextResponse.json({ error: 'La categoría del gasto es obligatoria' }, { status: 400 });
+    }
+
+    if (txType === 'TRANSFER') {
+      if (!payment_method || !destination_method) {
+        return NextResponse.json({ error: 'Debes seleccionar el medio de origen y el de destino' }, { status: 400 });
+      }
+      if (payment_method.trim().toLowerCase() === destination_method.trim().toLowerCase()) {
+        return NextResponse.json({ error: 'El medio de origen y destino no pueden ser iguales' }, { status: 400 });
+      }
     }
 
     const getTodayColombiaDate = () => {
@@ -118,8 +128,8 @@ export async function POST(req: NextRequest) {
     const id = randomUUID();
 
     await db.prepare(`
-      INSERT INTO expenses (id, user_id, category_id, type, amount, payment_method, notes, date)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO expenses (id, user_id, category_id, type, amount, payment_method, destination_method, notes, date)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       auth.userId,
@@ -127,13 +137,15 @@ export async function POST(req: NextRequest) {
       txType,
       parsedAmount,
       payment_method || (txType === 'INCOME' ? 'Transferencia' : 'Nequi'),
-      notes?.trim() || (txType === 'INCOME' ? 'Ingreso registrado' : null),
+      txType === 'TRANSFER' ? destination_method : null,
+      notes?.trim() || (txType === 'TRANSFER' ? `Transferencia de ${payment_method} a ${destination_method}` : (txType === 'INCOME' ? 'Ingreso registrado' : null)),
       expenseDate
     );
 
     // Update user's available cash fund:
     // If INCOME -> add to fund!
     // If EXPENSE -> subtract from fund!
+    // If TRANSFER -> internal money movement, fund remains identical!
     if (txType === 'INCOME') {
       await db.prepare(`
         UPDATE users
@@ -141,7 +153,7 @@ export async function POST(req: NextRequest) {
             updated_at = NOW()
         WHERE id = ?
       `).run(parsedAmount, auth.userId);
-    } else {
+    } else if (txType === 'EXPENSE') {
       await db.prepare(`
         UPDATE users
         SET current_cash = GREATEST(0, current_cash - ?),

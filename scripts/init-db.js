@@ -59,10 +59,15 @@ export async function initDatabaseSchema() {
       type VARCHAR(10) NOT NULL DEFAULT 'EXPENSE', -- 'EXPENSE' | 'INCOME'
       amount NUMERIC NOT NULL,
       payment_method TEXT NOT NULL DEFAULT 'Nequi',
+      destination_method TEXT,
       notes TEXT,
       date DATE NOT NULL DEFAULT CURRENT_DATE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+  `;
+
+  await sql`
+    ALTER TABLE expenses ADD COLUMN IF NOT EXISTS destination_method TEXT;
   `;
 
   // 4. Goals table

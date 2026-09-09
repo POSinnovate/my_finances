@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { LogOut, Wallet, Edit3, X, Check, Shield } from 'lucide-react';
+import { LogOut, Wallet, Edit3, X, Check } from 'lucide-react';
 import { formatCOP } from '@/lib/utils';
 import { toast } from 'sonner';
 import { InstallPwaButton } from './InstallPwaButton';
@@ -132,14 +132,6 @@ export function Header({ user, onUserUpdate }: HeaderProps) {
                   )}
                 </div>
               </div>
-
-              {/* Role Badge (Desktop) */}
-              {user.role === 'ADMIN' && (
-                <div className="hidden sm:flex items-center gap-1 bg-[#00ADB5]/10 border border-[#00ADB5]/30 px-2 py-1 rounded-lg">
-                  <Shield className="w-3 h-3 text-[#00ADB5]" />
-                  <span className="text-[10px] font-bold text-[#00ADB5]">ADMIN</span>
-                </div>
-              )}
 
               {/* Logout button */}
               <button

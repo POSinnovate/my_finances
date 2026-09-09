@@ -1,16 +1,17 @@
 'use client';
 
 import React from 'react';
-import { X, Trash2, ArrowDownCircle, ArrowUpCircle, Calendar, CreditCard, Tag, FileText } from 'lucide-react';
+import { X, Trash2, ArrowDownCircle, ArrowUpCircle, Calendar, CreditCard, Tag, FileText, ArrowRightLeft } from 'lucide-react';
 import { formatCOP } from '@/lib/utils';
 import { formatMovementDetailDate } from '@/lib/dayjs';
 import { toast } from 'sonner';
 
 export interface Movement {
   id: string;
-  type?: 'EXPENSE' | 'INCOME';
+  type?: 'EXPENSE' | 'INCOME' | 'TRANSFER';
   amount: number;
   payment_method: string;
+  destination_method?: string | null;
   notes: string | null;
   date: string;
   created_at?: string;
@@ -35,17 +36,27 @@ export function MovementDetailModal({
   if (!isOpen || !movement) return null;
 
   const isIncome = movement.type === 'INCOME';
+  const isTransfer = movement.type === 'TRANSFER';
   const dateInfo = formatMovementDetailDate(movement.date, movement.created_at);
 
   const handleDelete = async () => {
-    if (!confirm('¿Deseas eliminar este movimiento? Tu fondo disponible se actualizará automáticamente.')) {
+    const confirmMsg = isTransfer
+      ? '¿Deseas eliminar este registro de transferencia entre cuentas?'
+      : '¿Deseas eliminar este movimiento? Tu fondo disponible se actualizará automáticamente.';
+    if (!confirm(confirmMsg)) {
       return;
     }
 
     try {
       const res = await fetch(`/api/expenses/${movement.id}`, { method: 'DELETE' });
       if (res.ok) {
-        toast.success(isIncome ? 'Ingreso eliminado y fondo ajustado' : 'Gasto eliminado y fondo restaurado');
+        toast.success(
+          isTransfer
+            ? 'Transferencia eliminada'
+            : isIncome
+            ? 'Ingreso eliminado y fondo ajustado'
+            : 'Gasto eliminado y fondo restaurado'
+        );
         onMovementDeleted();
         onClose();
       } else {
@@ -62,14 +73,23 @@ export function MovementDetailModal({
         {/* Glow Header Accent */}
         <div
           className={`absolute top-0 left-0 right-0 h-1.5 ${
-            isIncome ? 'bg-gradient-to-r from-emerald-500 to-teal-400' : 'bg-gradient-to-r from-rose-500 to-red-600'
+            isTransfer
+              ? 'bg-gradient-to-r from-cyan-500 to-indigo-500'
+              : isIncome
+              ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
+              : 'bg-gradient-to-r from-rose-500 to-red-600'
           }`}
         />
 
         {/* Top Close Row */}
         <div className="flex items-center justify-between pb-3 border-b border-[#1E3A5F]">
           <div className="flex items-center gap-2">
-            {isIncome ? (
+            {isTransfer ? (
+              <span className="text-xs font-bold text-cyan-400 flex items-center gap-1.5 uppercase tracking-wider whitespace-nowrap">
+                <ArrowRightLeft className="w-4 h-4 shrink-0" />
+                Transferencia Entre Cuentas
+              </span>
+            ) : isIncome ? (
               <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5 uppercase tracking-wider whitespace-nowrap">
                 <ArrowUpCircle className="w-4 h-4 shrink-0" />
                 Ingreso Registrado
@@ -92,36 +112,42 @@ export function MovementDetailModal({
 
         {/* Big Amount Card */}
         <div className="text-center py-5">
-          <span className="text-[11px] text-slate-400 uppercase font-semibold tracking-wider whitespace-nowrap">Impacto en Fondo</span>
+          <span className="text-[11px] text-slate-400 uppercase font-semibold tracking-wider whitespace-nowrap">
+            {isTransfer ? 'Monto Transferido' : 'Impacto en Fondo'}
+          </span>
           <p
             className={`text-3xl sm:text-4xl font-black mt-1 whitespace-nowrap ${
-              isIncome ? 'text-emerald-400' : 'text-rose-400'
+              isTransfer ? 'text-cyan-400' : isIncome ? 'text-emerald-400' : 'text-rose-400'
             }`}
           >
-            {isIncome ? `+${formatCOP(movement.amount)}` : `-${formatCOP(movement.amount)}`}
+            {isTransfer ? formatCOP(movement.amount) : isIncome ? `+${formatCOP(movement.amount)}` : `-${formatCOP(movement.amount)}`}
           </p>
           <span className="inline-block mt-2 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#102A43] border border-[#243B55] text-slate-300 whitespace-nowrap">
-            {isIncome ? 'Añadido a tu dinero disponible' : 'Descontado de tu dinero disponible'}
+            {isTransfer
+              ? 'Movimiento interno entre tus cuentas (Sin impacto en saldo total)'
+              : isIncome
+              ? 'Añadido a tu dinero disponible'
+              : 'Descontado de tu dinero disponible'}
           </span>
         </div>
 
         {/* Detail Attributes List */}
         <div className="bg-[#102A43] border border-[#243B55] rounded-2xl p-4 space-y-3">
-          {/* Category / Source */}
+          {/* Category / Source / Transfer */}
           <div className="flex items-center justify-between text-xs gap-2">
             <div className="flex items-center gap-2 text-slate-400 whitespace-nowrap shrink-0">
               <Tag className="w-4 h-4 text-[#00ADB5]" />
-              <span>{isIncome ? 'Fuente de Ingreso:' : 'Grupo de Gasto:'}</span>
+              <span>{isTransfer ? 'Tipo de Operación:' : isIncome ? 'Fuente de Ingreso:' : 'Grupo de Gasto:'}</span>
             </div>
             <div className="flex items-center gap-2 min-w-0">
               <div
                 className="w-2.5 h-2.5 rounded-full shrink-0"
-                style={{ backgroundColor: movement.category_color || (isIncome ? '#10B981' : '#00ADB5') }}
+                style={{ backgroundColor: movement.category_color || (isTransfer ? '#00ADB5' : isIncome ? '#10B981' : '#00ADB5') }}
               />
               <span className="font-bold text-white truncate">
-                {movement.category_name || (isIncome ? 'Ingreso General' : 'Gasto General')}
+                {isTransfer ? 'Transferencia entre Cuentas' : movement.category_name || (isIncome ? 'Ingreso General' : 'Gasto General')}
               </span>
-              {movement.is_fixed === 1 && (
+              {!isTransfer && movement.is_fixed === 1 && (
                 <span className="text-[9px] font-bold text-cyan-400 uppercase px-1.5 py-0.2 rounded bg-cyan-950/60 border border-cyan-800/40 whitespace-nowrap shrink-0">
                   Fijo
                 </span>
@@ -129,16 +155,39 @@ export function MovementDetailModal({
             </div>
           </div>
 
-          {/* Payment Method */}
-          <div className="flex items-center justify-between text-xs gap-2">
-            <div className="flex items-center gap-2 text-slate-400 whitespace-nowrap shrink-0">
-              <CreditCard className="w-4 h-4 text-[#00ADB5]" />
-              <span>Medio / Cuenta:</span>
+          {/* Payment Method / Accounts */}
+          {isTransfer ? (
+            <div className="space-y-2 pt-1 border-t border-[#1E3A5F]/50">
+              <div className="flex items-center justify-between text-xs gap-2">
+                <div className="flex items-center gap-2 text-slate-400 whitespace-nowrap shrink-0">
+                  <CreditCard className="w-4 h-4 text-rose-400" />
+                  <span>Cuenta Origen (Sale de):</span>
+                </div>
+                <span className="font-bold text-rose-300 px-2 py-0.5 rounded-lg bg-[#0B192C] border border-rose-500/30 whitespace-nowrap shrink-0">
+                  {movement.payment_method}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs gap-2">
+                <div className="flex items-center gap-2 text-slate-400 whitespace-nowrap shrink-0">
+                  <CreditCard className="w-4 h-4 text-emerald-400" />
+                  <span>Cuenta Destino (Entra a):</span>
+                </div>
+                <span className="font-bold text-emerald-300 px-2 py-0.5 rounded-lg bg-[#0B192C] border border-emerald-500/30 whitespace-nowrap shrink-0">
+                  {movement.destination_method || 'Efectivo'}
+                </span>
+              </div>
             </div>
-            <span className="font-bold text-white px-2 py-0.5 rounded-lg bg-[#0B192C] border border-[#243B55] whitespace-nowrap shrink-0">
-              {movement.payment_method || 'Nequi'}
-            </span>
-          </div>
+          ) : (
+            <div className="flex items-center justify-between text-xs gap-2">
+              <div className="flex items-center gap-2 text-slate-400 whitespace-nowrap shrink-0">
+                <CreditCard className="w-4 h-4 text-[#00ADB5]" />
+                <span>Medio / Cuenta:</span>
+              </div>
+              <span className="font-bold text-white px-2 py-0.5 rounded-lg bg-[#0B192C] border border-[#243B55] whitespace-nowrap shrink-0">
+                {movement.payment_method || 'Nequi'}
+              </span>
+            </div>
+          )}
 
           {/* Date Formatted with dayjs */}
           <div className="flex items-center justify-between text-xs gap-2">

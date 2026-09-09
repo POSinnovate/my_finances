@@ -599,21 +599,21 @@ export default function GoalsPage() {
             </div>
 
             <form onSubmit={handleCreateGoal} className="mt-4 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Título de la Meta
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Ej: Moto Nueva, Fondo de Emergencia, Viaje"
-                    value={goalTitle}
-                    onChange={(e) => setGoalTitle(e.target.value)}
-                    className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2.5 rounded-xl focus:border-[#00ADB5] focus:outline-none"
-                    required
-                  />
-                </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Título de la Meta
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ej: Moto Nueva, Fondo de Emergencia, Viaje"
+                  value={goalTitle}
+                  onChange={(e) => setGoalTitle(e.target.value)}
+                  className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2.5 rounded-xl focus:border-[#00ADB5] focus:outline-none"
+                  required
+                />
+              </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="text-xs font-semibold text-slate-300">
@@ -633,6 +633,29 @@ export default function GoalsPage() {
                     className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2.5 rounded-xl focus:border-[#00ADB5] focus:outline-none"
                     required
                   />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-slate-300">
+                      Ahorro Inicial Acumulado ($ COP)
+                    </label>
+                    {numCurrent > 0 && (
+                      <span className="text-[11px] text-emerald-400 font-bold">
+                        {formatCOP(numCurrent)}
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type="number"
+                    placeholder="Ej: 500000 (Opcional)"
+                    value={goalCurrent}
+                    onChange={(e) => setGoalCurrent(e.target.value)}
+                    className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2.5 rounded-xl focus:border-[#00ADB5] focus:outline-none"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Dinero que ya tienes ahorrado para esta meta.
+                  </p>
                 </div>
               </div>
 

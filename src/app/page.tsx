@@ -221,6 +221,7 @@ export default function DashboardPage() {
             <div className="space-y-2.5">
               {recentExpenses.map((exp: any) => {
                 const isIncome = exp.type === 'INCOME';
+                const isTransfer = exp.type === 'TRANSFER';
                 return (
                   <div
                     key={exp.id}
@@ -230,22 +231,38 @@ export default function DashboardPage() {
                     <div className="flex items-center gap-3 min-w-0">
                       <div
                         className="w-3 h-3 rounded-full shrink-0 shadow-sm"
-                        style={{ backgroundColor: isIncome ? '#10B981' : (exp.category_color || '#00ADB5') }}
+                        style={{
+                          backgroundColor: isTransfer
+                            ? '#00ADB5'
+                            : isIncome
+                            ? '#10B981'
+                            : (exp.category_color || '#00ADB5')
+                        }}
                       />
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-bold text-white group-hover:text-[#00ADB5] transition-colors truncate">
-                            {isIncome ? (exp.category_name || 'Ingreso de Dinero') : exp.category_name}
+                            {isTransfer
+                              ? 'Transferencia entre Cuentas'
+                              : isIncome
+                              ? (exp.category_name || 'Ingreso de Dinero')
+                              : exp.category_name}
                           </span>
-                          {/* Payment method badge replacing redundant text; green/red intuitively denotes in/out */}
-                          <span className={`text-[10px] px-2 py-0.5 rounded-md border font-medium whitespace-nowrap shrink-0 ${
-                            isIncome 
-                              ? 'bg-emerald-950/40 text-emerald-300 border-emerald-800/40' 
-                              : 'bg-[#0B192C] text-slate-300 border-[#243B55]'
-                          }`}>
-                            {exp.payment_method || (isIncome ? 'Fondo' : 'Efectivo')}
-                          </span>
-                          {!isIncome && exp.is_fixed === 1 && (
+                          {/* Payment method badge */}
+                          {isTransfer ? (
+                            <span className="text-[10px] px-2 py-0.5 rounded-md border font-bold bg-cyan-950/40 text-cyan-300 border-cyan-800/40 whitespace-nowrap shrink-0">
+                              🔁 {exp.payment_method} ➔ {exp.destination_method || 'Efectivo'}
+                            </span>
+                          ) : (
+                            <span className={`text-[10px] px-2 py-0.5 rounded-md border font-medium whitespace-nowrap shrink-0 ${
+                              isIncome 
+                                ? 'bg-emerald-950/40 text-emerald-300 border-emerald-800/40' 
+                                : 'bg-[#0B192C] text-slate-300 border-[#243B55]'
+                            }`}>
+                              {exp.payment_method || (isIncome ? 'Fondo' : 'Efectivo')}
+                            </span>
+                          )}
+                          {!isIncome && !isTransfer && exp.is_fixed === 1 && (
                             <span className="text-[9px] text-cyan-400 font-bold uppercase tracking-wider whitespace-nowrap shrink-0">
                               Fijo
                             </span>
@@ -259,8 +276,10 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                      <span className={`text-sm sm:text-base font-extrabold whitespace-nowrap shrink-0 ${isIncome ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        {isIncome ? `+${formatCOP(exp.amount)}` : `-${formatCOP(exp.amount)}`}
+                      <span className={`text-sm sm:text-base font-extrabold whitespace-nowrap shrink-0 ${
+                        isTransfer ? 'text-cyan-400' : isIncome ? 'text-emerald-400' : 'text-rose-400'
+                      }`}>
+                        {isTransfer ? formatCOP(exp.amount) : isIncome ? `+${formatCOP(exp.amount)}` : `-${formatCOP(exp.amount)}`}
                       </span>
                       <button
                         onClick={(e) => {

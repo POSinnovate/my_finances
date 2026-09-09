@@ -34,7 +34,7 @@ export default function ExpensesPage() {
 
   // Filters State
   const [selectedMonth, setSelectedMonth] = useState<string>('ALL');
-  const [selectedType, setSelectedType] = useState<'ALL' | 'EXPENSE' | 'INCOME'>('ALL');
+  const [selectedType, setSelectedType] = useState<'ALL' | 'EXPENSE' | 'INCOME' | 'TRANSFER'>('ALL');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -71,8 +71,9 @@ export default function ExpensesPage() {
   const filteredExpenses = useMemo(() => {
     return expenses.filter((e: any) => {
       // Type filter
-      if (selectedType === 'EXPENSE' && e.type === 'INCOME') return false;
+      if (selectedType === 'EXPENSE' && (e.type === 'INCOME' || e.type === 'TRANSFER')) return false;
       if (selectedType === 'INCOME' && e.type !== 'INCOME') return false;
+      if (selectedType === 'TRANSFER' && e.type !== 'TRANSFER') return false;
 
       // Category filter
       if (selectedCategory !== 'ALL' && e.category_id !== selectedCategory) return false;
@@ -257,6 +258,16 @@ export default function ExpensesPage() {
               >
                 + Ingresos
               </button>
+              <button
+                onClick={() => setSelectedType('TRANSFER')}
+                className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap shrink-0 ${
+                  selectedType === 'TRANSFER'
+                    ? 'bg-cyan-500 text-[#0B192C] shadow'
+                    : 'text-slate-400 hover:text-cyan-400'
+                }`}
+              >
+                🔁 Transferencias
+              </button>
             </div>
           </div>
 
@@ -376,6 +387,7 @@ export default function ExpensesPage() {
             <div className="space-y-2.5">
               {filteredExpenses.map((exp: any) => {
                 const isIncome = exp.type === 'INCOME';
+                const isTransfer = exp.type === 'TRANSFER';
                 return (
                   <div
                     key={exp.id}
@@ -385,21 +397,37 @@ export default function ExpensesPage() {
                     <div className="flex items-center gap-3 min-w-0">
                       <div
                         className="w-3.5 h-3.5 rounded-full shrink-0 shadow-sm"
-                        style={{ backgroundColor: isIncome ? '#10B981' : (exp.category_color || '#00ADB5') }}
+                        style={{
+                          backgroundColor: isTransfer
+                            ? '#00ADB5'
+                            : isIncome
+                            ? '#10B981'
+                            : (exp.category_color || '#00ADB5')
+                        }}
                       />
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-bold text-white group-hover:text-[#00ADB5] transition-colors truncate">
-                            {isIncome ? (exp.category_name || 'Ingreso de Dinero') : exp.category_name}
+                            {isTransfer
+                              ? 'Transferencia entre Cuentas'
+                              : isIncome
+                              ? (exp.category_name || 'Ingreso de Dinero')
+                              : exp.category_name}
                           </span>
-                          <span className={`text-[10px] px-2 py-0.5 rounded-md border font-medium whitespace-nowrap shrink-0 ${
-                            isIncome
-                              ? 'bg-emerald-950/40 text-emerald-300 border-emerald-800/40'
-                              : 'bg-[#0B192C] text-slate-300 border-[#243B55]'
-                          }`}>
-                            {exp.payment_method || (isIncome ? 'Fondo' : 'Efectivo')}
-                          </span>
-                          {!isIncome && exp.is_fixed === 1 && (
+                          {isTransfer ? (
+                            <span className="text-[10px] px-2 py-0.5 rounded-md border font-bold bg-cyan-950/40 text-cyan-300 border-cyan-800/40 whitespace-nowrap shrink-0">
+                              🔁 {exp.payment_method} ➔ {exp.destination_method || 'Efectivo'}
+                            </span>
+                          ) : (
+                            <span className={`text-[10px] px-2 py-0.5 rounded-md border font-medium whitespace-nowrap shrink-0 ${
+                              isIncome
+                                ? 'bg-emerald-950/40 text-emerald-300 border-emerald-800/40'
+                                : 'bg-[#0B192C] text-slate-300 border-[#243B55]'
+                            }`}>
+                              {exp.payment_method || (isIncome ? 'Fondo' : 'Efectivo')}
+                            </span>
+                          )}
+                          {!isIncome && !isTransfer && exp.is_fixed === 1 && (
                             <span className="text-[9px] text-cyan-400 font-bold uppercase tracking-wider whitespace-nowrap shrink-0">Fijo</span>
                           )}
                         </div>
@@ -411,8 +439,10 @@ export default function ExpensesPage() {
                     </div>
 
                     <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                      <span className={`text-sm sm:text-base font-black whitespace-nowrap shrink-0 ${isIncome ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        {isIncome ? `+${formatCOP(exp.amount)}` : `-${formatCOP(exp.amount)}`}
+                      <span className={`text-sm sm:text-base font-black whitespace-nowrap shrink-0 ${
+                        isTransfer ? 'text-cyan-400' : isIncome ? 'text-emerald-400' : 'text-rose-400'
+                      }`}>
+                        {isTransfer ? formatCOP(exp.amount) : isIncome ? `+${formatCOP(exp.amount)}` : `-${formatCOP(exp.amount)}`}
                       </span>
                       <button
                         onClick={(e) => {

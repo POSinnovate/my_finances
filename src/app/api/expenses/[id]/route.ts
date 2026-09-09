@@ -31,7 +31,7 @@ export async function DELETE(
             updated_at = NOW()
         WHERE id = ?
       `).run(numAmount, auth.userId);
-    } else {
+    } else if (txType === 'EXPENSE') {
       // Removing an expense restores the cash back to the fund
       await db.prepare(`
         UPDATE users
