@@ -904,58 +904,71 @@ export default function BudgetsPage() {
           </div>
         )}
 
-        {/* Modal / Inline Drawer for New Category / Source */}
+        {/* Modal: Crear Nueva Categoría / Fuente */}
         {isAddCategoryOpen && (
-          <div className="bg-[#0B192C] border border-[#00ADB5] rounded-3xl p-5 shadow-2xl animate-in fade-in duration-150">
-            <div className="flex items-center justify-between pb-3 border-b border-[#1E3A5F]">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <PlusCircle className="w-4 h-4 text-[#00ADB5]" />
-                  <span>Crear Nuevo Rubro:</span>
-                </span>
-                <div className="flex items-center bg-[#102A43] p-0.5 rounded-lg border border-[#243B55]">
-                  <button
-                    type="button"
-                    onClick={() => setNewCatType('EXPENSE')}
-                    className={`text-[11px] font-bold px-2 py-0.5 rounded-md transition-all ${
-                      newCatType === 'EXPENSE' ? 'bg-rose-500 text-white' : 'text-slate-400'
-                    }`}
-                  >
-                    Grupo de Gasto
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNewCatType('INCOME')}
-                    className={`text-[11px] font-bold px-2 py-0.5 rounded-md transition-all ${
-                      newCatType === 'INCOME' ? 'bg-emerald-500 text-slate-950' : 'text-slate-400'
-                    }`}
-                  >
-                    Fuente de Ingreso
-                  </button>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+            <div className={`w-full max-w-md bg-[#0B192C] border rounded-3xl p-6 shadow-2xl relative ${
+              newCatType === 'INCOME' ? 'border-emerald-500' : 'border-[#00ADB5]'
+            }`}>
+              <div className="flex items-center justify-between pb-3 border-b border-[#1E3A5F]">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                    {newCatType === 'INCOME' ? (
+                      <Briefcase className="w-4 h-4 text-emerald-400" />
+                    ) : (
+                      <Layers className="w-4 h-4 text-[#00ADB5]" />
+                    )}
+                    <span>Nuevo Rubro:</span>
+                  </span>
+                  <div className="flex items-center bg-[#102A43] p-0.5 rounded-lg border border-[#243B55]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewCatType('EXPENSE');
+                        setNewCatColor('#00ADB5');
+                      }}
+                      className={`text-[11px] font-bold px-2 py-0.5 rounded-md transition-all ${
+                        newCatType === 'EXPENSE' ? 'bg-[#00ADB5] text-[#0B192C]' : 'text-slate-400'
+                      }`}
+                    >
+                      Grupo de Gasto
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewCatType('INCOME');
+                        setNewCatColor('#10B981');
+                      }}
+                      className={`text-[11px] font-bold px-2 py-0.5 rounded-md transition-all ${
+                        newCatType === 'INCOME' ? 'bg-emerald-500 text-slate-950' : 'text-slate-400'
+                      }`}
+                    >
+                      Fuente de Ingreso
+                    </button>
+                  </div>
                 </div>
+
+                <button
+                  onClick={() => setIsAddCategoryOpen(false)}
+                  className="text-slate-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
 
-              <button
-                onClick={() => setIsAddCategoryOpen(false)}
-                className="text-slate-400 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateCategory} className="mt-4 space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <form onSubmit={handleCreateCategory} className="mt-4 space-y-3.5">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
                     {newCatType === 'INCOME' ? 'Nombre de la Fuente de Ingreso' : 'Nombre del Grupo de Gasto'}
                   </label>
                   <input
                     type="text"
-                    placeholder={newCatType === 'INCOME' ? 'Ej: Suscripciones Sistemas, Quincenas' : 'Ej: Mascotas, Gimnasio'}
+                    placeholder={newCatType === 'INCOME' ? 'Ej: Suscripciones Sistemas, Quincenas' : 'Ej: Mascotas, Gimnasio, Arriendo'}
                     value={newCatName}
                     onChange={(e) => setNewCatName(e.target.value)}
-                    className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2 rounded-xl focus:border-[#00ADB5] focus:outline-none"
+                    className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2.5 rounded-xl focus:border-[#00ADB5] focus:outline-none"
                     required
+                    autoFocus
                   />
                 </div>
 
@@ -976,31 +989,13 @@ export default function BudgetsPage() {
                       placeholder="Ej: 150000"
                       value={newCatBudget}
                       onChange={(e) => setNewCatBudget(e.target.value)}
-                      className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2 rounded-xl focus:border-[#00ADB5] focus:outline-none"
+                      className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2.5 rounded-xl focus:border-[#00ADB5] focus:outline-none"
                     />
                   </div>
                 )}
-              </div>
-
-              {/* Color selector & Fixed checkbox */}
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-semibold text-slate-400 mr-1">Color:</span>
-                  {COLOR_OPTIONS.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setNewCatColor(c)}
-                      className={`w-6 h-6 rounded-full border-2 transition-transform ${
-                        newCatColor === c ? 'scale-110 border-white' : 'border-transparent'
-                      }`}
-                      style={{ backgroundColor: c }}
-                    />
-                  ))}
-                </div>
 
                 {newCatType === 'EXPENSE' && (
-                  <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                  <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300 pt-1">
                     <input
                       type="checkbox"
                       checked={newCatIsFixed}
@@ -1010,48 +1005,70 @@ export default function BudgetsPage() {
                     <span>¿Es un compromiso fijo mensual? (Ej: papás, arriendo)</span>
                   </label>
                 )}
-              </div>
 
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAddCategoryOpen(false)}
-                  className="px-3 py-1.5 rounded-xl text-xs text-slate-400 hover:text-white"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmittingCat}
-                  className="px-4 py-2 rounded-xl bg-[#00ADB5] text-[#0B192C] font-extrabold text-xs shadow-md hover:opacity-90 flex items-center gap-1.5"
-                >
-                  <Check className="w-3.5 h-3.5 stroke-[3px]" />
-                  <span>Guardar</span>
-                </button>
-              </div>
-            </form>
+                {/* Color selector */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Color Distintivo</label>
+                  <div className="flex items-center gap-2 pt-1">
+                    {COLOR_OPTIONS.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setNewCatColor(c)}
+                        className={`w-7 h-7 rounded-full border-2 transition-transform ${
+                          newCatColor === c ? 'scale-110 border-white' : 'border-transparent'
+                        }`}
+                        style={{ backgroundColor: c }}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-3 border-t border-[#1E3A5F]">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddCategoryOpen(false)}
+                    className="px-3 py-1.5 rounded-xl text-xs text-slate-400 hover:text-white"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingCat}
+                    className={`px-4 py-2 rounded-xl font-extrabold text-xs shadow-md flex items-center gap-1.5 transition-colors ${
+                      newCatType === 'INCOME'
+                        ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'
+                        : 'bg-[#00ADB5] hover:opacity-90 text-[#0B192C]'
+                    }`}
+                  >
+                    <Check className="w-3.5 h-3.5 stroke-[3px]" />
+                    <span>{isSubmittingCat ? 'Guardando...' : 'Crear Rubro'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         )}
 
-        {/* Modal / Inline Drawer for New Payment Method */}
+        {/* Modal: Crear Nuevo Método de Pago / Cuenta */}
         {isAddMethodOpen && (
-          <div className="bg-[#0B192C] border border-cyan-400 rounded-3xl p-5 shadow-2xl animate-in fade-in duration-150">
-            <div className="flex items-center justify-between pb-3 border-b border-[#1E3A5F]">
-              <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                <Wallet className="w-4 h-4 text-cyan-400" />
-                <span>Agregar Nuevo Método / Cuenta de Pago</span>
-              </span>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+            <div className="w-full max-w-md bg-[#0B192C] border border-cyan-400 rounded-3xl p-6 shadow-2xl relative">
+              <div className="flex items-center justify-between pb-3 border-b border-[#1E3A5F]">
+                <span className="text-sm font-bold text-white flex items-center gap-2">
+                  <Wallet className="w-4 h-4 text-cyan-400" />
+                  <span>Agregar Nuevo Método / Cuenta</span>
+                </span>
 
-              <button
-                onClick={() => setIsAddMethodOpen(false)}
-                className="text-slate-400 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+                <button
+                  onClick={() => setIsAddMethodOpen(false)}
+                  className="text-slate-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
 
-            <form onSubmit={handleCreatePaymentMethod} className="mt-4 space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <form onSubmit={handleCreatePaymentMethod} className="mt-4 space-y-3.5">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
                     Nombre del Medio o Cuenta
@@ -1061,8 +1078,9 @@ export default function BudgetsPage() {
                     placeholder="Ej: Nu Colombia, Dale, Davivienda, Caja Oficina"
                     value={newMethodName}
                     onChange={(e) => setNewMethodName(e.target.value)}
-                    className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2 rounded-xl focus:border-cyan-400 focus:outline-none"
+                    className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2.5 rounded-xl focus:border-cyan-400 focus:outline-none"
                     required
+                    autoFocus
                   />
                 </div>
 
@@ -1073,7 +1091,7 @@ export default function BudgetsPage() {
                   <select
                     value={newMethodType}
                     onChange={(e) => setNewMethodType(e.target.value)}
-                    className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2 rounded-xl focus:border-cyan-400 focus:outline-none"
+                    className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2.5 rounded-xl focus:border-cyan-400 focus:outline-none"
                   >
                     {METHOD_TYPES.map((mt) => (
                       <option key={mt.id} value={mt.id}>
@@ -1082,42 +1100,44 @@ export default function BudgetsPage() {
                     ))}
                   </select>
                 </div>
-              </div>
 
-              {/* Color selector */}
-              <div className="flex items-center gap-2 pt-1">
-                <span className="text-xs font-semibold text-slate-400 mr-1">Color Distintivo:</span>
-                {COLOR_OPTIONS.map((c) => (
+                {/* Color selector */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Color Distintivo</label>
+                  <div className="flex items-center gap-2 pt-1">
+                    {COLOR_OPTIONS.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setNewMethodColor(c)}
+                        className={`w-7 h-7 rounded-full border-2 transition-transform ${
+                          newMethodColor === c ? 'scale-110 border-white' : 'border-transparent'
+                        }`}
+                        style={{ backgroundColor: c }}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-3 border-t border-[#1E3A5F]">
                   <button
-                    key={c}
                     type="button"
-                    onClick={() => setNewMethodColor(c)}
-                    className={`w-6 h-6 rounded-full border-2 transition-transform ${
-                      newMethodColor === c ? 'scale-110 border-white' : 'border-transparent'
-                    }`}
-                    style={{ backgroundColor: c }}
-                  />
-                ))}
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAddMethodOpen(false)}
-                  className="px-3 py-1.5 rounded-xl text-xs text-slate-400 hover:text-white"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmittingMethod}
-                  className="px-4 py-2 rounded-xl bg-cyan-400 text-slate-950 font-extrabold text-xs shadow-md hover:bg-cyan-300 flex items-center gap-1.5"
-                >
-                  <Check className="w-3.5 h-3.5 stroke-[3px]" />
-                  <span>Guardar Método</span>
-                </button>
-              </div>
-            </form>
+                    onClick={() => setIsAddMethodOpen(false)}
+                    className="px-3 py-1.5 rounded-xl text-xs text-slate-400 hover:text-white"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingMethod}
+                    className="px-4 py-2 rounded-xl bg-cyan-400 text-slate-950 font-extrabold text-xs shadow-md hover:bg-cyan-300 flex items-center gap-1.5"
+                  >
+                    <Check className="w-3.5 h-3.5 stroke-[3px]" />
+                    <span>{isSubmittingMethod ? 'Guardando...' : 'Guardar Método'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         )}
       </main>
