@@ -24,13 +24,17 @@ export function Header({ user, onUserUpdate }: HeaderProps) {
   const [isEditingCash, setIsEditingCash] = useState(false);
   const [cashValue, setCashValue] = useState(user?.current_cash?.toString() || '0');
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleLogout = async () => {
+    setIsLoggingOut(true);
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
       window.location.href = '/login';
     } catch {
       toast.error('Error al cerrar sesión');
+      setIsLoggingOut(false);
     }
   };
 
@@ -135,7 +139,7 @@ export function Header({ user, onUserUpdate }: HeaderProps) {
 
               {/* Logout button */}
               <button
-                onClick={handleLogout}
+                onClick={() => setIsLogoutModalOpen(true)}
                 className="p-1.5 sm:p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all shrink-0"
                 title="Cerrar sesión"
               >
@@ -145,6 +149,55 @@ export function Header({ user, onUserUpdate }: HeaderProps) {
           )}
         </div>
       </div>
+
+      {/* Logout Confirmation Modal */}
+      {isLogoutModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-sm bg-[#0B192C] border border-[#1E3A5F] rounded-3xl p-6 shadow-2xl relative overflow-hidden text-center animate-in zoom-in-95 duration-150">
+            {/* Top Accent Glow */}
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-rose-500 via-red-500 to-amber-500" />
+
+            {/* Warning Icon Badge */}
+            <div className="w-14 h-14 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-rose-500/10">
+              <LogOut className="w-7 h-7 text-rose-400" />
+            </div>
+
+            {/* Title & Warning Text */}
+            <h3 className="text-lg font-black text-white">¿Cerrar Sesión?</h3>
+            <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+              Estás a punto de salir de tu panel financiero. Deberás volver a ingresar tus credenciales para acceder a tus movimientos y cuentas.
+            </p>
+
+            {/* Action Buttons */}
+            <div className="mt-6 flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => setIsLogoutModalOpen(false)}
+                disabled={isLoggingOut}
+                className="flex-1 py-2.5 rounded-xl bg-[#102A43] hover:bg-[#152E4D] border border-[#243B55] text-xs font-bold text-slate-300 transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white text-xs font-bold shadow-lg shadow-rose-600/30 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+              >
+                {isLoggingOut ? (
+                  <span>Saliendo...</span>
+                ) : (
+                  <>
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Sí, Salir</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

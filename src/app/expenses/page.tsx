@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
@@ -28,7 +28,10 @@ import {
   ArrowUpCircle,
   ArrowRightLeft,
   ArrowDownRight,
-  ArrowUpRight
+  ArrowUpRight,
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -114,6 +117,24 @@ export default function ExpensesPage() {
   }, [filteredExpenses]);
 
   const netBalance = totalIncomesAmount - totalExpensesAmount;
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 15;
+
+  // Reset page to 1 whenever filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedMonth, selectedType, selectedCategory, selectedPaymentMethod, searchQuery]);
+
+  const totalItems = filteredExpenses.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+
+  const paginatedExpenses = useMemo(() => {
+    const start = (safeCurrentPage - 1) * pageSize;
+    return filteredExpenses.slice(start, start + pageSize);
+  }, [filteredExpenses, safeCurrentPage, pageSize]);
 
   // Generate quick month pills (current and previous 2 months in Colombia)
   const currentMonthISO = getTodayColombiaDate().slice(0, 7);
@@ -394,7 +415,7 @@ export default function ExpensesPage() {
             </div>
           ) : (
             <div className="space-y-2.5">
-              {filteredExpenses.map((exp: any) => {
+              {paginatedExpenses.map((exp: any) => {
                 const isIncome = exp.type === 'INCOME';
                 const isTransfer = exp.type === 'TRANSFER';
                 return (
@@ -434,7 +455,7 @@ export default function ExpensesPage() {
                             <span className="text-[10px] px-2 py-0.5 rounded-md border font-semibold bg-cyan-950/50 text-cyan-300 border-cyan-800/50 whitespace-nowrap shrink-0 flex items-center gap-1">
                               <ArrowRightLeft className="w-3 h-3 text-cyan-400 shrink-0" />
                               <span>{exp.payment_method}</span>
-                              <span className="text-slate-400">➔</span>
+                              <ArrowRight className="w-3 h-3 text-cyan-400 shrink-0" />
                               <span>{exp.destination_method || 'Efectivo'}</span>
                             </span>
                           ) : (
@@ -482,6 +503,48 @@ export default function ExpensesPage() {
                   </div>
                 );
               })}
+
+              {/* Pagination Controls */}
+              {totalItems > 0 && (
+                <div className="mt-4 pt-3.5 border-t border-[#1E3A5F]/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                  <div className="text-slate-400 text-[11px] sm:text-xs">
+                    Mostrando{' '}
+                    <span className="font-bold text-white">
+                      {(safeCurrentPage - 1) * pageSize + 1}
+                    </span>
+                    {' '}-{' '}
+                    <span className="font-bold text-white">
+                      {Math.min(safeCurrentPage * pageSize, totalItems)}
+                    </span>
+                    {' '}de{' '}
+                    <span className="font-bold text-[#00ADB5]">{totalItems}</span> movimientos
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                      disabled={safeCurrentPage <= 1}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl border font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed bg-[#102A43] hover:bg-[#152E4D] border-[#243B55] text-slate-300 hover:text-white"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                      <span>Anterior</span>
+                    </button>
+
+                    <div className="px-3 py-1.5 rounded-xl bg-[#0B192C] border border-[#243B55] text-[11px] font-bold text-white whitespace-nowrap">
+                      Página <span className="text-cyan-400">{safeCurrentPage}</span> de <span className="text-slate-300">{totalPages}</span>
+                    </div>
+
+                    <button
+                      onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                      disabled={safeCurrentPage >= totalPages}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl border font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed bg-[#102A43] hover:bg-[#152E4D] border-[#243B55] text-slate-300 hover:text-white"
+                    >
+                      <span>Siguiente</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

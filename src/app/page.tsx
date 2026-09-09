@@ -265,7 +265,7 @@ export default function DashboardPage() {
                             <span className="text-[10px] px-2 py-0.5 rounded-md border font-semibold bg-cyan-950/50 text-cyan-300 border-cyan-800/50 whitespace-nowrap shrink-0 flex items-center gap-1">
                               <ArrowRightLeft className="w-3 h-3 text-cyan-400 shrink-0" />
                               <span>{exp.payment_method}</span>
-                              <span className="text-slate-400">➔</span>
+                              <ArrowRight className="w-3 h-3 text-cyan-400 shrink-0" />
                               <span>{exp.destination_method || 'Efectivo'}</span>
                             </span>
                           ) : (

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { X, Trash2, ArrowDownCircle, ArrowUpCircle, Calendar, CreditCard, Tag, FileText, ArrowRightLeft } from 'lucide-react';
+import { X, Trash2, ArrowDownCircle, ArrowUpCircle, Calendar, CreditCard, Tag, FileText, ArrowRightLeft, ArrowRight } from 'lucide-react';
 import { formatCOP } from '@/lib/utils';
 import { formatMovementDetailDate } from '@/lib/dayjs';
 import { toast } from 'sonner';
@@ -136,14 +136,22 @@ export function MovementDetailModal({
           {/* Category / Source / Transfer */}
           <div className="flex items-center justify-between text-xs gap-2">
             <div className="flex items-center gap-2 text-slate-400 whitespace-nowrap shrink-0">
-              <Tag className="w-4 h-4 text-[#00ADB5]" />
+              {isTransfer ? (
+                <ArrowRightLeft className="w-4 h-4 text-cyan-400 shrink-0" />
+              ) : (
+                <Tag className="w-4 h-4 text-[#00ADB5] shrink-0" />
+              )}
               <span>{isTransfer ? 'Tipo de Operación:' : isIncome ? 'Fuente de Ingreso:' : 'Grupo de Gasto:'}</span>
             </div>
             <div className="flex items-center gap-2 min-w-0">
-              <div
-                className="w-2.5 h-2.5 rounded-full shrink-0"
-                style={{ backgroundColor: movement.category_color || (isTransfer ? '#00ADB5' : isIncome ? '#10B981' : '#00ADB5') }}
-              />
+              {isTransfer ? (
+                <ArrowRightLeft className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+              ) : (
+                <div
+                  className="w-2.5 h-2.5 rounded-full shrink-0"
+                  style={{ backgroundColor: movement.category_color || (isIncome ? '#10B981' : '#00ADB5') }}
+                />
+              )}
               <span className="font-bold text-white truncate">
                 {isTransfer ? 'Transferencia entre Cuentas' : movement.category_name || (isIncome ? 'Ingreso General' : 'Gasto General')}
               </span>
@@ -157,10 +165,10 @@ export function MovementDetailModal({
 
           {/* Payment Method / Accounts */}
           {isTransfer ? (
-            <div className="space-y-2 pt-1 border-t border-[#1E3A5F]/50">
+            <div className="space-y-2 pt-2 border-t border-[#1E3A5F]/50">
               <div className="flex items-center justify-between text-xs gap-2">
                 <div className="flex items-center gap-2 text-slate-400 whitespace-nowrap shrink-0">
-                  <CreditCard className="w-4 h-4 text-rose-400" />
+                  <CreditCard className="w-4 h-4 text-rose-400 shrink-0" />
                   <span>Cuenta Origen (Sale de):</span>
                 </div>
                 <span className="font-bold text-rose-300 px-2 py-0.5 rounded-lg bg-[#0B192C] border border-rose-500/30 whitespace-nowrap shrink-0">
@@ -169,7 +177,7 @@ export function MovementDetailModal({
               </div>
               <div className="flex items-center justify-between text-xs gap-2">
                 <div className="flex items-center gap-2 text-slate-400 whitespace-nowrap shrink-0">
-                  <CreditCard className="w-4 h-4 text-emerald-400" />
+                  <CreditCard className="w-4 h-4 text-emerald-400 shrink-0" />
                   <span>Cuenta Destino (Entra a):</span>
                 </div>
                 <span className="font-bold text-emerald-300 px-2 py-0.5 rounded-lg bg-[#0B192C] border border-emerald-500/30 whitespace-nowrap shrink-0">
@@ -180,7 +188,7 @@ export function MovementDetailModal({
           ) : (
             <div className="flex items-center justify-between text-xs gap-2">
               <div className="flex items-center gap-2 text-slate-400 whitespace-nowrap shrink-0">
-                <CreditCard className="w-4 h-4 text-[#00ADB5]" />
+                <CreditCard className="w-4 h-4 text-[#00ADB5] shrink-0" />
                 <span>Medio / Cuenta:</span>
               </div>
               <span className="font-bold text-white px-2 py-0.5 rounded-lg bg-[#0B192C] border border-[#243B55] whitespace-nowrap shrink-0">
@@ -189,17 +197,22 @@ export function MovementDetailModal({
             </div>
           )}
 
-          {/* Date Formatted with dayjs */}
-          <div className="flex items-center justify-between text-xs gap-2">
-            <div className="flex items-center gap-2 text-slate-400 whitespace-nowrap shrink-0">
-              <Calendar className="w-4 h-4 text-[#00ADB5]" />
-              <span>Fecha del Movimiento:</span>
+          {/* Date Formatted with dayjs - Single Column Stack with Truncate & without redundant country tag */}
+          <div className="pt-2 border-t border-[#1E3A5F]/50">
+            <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-1.5">
+              <Calendar className="w-4 h-4 text-[#00ADB5] shrink-0" />
+              <span className="font-medium">Fecha de movimiento:</span>
             </div>
-            <div className="text-right">
-              <span className="font-bold text-white block whitespace-nowrap">{dateInfo.dayName}, {dateInfo.formattedDate}</span>
+            <div className="bg-[#0B192C] border border-[#243B55] px-3 py-2 rounded-xl flex items-center justify-between gap-2 overflow-hidden">
+              <span
+                className="font-bold text-xs text-white truncate"
+                title={`${dateInfo.dayName ? `${dateInfo.dayName}, ` : ''}${dateInfo.formattedDate}`}
+              >
+                {dateInfo.dayName ? `${dateInfo.dayName}, ` : ''}{dateInfo.formattedDate}
+              </span>
               {dateInfo.timeFormatted && (
-                <span className="text-[10px] text-slate-400 font-mono block whitespace-nowrap">
-                  Hora: {dateInfo.timeFormatted} (Col)
+                <span className="text-[10px] text-cyan-400 font-mono shrink-0 whitespace-nowrap bg-cyan-950/50 border border-cyan-800/40 px-2 py-0.5 rounded-md">
+                  {dateInfo.timeFormatted}
                 </span>
               )}
             </div>
