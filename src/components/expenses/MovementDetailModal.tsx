@@ -124,7 +124,7 @@ export function MovementDetailModal({
           </p>
           <span className="inline-block mt-2 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#102A43] border border-[#243B55] text-slate-300 whitespace-nowrap">
             {isTransfer
-              ? 'Movimiento interno entre tus cuentas (Sin impacto en saldo total)'
+              ? 'Movimiento interno entre tus cuentas'
               : isIncome
               ? 'Añadido a tu dinero disponible'
               : 'Descontado de tu dinero disponible'}
@@ -144,14 +144,6 @@ export function MovementDetailModal({
               <span>{isTransfer ? 'Tipo de Operación:' : isIncome ? 'Fuente de Ingreso:' : 'Grupo de Gasto:'}</span>
             </div>
             <div className="flex items-center gap-2 min-w-0">
-              {isTransfer ? (
-                <ArrowRightLeft className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-              ) : (
-                <div
-                  className="w-2.5 h-2.5 rounded-full shrink-0"
-                  style={{ backgroundColor: movement.category_color || (isIncome ? '#10B981' : '#00ADB5') }}
-                />
-              )}
               <span className="font-bold text-white truncate">
                 {isTransfer ? 'Transferencia entre Cuentas' : movement.category_name || (isIncome ? 'Ingreso General' : 'Gasto General')}
               </span>
@@ -169,7 +161,7 @@ export function MovementDetailModal({
               <div className="flex items-center justify-between text-xs gap-2">
                 <div className="flex items-center gap-2 text-slate-400 whitespace-nowrap shrink-0">
                   <CreditCard className="w-4 h-4 text-rose-400 shrink-0" />
-                  <span>Cuenta Origen (Sale de):</span>
+                  <span>Cuenta Origen:</span>
                 </div>
                 <span className="font-bold text-rose-300 px-2 py-0.5 rounded-lg bg-[#0B192C] border border-rose-500/30 whitespace-nowrap shrink-0">
                   {movement.payment_method}
@@ -178,7 +170,7 @@ export function MovementDetailModal({
               <div className="flex items-center justify-between text-xs gap-2">
                 <div className="flex items-center gap-2 text-slate-400 whitespace-nowrap shrink-0">
                   <CreditCard className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span>Cuenta Destino (Entra a):</span>
+                  <span>Cuenta Destino:</span>
                 </div>
                 <span className="font-bold text-emerald-300 px-2 py-0.5 rounded-lg bg-[#0B192C] border border-emerald-500/30 whitespace-nowrap shrink-0">
                   {movement.destination_method || 'Efectivo'}

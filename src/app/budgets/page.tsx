@@ -676,6 +676,11 @@ export default function BudgetsPage() {
                         <p className="text-xs font-black text-white mt-0.5 whitespace-nowrap">
                           {formatCOP(pm.income_this_month || 0)}
                         </p>
+                        {pm.transfers_in > 0 && (
+                          <span className="text-[9px] text-cyan-300 font-medium block mt-0.5 truncate">
+                            +{formatCOP(pm.transfers_in)} recibidos
+                          </span>
+                        )}
                       </div>
 
                       <div className="p-2 rounded-xl bg-[#102A43]/60">
@@ -686,7 +691,22 @@ export default function BudgetsPage() {
                         <p className="text-xs font-black text-white mt-0.5 whitespace-nowrap">
                           {formatCOP(pm.expense_this_month || 0)}
                         </p>
+                        {pm.transfers_out > 0 && (
+                          <span className="text-[9px] text-cyan-300 font-medium block mt-0.5 truncate">
+                            -{formatCOP(pm.transfers_out)} enviados
+                          </span>
+                        )}
                       </div>
+                    </div>
+
+                    {/* Account Net Balance */}
+                    <div className="p-2 rounded-xl bg-[#070F1E] border border-[#1E3A5F] flex items-center justify-between">
+                      <span className="text-[10px] text-slate-400 font-medium">Balance en cuenta:</span>
+                      <span className={`text-xs font-extrabold font-mono ${
+                        (pm.net_balance ?? 0) >= 0 ? 'text-cyan-400' : 'text-rose-400'
+                      }`}>
+                        {formatCOP(pm.net_balance ?? 0)}
+                      </span>
                     </div>
 
                     <div className="flex items-center justify-between text-[11px] text-slate-400 pt-0.5">

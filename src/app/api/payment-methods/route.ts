@@ -28,30 +28,92 @@ export async function GET(req: NextRequest) {
       `).all(auth.userId) as any[];
     }
 
-    // Get statistics per payment method for active period / month
-    const stats = await db.prepare(`
+    // Query all expenses for this user to compute precise inflows, outflows and balances
+    const userExpenses = await db.prepare(`
       SELECT 
-        payment_method,
-        COUNT(id) as movement_count,
-        COALESCE(SUM(CASE WHEN type = 'INCOME' AND (strftime('%Y-%m', date) = ? OR date >= ?) THEN amount ELSE 0 END), 0) as income_this_month,
-        COALESCE(SUM(CASE WHEN (type = 'EXPENSE' OR type IS NULL) AND (strftime('%Y-%m', date) = ? OR date >= ?) THEN amount ELSE 0 END), 0) as expense_this_month
+        id,
+        type, 
+        amount, 
+        payment_method, 
+        destination_method, 
+        date
       FROM expenses
       WHERE user_id = ?
-      GROUP BY payment_method
-    `).all(currentMonth, thirtyFiveDaysAgo, currentMonth, thirtyFiveDaysAgo, auth.userId) as any[];
-
-    const statsMap = new Map<string, any>();
-    for (const s of stats) {
-      statsMap.set(s.payment_method?.toLowerCase(), s);
-    }
+    `).all(auth.userId) as any[];
 
     const result = methods.map((m) => {
-      const s = statsMap.get(m.name?.toLowerCase()) || {};
+      const methodName = (m.name || '').trim().toLowerCase();
+
+      let movement_count = 0;
+      let income_this_month = 0;
+      let expense_this_month = 0;
+      let total_income = 0;
+      let total_expense = 0;
+      let transfers_in = 0;
+      let transfers_out = 0;
+
+      for (const e of userExpenses) {
+        const amt = Number(e.amount) || 0;
+        const src = (e.payment_method || '').trim().toLowerCase();
+        const dst = (e.destination_method || '').trim().toLowerCase();
+
+        let dateStr = '';
+        if (typeof e.date === 'string') {
+          dateStr = e.date.split('T')[0];
+        } else if (e.date instanceof Date) {
+          dateStr = e.date.toISOString().split('T')[0];
+        }
+
+        const isThisMonth = dateStr.startsWith(currentMonth) || (dateStr !== '' && dateStr >= thirtyFiveDaysAgo);
+
+        const isSource = src === methodName;
+        const isDest = dst === methodName;
+
+        if (isSource || isDest) {
+          movement_count++;
+        }
+
+        // Direct Income into this account
+        if (e.type === 'INCOME' && isSource) {
+          total_income += amt;
+          if (isThisMonth) income_this_month += amt;
+        }
+
+        // Direct Expense from this account
+        if ((e.type === 'EXPENSE' || !e.type) && isSource) {
+          total_expense += amt;
+          if (isThisMonth) expense_this_month += amt;
+        }
+
+        // Transfer into this account (Destination: Money entered)
+        if (e.type === 'TRANSFER' && isDest) {
+          total_income += amt;
+          transfers_in += amt;
+          if (isThisMonth) income_this_month += amt;
+        }
+
+        // Transfer out of this account (Source: Money left)
+        if (e.type === 'TRANSFER' && isSource) {
+          total_expense += amt;
+          transfers_out += amt;
+          if (isThisMonth) expense_this_month += amt;
+        }
+      }
+
+      const net_balance = total_income - total_expense;
+      const net_this_month = income_this_month - expense_this_month;
+
       return {
         ...m,
-        movement_count: Number(s.movement_count) || 0,
-        income_this_month: Number(s.income_this_month) || 0,
-        expense_this_month: Number(s.expense_this_month) || 0,
+        movement_count,
+        income_this_month,
+        expense_this_month,
+        transfers_in,
+        transfers_out,
+        total_income,
+        total_expense,
+        net_balance,
+        net_this_month,
       };
     });
 
@@ -143,6 +205,12 @@ export async function PUT(req: NextRequest) {
         UPDATE expenses
         SET payment_method = ?
         WHERE payment_method = ? AND user_id = ?
+      `).run(newName, currentMethod.name, auth.userId);
+
+      await db.prepare(`
+        UPDATE expenses
+        SET destination_method = ?
+        WHERE destination_method = ? AND user_id = ?
       `).run(newName, currentMethod.name, auth.userId);
     }
 

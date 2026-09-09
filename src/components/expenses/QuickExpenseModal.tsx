@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, Check, ArrowDownCircle, ArrowUpCircle, ArrowRightLeft, Plus, Wallet, Tag } from 'lucide-react';
+import { X, Check, ArrowDownCircle, ArrowUpCircle, ArrowRightLeft, Plus, Wallet, Tag, Info } from 'lucide-react';
 import { formatCOP } from '@/lib/utils';
 import { toast } from 'sonner';
 import { getTodayColombiaDate } from '@/lib/dayjs';
@@ -468,7 +468,7 @@ export function QuickExpenseModal({ isOpen, onClose, onExpenseAdded, categories:
 
               {/* Educational alert */}
               <p className="text-[11px] text-slate-300 bg-[#0B192C] p-2.5 rounded-xl border border-[#243B55]/70 flex items-start gap-2 leading-snug">
-                <span className="text-cyan-400 font-bold shrink-0">ℹ️</span>
+                <Info className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
                 <span>
                   Traspaso de dinero entre tus cuentas (ej. retiro de tarjeta a efectivo o traslado bancario). <strong>Tu fondo total libre permanece igual</strong>, solo cambia de medio.
                 </span>
