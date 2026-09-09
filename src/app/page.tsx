@@ -94,7 +94,7 @@ export default function DashboardPage() {
             className="self-start sm:self-center py-2.5 px-4 rounded-2xl bg-gradient-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] font-extrabold text-xs shadow-lg shadow-[#00ADB5]/20 flex items-center gap-2 hover:opacity-95 active:scale-95 transition-all whitespace-nowrap shrink-0"
           >
             <PlusCircle className="w-4 h-4 stroke-[2.5px]" />
-            <span>+ Registrar Movimiento</span>
+            <span>Registrar Movimiento</span>
           </button>
         </div>
 
