@@ -84,6 +84,14 @@ export default function BudgetsPage() {
   const [editMethodColor, setEditMethodColor] = useState(COLOR_OPTIONS[0]);
   const [isSavingEditMethod, setIsSavingEditMethod] = useState(false);
 
+  // Edit Category Modal (Grupos de Gasto y Fuentes de Ingreso)
+  const [editingCategory, setEditingCategory] = useState<any | null>(null);
+  const [editCategoryName, setEditCategoryName] = useState('');
+  const [editCategoryBudget, setEditCategoryBudget] = useState('');
+  const [editCategoryColor, setEditCategoryColor] = useState(COLOR_OPTIONS[0]);
+  const [editCategoryIsFixed, setEditCategoryIsFixed] = useState(false);
+  const [isSavingEditCategory, setIsSavingEditCategory] = useState(false);
+
   const handleOpenAdd = () => {
     if (activeTab === 'PAYMENT_METHODS') {
       setIsAddMethodOpen(true);
@@ -224,6 +232,75 @@ export default function BudgetsPage() {
         invalidateFinance();
       } else {
         toast.error(data.error || 'No se pudo eliminar el método');
+      }
+    } catch {
+      toast.error('Error de conexión');
+    }
+  };
+
+  const handleOpenEditCategory = (cat: any) => {
+    setEditingCategory(cat);
+    setEditCategoryName(cat.name);
+    setEditCategoryBudget(cat.monthly_budget ? cat.monthly_budget.toString() : '');
+    setEditCategoryColor(cat.color || (cat.type === 'INCOME' ? '#10B981' : '#00ADB5'));
+    setEditCategoryIsFixed(cat.is_fixed === 1);
+  };
+
+  const handleSaveEditCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCategory) return;
+    if (!editCategoryName.trim()) {
+      toast.error('El nombre es obligatorio');
+      return;
+    }
+
+    setIsSavingEditCategory(true);
+    try {
+      const res = await fetch('/api/categories', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingCategory.id,
+          name: editCategoryName.trim(),
+          color: editCategoryColor,
+          monthly_budget: Number(editCategoryBudget) || 0,
+          is_fixed: editingCategory.type === 'INCOME' ? 0 : (editCategoryIsFixed ? 1 : 0),
+        }),
+      });
+
+      if (res.ok) {
+        toast.success(
+          editingCategory.type === 'INCOME'
+            ? `Fuente "${editCategoryName.trim()}" actualizada`
+            : `Grupo "${editCategoryName.trim()}" actualizado`
+        );
+        setEditingCategory(null);
+        invalidateFinance();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || 'Error al actualizar');
+      }
+    } catch {
+      toast.error('Error de conexión');
+    } finally {
+      setIsSavingEditCategory(false);
+    }
+  };
+
+  const handleDeleteCategory = async (id: string, name: string, type: string) => {
+    const isIncome = type === 'INCOME';
+    const msg = isIncome
+      ? `¿Eliminar la fuente de ingreso "${name}"? Los movimientos ya registrados se conservarán.`
+      : `¿Eliminar el grupo de gasto "${name}"? Los movimientos registrados no se borrarán.`;
+    if (!confirm(msg)) return;
+
+    try {
+      const res = await fetch(`/api/categories?id=${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        toast.success(isIncome ? `Fuente "${name}" eliminada` : `Grupo "${name}" eliminado`);
+        invalidateFinance();
+      } else {
+        toast.error('Error al eliminar');
       }
     } catch {
       toast.error('Error de conexión');
@@ -387,7 +464,8 @@ export default function BudgetsPage() {
                     <BudgetCard
                       key={cat.id}
                       category={cat}
-                      onBudgetUpdated={invalidateFinance}
+                      onEdit={handleOpenEditCategory}
+                      onDelete={(id, name) => handleDeleteCategory(id, name, 'EXPENSE')}
                     />
                   ))}
                 </div>
@@ -421,7 +499,8 @@ export default function BudgetsPage() {
                     <BudgetCard
                       key={cat.id}
                       category={cat}
-                      onBudgetUpdated={invalidateFinance}
+                      onEdit={handleOpenEditCategory}
+                      onDelete={(id, name) => handleDeleteCategory(id, name, 'EXPENSE')}
                     />
                   ))}
                 </div>
@@ -495,7 +574,8 @@ export default function BudgetsPage() {
                       category={cat}
                       totalMonthlyIncome={totalIncomeThisMonth}
                       isTopSource={idx === 0 && (cat.earned_this_month || 0) > 0}
-                      onUpdated={invalidateFinance}
+                      onEdit={handleOpenEditCategory}
+                      onDelete={(id, name) => handleDeleteCategory(id, name, 'INCOME')}
                     />
                   ))}
                 </div>
@@ -697,6 +777,126 @@ export default function BudgetsPage() {
                   >
                     <Check className="w-3.5 h-3.5 stroke-[3px]" />
                     <span>Guardar Cambios</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Modal: Edit Category (Expense or Income) */}
+        {editingCategory && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+            <div className={`w-full max-w-md bg-[#0B192C] border rounded-3xl p-6 shadow-2xl relative ${
+              editingCategory.type === 'INCOME' ? 'border-emerald-500' : 'border-[#00ADB5]'
+            }`}>
+              <div className="flex items-center justify-between pb-3 border-b border-[#1E3A5F]">
+                <span className="text-sm font-bold text-white flex items-center gap-2">
+                  {editingCategory.type === 'INCOME' ? (
+                    <>
+                      <Briefcase className="w-4 h-4 text-emerald-400" />
+                      <span>Editar Fuente de Ingreso</span>
+                    </>
+                  ) : (
+                    <>
+                      <Layers className="w-4 h-4 text-[#00ADB5]" />
+                      <span>Editar Grupo de Gasto</span>
+                    </>
+                  )}
+                </span>
+                <button
+                  onClick={() => setEditingCategory(null)}
+                  className="text-slate-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveEditCategory} className="mt-4 space-y-3.5">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    {editingCategory.type === 'INCOME' ? 'Nombre de la Fuente' : 'Nombre del Grupo'}
+                  </label>
+                  <input
+                    type="text"
+                    value={editCategoryName}
+                    onChange={(e) => setEditCategoryName(e.target.value)}
+                    className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2.5 rounded-xl focus:border-[#00ADB5] focus:outline-none"
+                    required
+                    autoFocus
+                  />
+                </div>
+
+                {editingCategory.type !== 'INCOME' && (
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-semibold text-slate-300">
+                        Presupuesto Mensual Estimado ($ COP)
+                      </label>
+                      {Number(editCategoryBudget) > 0 && (
+                        <span className="text-[11px] text-[#00ADB5] font-bold">
+                          {formatCOP(Number(editCategoryBudget))}
+                        </span>
+                      )}
+                    </div>
+                    <input
+                      type="number"
+                      value={editCategoryBudget}
+                      onChange={(e) => setEditCategoryBudget(e.target.value)}
+                      placeholder="Ej: 500000"
+                      className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2.5 rounded-xl focus:border-[#00ADB5] focus:outline-none"
+                    />
+                  </div>
+                )}
+
+                {editingCategory.type !== 'INCOME' && (
+                  <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300 pt-1">
+                    <input
+                      type="checkbox"
+                      checked={editCategoryIsFixed}
+                      onChange={(e) => setEditCategoryIsFixed(e.target.checked)}
+                      className="rounded border-[#243B55] text-[#00ADB5] focus:ring-0"
+                    />
+                    <span>¿Es un compromiso fijo mensual obligatorio? (Ej: papás, arriendo)</span>
+                  </label>
+                )}
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Color Distintivo</label>
+                  <div className="flex items-center gap-2 pt-1">
+                    {COLOR_OPTIONS.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setEditCategoryColor(c)}
+                        className={`w-7 h-7 rounded-full border-2 transition-transform ${
+                          editCategoryColor === c ? 'scale-110 border-white' : 'border-transparent'
+                        }`}
+                        style={{ backgroundColor: c }}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-3 border-t border-[#1E3A5F]">
+                  <button
+                    type="button"
+                    onClick={() => setEditingCategory(null)}
+                    className="px-3 py-1.5 rounded-xl text-xs text-slate-400 hover:text-white"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingEditCategory}
+                    className={`px-4 py-2 rounded-xl font-extrabold text-xs shadow-md flex items-center gap-1.5 transition-colors ${
+                      editingCategory.type === 'INCOME'
+                        ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'
+                        : 'bg-[#00ADB5] hover:opacity-90 text-[#0B192C]'
+                    }`}
+                  >
+                    <Check className="w-3.5 h-3.5 stroke-[3px]" />
+                    <span>{isSavingEditCategory ? 'Guardando...' : 'Guardar Cambios'}</span>
                   </button>
                 </div>
               </form>

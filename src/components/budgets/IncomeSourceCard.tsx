@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Edit3, Check, X, Trash2, TrendingUp, Calendar, DollarSign, Award } from 'lucide-react';
+import React from 'react';
+import { Edit3, Trash2, TrendingUp, Calendar, Award, Briefcase } from 'lucide-react';
 import { formatCOP } from '@/lib/utils';
-import { toast } from 'sonner';
 
 export interface IncomeCategory {
   id: string;
@@ -20,19 +19,17 @@ interface IncomeSourceCardProps {
   category: IncomeCategory;
   totalMonthlyIncome: number;
   isTopSource?: boolean;
-  onUpdated: () => void;
+  onEdit: (category: IncomeCategory) => void;
+  onDelete: (id: string, name: string) => void;
 }
 
 export function IncomeSourceCard({
   category,
   totalMonthlyIncome,
   isTopSource = false,
-  onUpdated,
+  onEdit,
+  onDelete,
 }: IncomeSourceCardProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [name, setName] = useState(category.name);
-  const [isSaving, setIsSaving] = useState(false);
-
   const earnedMonth = Number(category.earned_this_month) || 0;
   const earnedYear = Number(category.earned_this_year) || 0;
 
@@ -40,56 +37,13 @@ export function IncomeSourceCard({
     ? Math.round((earnedMonth / totalMonthlyIncome) * 100) 
     : 0;
 
-  const handleSave = async () => {
-    if (!name.trim()) {
-      toast.error('El nombre no puede estar vacío');
-      return;
-    }
-    setIsSaving(true);
-    try {
-      const res = await fetch('/api/categories', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: category.id, name: name.trim() }),
-      });
-      if (res.ok) {
-        toast.success('Fuente de ingreso actualizada');
-        setIsEditing(false);
-        onUpdated();
-      } else {
-        toast.error('Error al actualizar');
-      }
-    } catch {
-      toast.error('Error de conexión');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!confirm(`¿Eliminar la fuente "${category.name}"? Los ingresos ya registrados se conservarán.`)) {
-      return;
-    }
-    try {
-      const res = await fetch(`/api/categories?id=${category.id}`, { method: 'DELETE' });
-      if (res.ok) {
-        toast.success('Fuente eliminada');
-        onUpdated();
-      } else {
-        toast.error('Error al eliminar');
-      }
-    } catch {
-      toast.error('Error de conexión');
-    }
-  };
-
   return (
-    <div className={`bg-[#102A43] border rounded-2xl p-4 transition-all shadow-md relative overflow-hidden ${
+    <div className={`bg-[#102A43] border rounded-2xl p-4 transition-all shadow-md relative overflow-hidden space-y-3 ${
       isTopSource ? 'border-emerald-500/50 ring-1 ring-emerald-500/30' : 'border-[#243B55] hover:border-[#1E3A5F]'
     }`}>
       {/* Top Banner Tag for Top Source */}
       {isTopSource && (
-        <div className="absolute top-0 right-0 bg-gradient-to-l from-emerald-500 to-teal-500 text-slate-950 font-black text-[9px] uppercase tracking-wider px-2.5 py-0.5 rounded-bl-xl flex items-center gap-1 shadow-sm">
+        <div className="absolute top-0 right-0 bg-gradient-to-l from-emerald-500 to-teal-500 text-slate-950 font-black text-[9px] uppercase tracking-wider px-2.5 py-0.5 rounded-bl-xl flex items-center gap-1 shadow-sm z-10">
           <Award className="w-3 h-3" />
           <span>Fuente Principal</span>
         </div>
@@ -99,69 +53,37 @@ export function IncomeSourceCard({
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
           <div
-            className="w-3.5 h-3.5 rounded-full shrink-0 shadow-sm"
+            className="w-8 h-8 rounded-xl flex items-center justify-center text-white shrink-0 shadow-sm"
             style={{ backgroundColor: category.color || '#10B981' }}
-          />
+          >
+            <Briefcase className="w-4 h-4" />
+          </div>
           <div className="min-w-0">
-            <h4 className="text-sm font-bold text-white leading-snug truncate">{category.name}</h4>
+            <h4 className="text-sm font-black text-white leading-snug truncate">{category.name}</h4>
             <span className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wider whitespace-nowrap">
-              Entrada de Dinero
+              Fuente de Ingreso
             </span>
           </div>
         </div>
 
+        {/* Action Buttons: Edit + Delete */}
         <div className="flex items-center gap-1 shrink-0">
           <button
-            onClick={() => {
-              setName(category.name);
-              setIsEditing(!isEditing);
-            }}
-            className="p-1 rounded-lg text-slate-400 hover:text-[#00ADB5] hover:bg-[#152E4D] transition-colors shrink-0"
-            title="Editar nombre"
+            onClick={() => onEdit(category)}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all shrink-0"
+            title="Editar fuente de ingreso"
           >
             <Edit3 className="w-3.5 h-3.5" />
           </button>
+          <button
+            onClick={() => onDelete(category.id, category.name)}
+            className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all shrink-0"
+            title="Eliminar fuente"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
-
-      {/* Edit Form */}
-      {isEditing && (
-        <div className="mt-3 p-2.5 bg-[#0B192C] border border-[#00ADB5]/40 rounded-xl space-y-2">
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full bg-[#152E4D] border border-[#243B55] text-white text-xs px-2.5 py-1.5 rounded-lg focus:outline-none focus:border-[#00ADB5]"
-            placeholder="Nombre de la fuente"
-            autoFocus
-          />
-          <div className="flex items-center justify-between pt-1">
-            <button
-              onClick={handleDelete}
-              className="text-[11px] text-rose-400 hover:underline flex items-center gap-1"
-            >
-              <Trash2 className="w-3 h-3" />
-              <span>Eliminar</span>
-            </button>
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => setIsEditing(false)}
-                className="px-2 py-1 text-xs text-slate-400 hover:text-white"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={isSaving}
-                className="px-3 py-1 bg-[#00ADB5] text-[#0B192C] font-bold text-xs rounded-lg flex items-center gap-1"
-              >
-                <Check className="w-3.5 h-3.5" />
-                <span>Guardar</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Figures Row: Month & Year */}
       <div className="grid grid-cols-2 gap-2 mt-3.5 pt-2.5 border-t border-[#1E3A5F]">
