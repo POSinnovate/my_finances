@@ -2,7 +2,8 @@
 
 import React from 'react';
 import { X, Trash2, ArrowDownCircle, ArrowUpCircle, Calendar, CreditCard, Tag, FileText } from 'lucide-react';
-import { formatCOP, formatDateSpanish } from '@/lib/utils';
+import { formatCOP } from '@/lib/utils';
+import { formatMovementDetailDate } from '@/lib/dayjs';
 import { toast } from 'sonner';
 
 export interface Movement {
@@ -34,6 +35,7 @@ export function MovementDetailModal({
   if (!isOpen || !movement) return null;
 
   const isIncome = movement.type === 'INCOME';
+  const dateInfo = formatMovementDetailDate(movement.date);
 
   const handleDelete = async () => {
     if (!confirm('¿Deseas eliminar este movimiento? Tu fondo disponible se actualizará automáticamente.')) {
@@ -68,13 +70,13 @@ export function MovementDetailModal({
         <div className="flex items-center justify-between pb-3 border-b border-[#1E3A5F]">
           <div className="flex items-center gap-2">
             {isIncome ? (
-              <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5 uppercase tracking-wider">
-                <ArrowUpCircle className="w-4 h-4" />
+              <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5 uppercase tracking-wider whitespace-nowrap">
+                <ArrowUpCircle className="w-4 h-4 shrink-0" />
                 Ingreso Registrado
               </span>
             ) : (
-              <span className="text-xs font-bold text-rose-400 flex items-center gap-1.5 uppercase tracking-wider">
-                <ArrowDownCircle className="w-4 h-4" />
+              <span className="text-xs font-bold text-rose-400 flex items-center gap-1.5 uppercase tracking-wider whitespace-nowrap">
+                <ArrowDownCircle className="w-4 h-4 shrink-0" />
                 Egreso / Gasto
               </span>
             )}
@@ -90,15 +92,15 @@ export function MovementDetailModal({
 
         {/* Big Amount Card */}
         <div className="text-center py-5">
-          <span className="text-[11px] text-slate-400 uppercase font-semibold tracking-wider">Impacto en Fondo</span>
+          <span className="text-[11px] text-slate-400 uppercase font-semibold tracking-wider whitespace-nowrap">Impacto en Fondo</span>
           <p
-            className={`text-3xl sm:text-4xl font-black mt-1 ${
+            className={`text-3xl sm:text-4xl font-black mt-1 whitespace-nowrap ${
               isIncome ? 'text-emerald-400' : 'text-rose-400'
             }`}
           >
             {isIncome ? `+${formatCOP(movement.amount)}` : `-${formatCOP(movement.amount)}`}
           </p>
-          <span className="inline-block mt-2 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#102A43] border border-[#243B55] text-slate-300">
+          <span className="inline-block mt-2 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#102A43] border border-[#243B55] text-slate-300 whitespace-nowrap">
             {isIncome ? 'Añadido a tu dinero disponible' : 'Descontado de tu dinero disponible'}
           </span>
         </div>
@@ -106,21 +108,21 @@ export function MovementDetailModal({
         {/* Detail Attributes List */}
         <div className="bg-[#102A43] border border-[#243B55] rounded-2xl p-4 space-y-3">
           {/* Category / Source */}
-          <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2 text-slate-400">
+          <div className="flex items-center justify-between text-xs gap-2">
+            <div className="flex items-center gap-2 text-slate-400 whitespace-nowrap shrink-0">
               <Tag className="w-4 h-4 text-[#00ADB5]" />
               <span>{isIncome ? 'Fuente de Ingreso:' : 'Grupo de Gasto:'}</span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               <div
-                className="w-2.5 h-2.5 rounded-full"
+                className="w-2.5 h-2.5 rounded-full shrink-0"
                 style={{ backgroundColor: movement.category_color || (isIncome ? '#10B981' : '#00ADB5') }}
               />
-              <span className="font-bold text-white">
+              <span className="font-bold text-white truncate">
                 {movement.category_name || (isIncome ? 'Ingreso General' : 'Gasto General')}
               </span>
               {movement.is_fixed === 1 && (
-                <span className="text-[9px] font-bold text-cyan-400 uppercase px-1.5 py-0.2 rounded bg-cyan-950/60 border border-cyan-800/40">
+                <span className="text-[9px] font-bold text-cyan-400 uppercase px-1.5 py-0.2 rounded bg-cyan-950/60 border border-cyan-800/40 whitespace-nowrap shrink-0">
                   Fijo
                 </span>
               )}
@@ -128,35 +130,39 @@ export function MovementDetailModal({
           </div>
 
           {/* Payment Method */}
-          <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2 text-slate-400">
+          <div className="flex items-center justify-between text-xs gap-2">
+            <div className="flex items-center gap-2 text-slate-400 whitespace-nowrap shrink-0">
               <CreditCard className="w-4 h-4 text-[#00ADB5]" />
               <span>Medio / Cuenta:</span>
             </div>
-            <span className="font-bold text-white px-2 py-0.5 rounded-lg bg-[#0B192C] border border-[#243B55]">
+            <span className="font-bold text-white px-2 py-0.5 rounded-lg bg-[#0B192C] border border-[#243B55] whitespace-nowrap shrink-0">
               {movement.payment_method || 'Nequi'}
             </span>
           </div>
 
-          {/* Date Formatted */}
-          <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2 text-slate-400">
+          {/* Date Formatted with dayjs */}
+          <div className="flex items-center justify-between text-xs gap-2">
+            <div className="flex items-center gap-2 text-slate-400 whitespace-nowrap shrink-0">
               <Calendar className="w-4 h-4 text-[#00ADB5]" />
               <span>Fecha del Movimiento:</span>
             </div>
             <div className="text-right">
-              <span className="font-bold text-white block">{formatDateSpanish(movement.date)}</span>
-              <span className="text-[10px] text-slate-400 font-mono">{movement.date}</span>
+              <span className="font-bold text-white block whitespace-nowrap">{dateInfo.dayName}, {dateInfo.formattedDate}</span>
+              {movement.created_at && (
+                <span className="text-[10px] text-slate-400 font-mono block whitespace-nowrap">
+                  Hora: {formatMovementDetailDate(movement.created_at).timeFormatted}
+                </span>
+              )}
             </div>
           </div>
 
           {/* Notes / Concept */}
           <div className="pt-2 border-t border-[#1E3A5F]">
-            <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-1">
+            <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-1 whitespace-nowrap">
               <FileText className="w-3.5 h-3.5 text-[#00ADB5]" />
               <span>Concepto / Descripción:</span>
             </div>
-            <p className="text-xs font-semibold text-slate-200 bg-[#0B192C] border border-[#243B55] p-2.5 rounded-xl">
+            <p className="text-xs font-semibold text-slate-200 bg-[#0B192C] border border-[#243B55] p-2.5 rounded-xl break-words">
               {movement.notes || 'Sin descripción adicional'}
             </p>
           </div>

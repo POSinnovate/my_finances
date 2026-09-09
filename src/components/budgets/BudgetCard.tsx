@@ -25,11 +25,16 @@ interface BudgetCardProps {
 
 export function BudgetCard({ category, onBudgetUpdated }: BudgetCardProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [newName, setNewName] = useState(category.name);
   const [newBudget, setNewBudget] = useState(category.monthly_budget.toString());
   const [newIsFixed, setNewIsFixed] = useState(category.is_fixed === 1);
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {
+    if (!newName.trim()) {
+      toast.error('El nombre del grupo es obligatorio');
+      return;
+    }
     const num = Number(newBudget);
     if (isNaN(num) || num < 0) {
       toast.error('Ingresa un monto válido');
@@ -42,12 +47,13 @@ export function BudgetCard({ category, onBudgetUpdated }: BudgetCardProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           id: category.id, 
+          name: newName.trim(),
           monthly_budget: num,
           is_fixed: newIsFixed
         }),
       });
       if (res.ok) {
-        toast.success(`Grupo "${category.name}" actualizado`);
+        toast.success(`Grupo "${newName.trim()}" actualizado`);
         setIsEditing(false);
         onBudgetUpdated();
       } else {
@@ -93,32 +99,33 @@ export function BudgetCard({ category, onBudgetUpdated }: BudgetCardProps) {
   return (
     <div className="bg-[#102A43] border border-[#243B55] hover:border-[#1E3A5F] rounded-2xl p-4 transition-all shadow-md">
       {/* Top Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
           <div
             className="w-3.5 h-3.5 rounded-full shrink-0 shadow-sm"
             style={{ backgroundColor: category.color || '#00ADB5' }}
           />
-          <div>
-            <h4 className="text-sm font-bold text-white leading-snug">{category.name}</h4>
+          <div className="min-w-0">
+            <h4 className="text-sm font-bold text-white leading-snug truncate">{category.name}</h4>
             {category.is_fixed === 1 && (
-              <span className="text-[10px] text-cyan-400 font-semibold uppercase tracking-wider">Gasto Fijo</span>
+              <span className="text-[10px] text-cyan-400 font-semibold uppercase tracking-wider whitespace-nowrap">Gasto Fijo</span>
             )}
           </div>
         </div>
 
         {/* Status Traffic Light Badge */}
-        <div className="flex items-center gap-1.5">
-          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusColor}`}>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap ${statusColor}`}>
             {category.percentage_used}%
           </span>
           <button
             onClick={() => {
+              setNewName(category.name);
               setNewBudget(category.monthly_budget.toString());
               setIsEditing(!isEditing);
             }}
-            className="p-1 rounded-lg text-slate-400 hover:text-[#00ADB5] hover:bg-[#152E4D] transition-colors"
-            title="Ajustar presupuesto mensual"
+            className="p-1 rounded-lg text-slate-400 hover:text-[#00ADB5] hover:bg-[#152E4D] transition-colors shrink-0"
+            title="Editar grupo de gasto"
           >
             <Edit3 className="w-3.5 h-3.5" />
           </button>
@@ -128,15 +135,26 @@ export function BudgetCard({ category, onBudgetUpdated }: BudgetCardProps) {
       {/* Edit Form */}
       {isEditing && (
         <div className="mt-3 p-3 bg-[#0B192C] border border-[#00ADB5]/40 rounded-xl space-y-2.5">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-slate-400 shrink-0">Presupuesto:</span>
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-400 mb-1">Nombre del Grupo:</label>
+            <input
+              type="text"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              className="w-full bg-[#152E4D] border border-[#243B55] text-white text-xs px-2.5 py-1.5 rounded-lg focus:outline-none focus:border-[#00ADB5]"
+              placeholder="Ej: Alimentación, Arriendo"
+              autoFocus
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-400 mb-1">Presupuesto Mensual Estimado ($ COP):</label>
             <input
               type="number"
               value={newBudget}
               onChange={(e) => setNewBudget(e.target.value)}
-              className="flex-1 bg-[#152E4D] border border-[#243B55] text-white text-xs px-2.5 py-1.5 rounded-lg focus:outline-none focus:border-[#00ADB5]"
+              className="w-full bg-[#152E4D] border border-[#243B55] text-white text-xs px-2.5 py-1.5 rounded-lg focus:outline-none focus:border-[#00ADB5]"
               placeholder="Monto estimado"
-              autoFocus
             />
           </div>
 

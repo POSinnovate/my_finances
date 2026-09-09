@@ -27,13 +27,23 @@ import {
 import Link from 'next/link';
 import { toast } from 'sonner';
 
+import { 
+  useUser, 
+  useGoals, 
+  useCategories, 
+  usePaymentMethods, 
+  useInvalidateFinance 
+} from '@/lib/api-hooks';
+
 export default function GoalsPage() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
-  const [goals, setGoals] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const invalidateFinance = useInvalidateFinance();
+
+  const { data: user } = useUser();
+  const { data: goals = [] } = useGoals();
+  const { data: categories = [] } = useCategories();
+  const { data: paymentMethods = [] } = usePaymentMethods();
+
   const [isQuickExpenseOpen, setIsQuickExpenseOpen] = useState(false);
   const [isAddGoalOpen, setIsAddGoalOpen] = useState(false);
 
@@ -66,48 +76,6 @@ export default function GoalsPage() {
   const totalCalculatedNeeds = calcFixedExpenses + calcVariableExpenses + calcDesiredSavings;
   const safetyBuffer = Math.round(totalCalculatedNeeds * (calcBufferPercent / 100));
   const requiredMonthlyIncome = totalCalculatedNeeds + safetyBuffer;
-
-  const loadData = useCallback(async () => {
-    try {
-      const meRes = await fetch('/api/auth/me');
-      if (!meRes.ok) {
-        router.push('/login');
-        return;
-      }
-      const meData = await meRes.json();
-      setUser(meData.user);
-
-      const goalsRes = await fetch('/api/goals');
-      if (goalsRes.ok) {
-        const goalsData = await goalsRes.json();
-        setGoals(goalsData.goals || []);
-      }
-
-      const catRes = await fetch('/api/categories');
-      if (catRes.ok) {
-        const catData = await catRes.json();
-        setCategories(catData.categories || []);
-      }
-
-      const pmRes = await fetch('/api/payment-methods');
-      if (pmRes.ok) {
-        const pmData = await pmRes.json();
-        if (pmData.paymentMethods?.length) {
-          setPaymentMethods(pmData.paymentMethods);
-          setDepositMethod((prev) => prev || pmData.paymentMethods[0].name);
-          setWithdrawMethod((prev) => prev || pmData.paymentMethods[0].name);
-        }
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [router]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
 
   // Quick target date presets
   const handleSetPresetMonths = (months: number) => {
@@ -145,7 +113,7 @@ export default function GoalsPage() {
         setGoalMonthly('');
         setGoalDate('');
         setIsAddGoalOpen(false);
-        await loadData();
+        invalidateFinance();
       } else {
         toast.error('Error al crear meta');
       }
@@ -179,7 +147,7 @@ export default function GoalsPage() {
         toast.success(`Se abonaron ${formatCOP(amount)} y se descontaron de tu saldo en mano`);
         setDepositGoalId(null);
         setDepositAmount('');
-        await loadData();
+        invalidateFinance();
       } else {
         toast.error(data.error || 'Error al abonar');
       }
@@ -213,7 +181,7 @@ export default function GoalsPage() {
         toast.success(`Se regresaron ${formatCOP(amount)} a tu saldo disponible`);
         setWithdrawGoalId(null);
         setWithdrawAmount('');
-        await loadData();
+        invalidateFinance();
       } else {
         toast.error(data.error || 'Error al retirar');
       }
@@ -234,7 +202,7 @@ export default function GoalsPage() {
       const res = await fetch(`/api/goals?id=${id}`, { method: 'DELETE' });
       if (res.ok) {
         toast.success('Meta eliminada y saldo reintegrado al fondo');
-        await loadData();
+        invalidateFinance();
       } else {
         toast.error('Error al eliminar');
       }
@@ -265,13 +233,13 @@ export default function GoalsPage() {
   const userIncome = user?.monthly_income || 2200000;
   const incomeDifference = userIncome - requiredMonthlyIncome;
 
-  const totalSavedInGoals = goals.reduce((acc, g) => acc + (Number(g.current_amount) || 0), 0);
-  const totalTargetInGoals = goals.reduce((acc, g) => acc + (Number(g.target_amount) || 0), 0);
+  const totalSavedInGoals = goals.reduce((acc: number, g: any) => acc + (Number(g.current_amount) || 0), 0);
+  const totalTargetInGoals = goals.reduce((acc: number, g: any) => acc + (Number(g.target_amount) || 0), 0);
   const availableCash = Number(user?.current_cash) || 0;
 
   return (
     <div className="min-h-screen bg-[#070F1E] flex flex-col">
-      <Header user={user} onUserUpdate={loadData} />
+      <Header user={user} onUserUpdate={invalidateFinance} />
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-5 space-y-5">
         {/* Top Header */}
@@ -347,7 +315,7 @@ export default function GoalsPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {goals.map((goal) => {
+              {goals.map((goal: any) => {
                 const progress = goal.progress_percentage || 0;
                 const isDone = progress >= 100;
                 const isDepositingThis = depositGoalId === goal.id;
@@ -479,7 +447,7 @@ export default function GoalsPage() {
                               onChange={(e) => setDepositMethod(e.target.value)}
                               className="flex-1 bg-[#102A43] border border-[#243B55] text-white text-xs px-2 py-1.5 rounded-lg focus:outline-none"
                             >
-                              {paymentMethods.map((pm) => (
+                              {paymentMethods.map((pm: any) => (
                                 <option key={pm.id} value={pm.name}>
                                   {pm.name}
                                 </option>
@@ -544,7 +512,7 @@ export default function GoalsPage() {
                               onChange={(e) => setWithdrawMethod(e.target.value)}
                               className="flex-1 bg-[#102A43] border border-[#243B55] text-white text-xs px-2 py-1.5 rounded-lg focus:outline-none"
                             >
-                              {paymentMethods.map((pm) => (
+                              {paymentMethods.map((pm: any) => (
                                 <option key={pm.id} value={pm.name}>
                                   {pm.name}
                                 </option>
@@ -875,7 +843,7 @@ export default function GoalsPage() {
       <QuickExpenseModal
         isOpen={isQuickExpenseOpen}
         onClose={() => setIsQuickExpenseOpen(false)}
-        onExpenseAdded={loadData}
+        onExpenseAdded={invalidateFinance}
         categories={categories}
       />
     </div>

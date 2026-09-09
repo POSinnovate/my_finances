@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { Toaster } from 'sonner';
+import { QueryProvider } from '@/components/providers/QueryProvider';
 
 export const metadata: Metadata = {
   title: 'PosInnovate Finanzas | Control de Gastos Personales',
@@ -28,7 +29,9 @@ export default function RootLayout({
   return (
     <html lang="es" className="dark">
       <body className="min-h-screen bg-[#070F1E] text-slate-100 antialiased selection:bg-[#00ADB5]/30 selection:text-white pb-mobile-nav">
-        {children}
+        <QueryProvider>
+          {children}
+        </QueryProvider>
         <Toaster richColors position="top-center" theme="dark" />
       </body>
     </html>

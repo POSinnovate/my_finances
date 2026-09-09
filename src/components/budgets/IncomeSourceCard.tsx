@@ -96,27 +96,27 @@ export function IncomeSourceCard({
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
           <div
             className="w-3.5 h-3.5 rounded-full shrink-0 shadow-sm"
             style={{ backgroundColor: category.color || '#10B981' }}
           />
-          <div>
-            <h4 className="text-sm font-bold text-white leading-snug">{category.name}</h4>
-            <span className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wider">
+          <div className="min-w-0">
+            <h4 className="text-sm font-bold text-white leading-snug truncate">{category.name}</h4>
+            <span className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wider whitespace-nowrap">
               Entrada de Dinero
             </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={() => {
               setName(category.name);
               setIsEditing(!isEditing);
             }}
-            className="p-1 rounded-lg text-slate-400 hover:text-[#00ADB5] hover:bg-[#152E4D] transition-colors"
+            className="p-1 rounded-lg text-slate-400 hover:text-[#00ADB5] hover:bg-[#152E4D] transition-colors shrink-0"
             title="Editar nombre"
           >
             <Edit3 className="w-3.5 h-3.5" />

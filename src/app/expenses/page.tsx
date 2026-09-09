@@ -1,120 +1,122 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { QuickExpenseModal } from '@/components/expenses/QuickExpenseModal';
-import { MovementDetailModal } from '@/components/expenses/MovementDetailModal';
-import { formatCOP, formatDateSpanish } from '@/lib/utils';
-import { Receipt, Trash2, Filter, Search, PlusCircle, ArrowLeft } from 'lucide-react';
+import { MovementDetailModal, Movement } from '@/components/expenses/MovementDetailModal';
+import { formatCOP } from '@/lib/utils';
+import { formatShortDateSpanish } from '@/lib/dayjs';
+import { 
+  useUser, 
+  useExpenses, 
+  useCategories, 
+  usePaymentMethods, 
+  useInvalidateFinance 
+} from '@/lib/api-hooks';
+import { 
+  ArrowLeft, 
+  Search, 
+  PlusCircle, 
+  Trash2, 
+  Receipt,
+  Calendar,
+  Layers,
+  Wallet
+} from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 
 export default function ExpensesPage() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
-  const [expenses, setExpenses] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
+  const invalidateFinance = useInvalidateFinance();
+
+  // Filters State
+  const [selectedMonth, setSelectedMonth] = useState<string>('ALL');
   const [selectedType, setSelectedType] = useState<'ALL' | 'EXPENSE' | 'INCOME'>('ALL');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
-  const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('ALL');
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [selectedMonth, setSelectedMonth] = useState<string>('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Modals State
   const [isQuickExpenseOpen, setIsQuickExpenseOpen] = useState(false);
-  const [selectedMovement, setSelectedMovement] = useState<any | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [selectedMovement, setSelectedMovement] = useState<Movement | null>(null);
 
-  const loadData = useCallback(async () => {
-    try {
-      const meRes = await fetch('/api/auth/me');
-      if (!meRes.ok) {
-        router.push('/login');
-        return;
-      }
-      const meData = await meRes.json();
-      setUser(meData.user);
-
-      const catRes = await fetch('/api/categories');
-      if (catRes.ok) {
-        const catData = await catRes.json();
-        setCategories(catData.categories || []);
-      }
-
-      const pmRes = await fetch('/api/payment-methods');
-      if (pmRes.ok) {
-        const pmData = await pmRes.json();
-        setPaymentMethods(pmData.paymentMethods || []);
-      }
-
-      let expUrl = '/api/expenses?';
-      if (selectedMonth !== 'ALL') {
-        expUrl += `month=${selectedMonth}&`;
-      }
-      if (selectedType !== 'ALL') {
-        expUrl += `&type=${selectedType}`;
-      }
-      if (selectedCategory !== 'ALL') {
-        expUrl += `&categoryId=${selectedCategory}`;
-      }
-      if (selectedPaymentMethod !== 'ALL') {
-        expUrl += `&paymentMethod=${encodeURIComponent(selectedPaymentMethod)}`;
-      }
-      const expRes = await fetch(expUrl);
-      if (expRes.ok) {
-        const expData = await expRes.json();
-        setExpenses(expData.expenses || []);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [router, selectedMonth, selectedType, selectedCategory, selectedPaymentMethod]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  // TanStack React Query Hooks with caching
+  const { data: user } = useUser();
+  const { data: expenses = [], isLoading: loading } = useExpenses(selectedMonth);
+  const { data: categories = [] } = useCategories();
+  const { data: paymentMethods = [] } = usePaymentMethods();
 
   const handleDeleteExpense = async (id: string) => {
-    if (!confirm('¿Eliminar este movimiento y actualizar el fondo disponible?')) return;
+    if (!confirm('¿Deseas eliminar este movimiento? Tu fondo disponible se recalculará automáticamente.')) {
+      return;
+    }
+
     try {
       const res = await fetch(`/api/expenses/${id}`, { method: 'DELETE' });
       if (res.ok) {
-        toast.success('Movimiento eliminado y saldo actualizado');
-        loadData();
+        toast.success('Movimiento eliminado y fondo actualizado');
+        invalidateFinance();
       } else {
-        toast.error('Error al eliminar');
+        toast.error('Error al eliminar el movimiento');
       }
     } catch {
       toast.error('Error de conexión');
     }
   };
 
-  const filteredExpenses = expenses.filter((e) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      e.category_name?.toLowerCase().includes(q) ||
-      e.notes?.toLowerCase().includes(q) ||
-      e.payment_method?.toLowerCase().includes(q)
-    );
-  });
+  // Filter expenses based on selected filters and search
+  const filteredExpenses = useMemo(() => {
+    return expenses.filter((e: any) => {
+      // Type filter
+      if (selectedType === 'EXPENSE' && e.type === 'INCOME') return false;
+      if (selectedType === 'INCOME' && e.type !== 'INCOME') return false;
 
-  const totalExpensesAmount = filteredExpenses
-    .filter((e) => e.type !== 'INCOME')
-    .reduce((acc, curr) => acc + curr.amount, 0);
+      // Category filter
+      if (selectedCategory !== 'ALL' && e.category_id !== selectedCategory) return false;
 
-  const totalIncomesAmount = filteredExpenses
-    .filter((e) => e.type === 'INCOME')
-    .reduce((acc, curr) => acc + curr.amount, 0);
+      // Payment Method filter
+      if (selectedPaymentMethod !== 'ALL' && e.payment_method !== selectedPaymentMethod) return false;
+
+      // Search Query
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        const matchNotes = e.notes?.toLowerCase().includes(query);
+        const matchCat = e.category_name?.toLowerCase().includes(query);
+        const matchPay = e.payment_method?.toLowerCase().includes(query);
+        const matchAmount = e.amount?.toString().includes(query);
+        if (!matchNotes && !matchCat && !matchPay && !matchAmount) return false;
+      }
+
+      return true;
+    });
+  }, [expenses, selectedType, selectedCategory, selectedPaymentMethod, searchQuery]);
+
+  // Totals for filtered view
+  const totalExpensesAmount = useMemo(() => {
+    return filteredExpenses
+      .filter((e: any) => e.type === 'EXPENSE' || !e.type)
+      .reduce((acc: number, curr: any) => acc + curr.amount, 0);
+  }, [filteredExpenses]);
+
+  const totalIncomesAmount = useMemo(() => {
+    return filteredExpenses
+      .filter((e: any) => e.type === 'INCOME')
+      .reduce((acc: number, curr: any) => acc + curr.amount, 0);
+  }, [filteredExpenses]);
 
   const netBalance = totalIncomesAmount - totalExpensesAmount;
 
+  // Generate quick month pills (current and previous 2 months)
+  const currentMonthISO = new Date().toISOString().slice(0, 7);
+  const prevMonth1 = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 7);
+  const prevMonth2 = new Date(Date.now() - 60 * 86400000).toISOString().slice(0, 7);
+
   return (
     <div className="min-h-screen bg-[#070F1E] flex flex-col">
-      <Header user={user} onUserUpdate={loadData} />
+      <Header user={user} onUserUpdate={invalidateFinance} />
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-5 space-y-4">
         {/* Header Bar */}
@@ -122,7 +124,7 @@ export default function ExpensesPage() {
           <div className="flex items-center gap-3">
             <Link
               href="/"
-              className="p-2 rounded-xl bg-[#102A43] border border-[#243B55] text-slate-400 hover:text-white transition-colors"
+              className="p-2 rounded-xl bg-[#102A43] border border-[#243B55] text-slate-400 hover:text-white transition-colors shrink-0"
             >
               <ArrowLeft className="w-4 h-4" />
             </Link>
@@ -132,89 +134,142 @@ export default function ExpensesPage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setIsQuickExpenseOpen(true)}
+            className="py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] font-extrabold text-xs shadow-md shadow-[#00ADB5]/20 flex items-center gap-1.5 self-start sm:self-center hover:opacity-95 active:scale-95 transition-all whitespace-nowrap shrink-0"
+          >
+            <PlusCircle className="w-4 h-4 stroke-[2.5px]" />
+            <span>+ Nuevo Movimiento</span>
+          </button>
+        </div>
+
+        {/* 1. HORIZONTAL MONTH FILTER BAR (Never breaks downwards) */}
+        <div className="bg-[#0B192C] border border-[#1E3A5F] p-2 rounded-2xl">
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-none whitespace-nowrap">
+            <div className="flex items-center gap-1 text-xs text-slate-400 font-semibold px-2 shrink-0">
+              <Calendar className="w-3.5 h-3.5 text-[#00ADB5]" />
+              <span className="whitespace-nowrap">Período:</span>
+            </div>
+
+            {/* Pill: Todo el Historial */}
             <button
-              onClick={() => setSelectedMonth(selectedMonth === 'ALL' ? new Date().toISOString().slice(0, 7) : 'ALL')}
-              className={`text-xs px-3 py-2 rounded-xl border font-bold transition-all ${
+              onClick={() => setSelectedMonth('ALL')}
+              className={`text-xs px-3.5 py-1.5 rounded-xl border font-bold transition-all whitespace-nowrap shrink-0 ${
                 selectedMonth === 'ALL'
-                  ? 'bg-[#00ADB5] text-[#0B192C] border-[#00ADB5]'
+                  ? 'bg-[#00ADB5] text-[#0B192C] border-[#00ADB5] shadow-sm'
                   : 'bg-[#102A43] text-slate-300 border-[#243B55] hover:text-white'
               }`}
             >
-              {selectedMonth === 'ALL' ? 'Todo el Historial' : 'Ver Todo el Historial'}
+              Todo el Historial
             </button>
 
-            {selectedMonth !== 'ALL' && (
-              <input
-                type="month"
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                className="bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2 rounded-xl focus:outline-none"
-              />
-            )}
+            {/* Quick Pills for Recent Months */}
+            <button
+              onClick={() => setSelectedMonth(currentMonthISO)}
+              className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-all whitespace-nowrap shrink-0 ${
+                selectedMonth === currentMonthISO
+                  ? 'bg-[#00ADB5] text-[#0B192C] border-[#00ADB5] font-bold'
+                  : 'bg-[#102A43] text-slate-300 border-[#243B55] hover:text-white'
+              }`}
+            >
+              Este Mes ({currentMonthISO})
+            </button>
 
             <button
-              onClick={() => setIsQuickExpenseOpen(true)}
-              className="py-2 px-3.5 rounded-xl bg-gradient-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] font-extrabold text-xs shadow-md shadow-[#00ADB5]/20 flex items-center gap-1.5"
+              onClick={() => setSelectedMonth(prevMonth1)}
+              className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-all whitespace-nowrap shrink-0 ${
+                selectedMonth === prevMonth1
+                  ? 'bg-[#00ADB5] text-[#0B192C] border-[#00ADB5] font-bold'
+                  : 'bg-[#102A43] text-slate-300 border-[#243B55] hover:text-white'
+              }`}
             >
-              <PlusCircle className="w-3.5 h-3.5" />
-              <span>+ Movimiento</span>
+              Mes Anterior ({prevMonth1})
             </button>
+
+            <button
+              onClick={() => setSelectedMonth(prevMonth2)}
+              className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-all whitespace-nowrap shrink-0 ${
+                selectedMonth === prevMonth2
+                  ? 'bg-[#00ADB5] text-[#0B192C] border-[#00ADB5] font-bold'
+                  : 'bg-[#102A43] text-slate-300 border-[#243B55] hover:text-white'
+              }`}
+            >
+              {prevMonth2}
+            </button>
+
+            {/* Custom Month Picker */}
+            <div className="flex items-center gap-1.5 pl-2 border-l border-[#1E3A5F] shrink-0">
+              <span className="text-[11px] text-slate-400 whitespace-nowrap">Otro mes:</span>
+              <input
+                type="month"
+                value={selectedMonth === 'ALL' ? '' : selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value || 'ALL')}
+                className="bg-[#102A43] border border-[#243B55] text-white text-xs px-2.5 py-1 rounded-xl focus:outline-none focus:border-[#00ADB5] shrink-0"
+              />
+            </div>
           </div>
         </div>
 
-        {/* Filters: Type + Search + Categories */}
+        {/* 2. SEARCH + TYPE SWITCHER */}
         <div className="space-y-2.5">
-          {/* Movement Type Switcher (All / Expenses / Incomes) */}
-          <div className="flex items-center gap-2 bg-[#0B192C] border border-[#1E3A5F] p-1.5 rounded-2xl w-full sm:w-auto self-start">
-            <button
-              onClick={() => setSelectedType('ALL')}
-              className={`flex-1 sm:flex-initial text-xs px-4 py-2 rounded-xl font-bold transition-all ${
-                selectedType === 'ALL'
-                  ? 'bg-gradient-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] shadow'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Todos ({expenses.length})
-            </button>
-            <button
-              onClick={() => setSelectedType('EXPENSE')}
-              className={`flex-1 sm:flex-initial text-xs px-4 py-2 rounded-xl font-bold transition-all ${
-                selectedType === 'EXPENSE'
-                  ? 'bg-rose-500 text-white shadow'
-                  : 'text-slate-400 hover:text-rose-400'
-              }`}
-            >
-              - Egresos
-            </button>
-            <button
-              onClick={() => setSelectedType('INCOME')}
-              className={`flex-1 sm:flex-initial text-xs px-4 py-2 rounded-xl font-bold transition-all ${
-                selectedType === 'INCOME'
-                  ? 'bg-emerald-500 text-[#0B192C] shadow'
-                  : 'text-slate-400 hover:text-emerald-400'
-              }`}
-            >
-              + Ingresos
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="relative">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+            {/* Search Input */}
+            <div className="relative flex-1">
               <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Buscar por descripción, grupo o método..."
+                placeholder="Buscar por concepto, grupo, tarjeta o valor..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-[#0B192C] border border-[#1E3A5F] text-white text-xs pl-9 pr-3 py-2.5 rounded-xl focus:border-[#00ADB5] focus:outline-none"
               />
             </div>
 
-            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            {/* Type Switcher (All / Expenses / Incomes) with Horizontal Scroll */}
+            <div className="flex items-center gap-1.5 bg-[#0B192C] border border-[#1E3A5F] p-1.5 rounded-xl overflow-x-auto scrollbar-none whitespace-nowrap shrink-0">
+              <button
+                onClick={() => setSelectedType('ALL')}
+                className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap shrink-0 ${
+                  selectedType === 'ALL'
+                    ? 'bg-gradient-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] shadow'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Todos ({expenses.length})
+              </button>
+              <button
+                onClick={() => setSelectedType('EXPENSE')}
+                className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap shrink-0 ${
+                  selectedType === 'EXPENSE'
+                    ? 'bg-rose-500 text-white shadow'
+                    : 'text-slate-400 hover:text-rose-400'
+                }`}
+              >
+                - Egresos
+              </button>
+              <button
+                onClick={() => setSelectedType('INCOME')}
+                className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap shrink-0 ${
+                  selectedType === 'INCOME'
+                    ? 'bg-emerald-500 text-[#0B192C] shadow'
+                    : 'text-slate-400 hover:text-emerald-400'
+                }`}
+              >
+                + Ingresos
+              </button>
+            </div>
+          </div>
+
+          {/* 3. CATEGORIES CHIPS (Horizontal Scroll) */}
+          <div className="bg-[#0B192C] border border-[#1E3A5F] p-2 rounded-2xl">
+            <div className="flex items-center gap-2 overflow-x-auto scrollbar-none whitespace-nowrap">
+              <div className="flex items-center gap-1 text-[11px] text-slate-400 font-semibold px-1 shrink-0">
+                <Layers className="w-3 h-3 text-[#00ADB5]" />
+                <span>Grupos:</span>
+              </div>
               <button
                 onClick={() => setSelectedCategory('ALL')}
-                className={`text-xs px-3 py-2 rounded-xl whitespace-nowrap border font-medium transition-colors ${
+                className={`text-xs px-3 py-1.5 rounded-xl whitespace-nowrap shrink-0 border font-medium transition-colors ${
                   selectedCategory === 'ALL'
                     ? 'bg-[#00ADB5] text-[#0B192C] border-[#00ADB5] font-bold'
                     : 'bg-[#102A43] text-slate-300 border-[#243B55]'
@@ -222,11 +277,11 @@ export default function ExpensesPage() {
               >
                 Todos los grupos
               </button>
-              {categories.map((c) => (
+              {categories.map((c: any) => (
                 <button
                   key={c.id}
                   onClick={() => setSelectedCategory(c.id)}
-                  className={`text-xs px-3 py-2 rounded-xl whitespace-nowrap border font-medium transition-colors flex items-center gap-1.5 ${
+                  className={`text-xs px-3 py-1.5 rounded-xl whitespace-nowrap shrink-0 border font-medium transition-colors flex items-center gap-1.5 ${
                     selectedCategory === c.id
                       ? 'bg-[#00ADB5] text-[#0B192C] border-[#00ADB5] font-bold'
                       : 'bg-[#102A43] text-slate-300 border-[#243B55]'
@@ -236,16 +291,22 @@ export default function ExpensesPage() {
                     className="w-2 h-2 rounded-full shrink-0"
                     style={{ backgroundColor: c.color }}
                   />
-                  {c.name}
+                  <span>{c.name}</span>
                 </button>
               ))}
             </div>
+          </div>
 
-            {/* Payment Method Chips */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          {/* 4. PAYMENT METHODS CHIPS (Horizontal Scroll) */}
+          <div className="bg-[#0B192C] border border-[#1E3A5F] p-2 rounded-2xl">
+            <div className="flex items-center gap-2 overflow-x-auto scrollbar-none whitespace-nowrap">
+              <div className="flex items-center gap-1 text-[11px] text-slate-400 font-semibold px-1 shrink-0">
+                <Wallet className="w-3 h-3 text-cyan-400" />
+                <span>Medios:</span>
+              </div>
               <button
                 onClick={() => setSelectedPaymentMethod('ALL')}
-                className={`text-xs px-2.5 py-1.5 rounded-xl whitespace-nowrap border font-medium transition-colors ${
+                className={`text-xs px-3 py-1.5 rounded-xl whitespace-nowrap shrink-0 border font-medium transition-colors ${
                   selectedPaymentMethod === 'ALL'
                     ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 font-bold'
                     : 'bg-[#102A43] text-slate-400 border-[#243B55]'
@@ -253,11 +314,11 @@ export default function ExpensesPage() {
               >
                 Todos los medios
               </button>
-              {paymentMethods.map((pm) => (
+              {paymentMethods.map((pm: any) => (
                 <button
                   key={pm.id}
                   onClick={() => setSelectedPaymentMethod(pm.name)}
-                  className={`text-xs px-2.5 py-1.5 rounded-xl whitespace-nowrap border font-medium transition-colors flex items-center gap-1.5 ${
+                  className={`text-xs px-3 py-1.5 rounded-xl whitespace-nowrap shrink-0 border font-medium transition-colors flex items-center gap-1.5 ${
                     selectedPaymentMethod === pm.name
                       ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 font-bold'
                       : 'bg-[#102A43] text-slate-400 border-[#243B55]'
@@ -267,7 +328,7 @@ export default function ExpensesPage() {
                     className="w-2 h-2 rounded-full shrink-0"
                     style={{ backgroundColor: pm.color || '#00ADB5' }}
                   />
-                  {pm.name}
+                  <span>{pm.name}</span>
                 </button>
               ))}
             </div>
@@ -275,28 +336,28 @@ export default function ExpensesPage() {
         </div>
 
         {/* Summary Breakdown Card */}
-        <div className="bg-[#102A43] border border-[#243B55] rounded-2xl p-4 grid grid-cols-3 gap-2 text-center">
+        <div className="bg-[#102A43] border border-[#243B55] rounded-2xl p-4 grid grid-cols-3 gap-2 text-center shadow-md">
           <div>
-            <span className="block text-[10px] sm:text-[11px] font-semibold text-slate-400">Ingresos</span>
-            <span className="text-xs sm:text-sm font-black text-emerald-400">
+            <span className="block text-[10px] sm:text-[11px] font-semibold text-slate-400 whitespace-nowrap">Ingresos Filtrados</span>
+            <span className="text-xs sm:text-sm font-black text-emerald-400 whitespace-nowrap">
               +{formatCOP(totalIncomesAmount)}
             </span>
           </div>
           <div className="border-x border-[#243B55] px-2">
-            <span className="block text-[10px] sm:text-[11px] font-semibold text-slate-400">Egresos</span>
-            <span className="text-xs sm:text-sm font-black text-rose-400">
+            <span className="block text-[10px] sm:text-[11px] font-semibold text-slate-400 whitespace-nowrap">Egresos Filtrados</span>
+            <span className="text-xs sm:text-sm font-black text-rose-400 whitespace-nowrap">
               -{formatCOP(totalExpensesAmount)}
             </span>
           </div>
           <div>
-            <span className="block text-[10px] sm:text-[11px] font-semibold text-slate-400">Balance Neto</span>
-            <span className={`text-xs sm:text-sm font-black ${netBalance >= 0 ? 'text-[#00ADB5]' : 'text-rose-400'}`}>
+            <span className="block text-[10px] sm:text-[11px] font-semibold text-slate-400 whitespace-nowrap">Balance Neto</span>
+            <span className={`text-xs sm:text-sm font-black whitespace-nowrap ${netBalance >= 0 ? 'text-[#00ADB5]' : 'text-rose-400'}`}>
               {netBalance >= 0 ? `+${formatCOP(netBalance)}` : formatCOP(netBalance)}
             </span>
           </div>
         </div>
 
-        {/* Expenses / Movements Table / Cards */}
+        {/* Movements Table / Cards */}
         <div className="bg-[#0B192C] border border-[#1E3A5F] rounded-3xl p-5 shadow-xl">
           {filteredExpenses.length === 0 ? (
             <div className="text-center py-12 text-slate-400">
@@ -313,7 +374,7 @@ export default function ExpensesPage() {
             </div>
           ) : (
             <div className="space-y-2.5">
-              {filteredExpenses.map((exp) => {
+              {filteredExpenses.map((exp: any) => {
                 const isIncome = exp.type === 'INCOME';
                 return (
                   <div
@@ -331,26 +392,26 @@ export default function ExpensesPage() {
                           <span className="text-xs font-bold text-white group-hover:text-[#00ADB5] transition-colors truncate">
                             {isIncome ? (exp.category_name || 'Ingreso de Dinero') : exp.category_name}
                           </span>
-                          <span className={`text-[10px] px-2 py-0.5 rounded-md border ${
+                          <span className={`text-[10px] px-2 py-0.5 rounded-md border font-medium whitespace-nowrap shrink-0 ${
                             isIncome
-                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 font-bold'
+                              ? 'bg-emerald-950/40 text-emerald-300 border-emerald-800/40'
                               : 'bg-[#0B192C] text-slate-300 border-[#243B55]'
                           }`}>
-                            {isIncome ? 'Ingreso (+)' : exp.payment_method}
+                            {exp.payment_method || (isIncome ? 'Fondo' : 'Efectivo')}
                           </span>
                           {!isIncome && exp.is_fixed === 1 && (
-                            <span className="text-[9px] text-cyan-400 font-bold uppercase tracking-wider">Fijo</span>
+                            <span className="text-[9px] text-cyan-400 font-bold uppercase tracking-wider whitespace-nowrap shrink-0">Fijo</span>
                           )}
                         </div>
                         <p className="text-xs text-slate-400 truncate mt-0.5">
                           {exp.notes ? <span className="text-slate-200">{exp.notes} • </span> : null}
-                          <span className="text-slate-300 font-medium">{formatDateSpanish(exp.date)}</span>
+                          <span className="text-slate-300 font-medium whitespace-nowrap">{formatShortDateSpanish(exp.date)}</span>
                         </p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                      <span className={`text-sm sm:text-base font-black ${isIncome ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      <span className={`text-sm sm:text-base font-black whitespace-nowrap shrink-0 ${isIncome ? 'text-emerald-400' : 'text-rose-400'}`}>
                         {isIncome ? `+${formatCOP(exp.amount)}` : `-${formatCOP(exp.amount)}`}
                       </span>
                       <button
@@ -358,7 +419,7 @@ export default function ExpensesPage() {
                           e.stopPropagation();
                           handleDeleteExpense(exp.id);
                         }}
-                        className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                        className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors shrink-0"
                         title="Eliminar movimiento y actualizar saldo"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -380,7 +441,7 @@ export default function ExpensesPage() {
       <QuickExpenseModal
         isOpen={isQuickExpenseOpen}
         onClose={() => setIsQuickExpenseOpen(false)}
-        onExpenseAdded={loadData}
+        onExpenseAdded={invalidateFinance}
         categories={categories}
       />
 
@@ -388,7 +449,7 @@ export default function ExpensesPage() {
         movement={selectedMovement}
         isOpen={!!selectedMovement}
         onClose={() => setSelectedMovement(null)}
-        onMovementDeleted={loadData}
+        onMovementDeleted={invalidateFinance}
       />
     </div>
   );
