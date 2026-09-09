@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { LogOut, Wallet, Edit3, X, Check } from 'lucide-react';
 import { formatCOP } from '@/lib/utils';
@@ -26,6 +27,21 @@ export function Header({ user, onUserUpdate }: HeaderProps) {
   const [isUpdating, setIsUpdating] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isLogoutModalOpen) {
+        setIsLogoutModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isLogoutModalOpen]);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -165,10 +181,16 @@ export function Header({ user, onUserUpdate }: HeaderProps) {
         </div>
       </div>
 
-      {/* Logout Confirmation Modal */}
-      {isLogoutModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-sm bg-[#0B192C] border border-[#1E3A5F] rounded-3xl p-6 shadow-2xl relative overflow-hidden text-center animate-in zoom-in-95 duration-150">
+      {/* Logout Confirmation Modal rendered in document.body via Portal */}
+      {isLogoutModalOpen && mounted && typeof document !== 'undefined' && createPortal(
+        <div 
+          onClick={() => !isLoggingOut && setIsLogoutModalOpen(false)}
+          className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm bg-[#0B192C] border border-[#1E3A5F] rounded-3xl p-6 shadow-2xl relative overflow-hidden text-center animate-in zoom-in-95 duration-150 mx-auto"
+          >
             {/* Top Accent Glow */}
             <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-rose-500 via-red-500 to-amber-500" />
 
@@ -189,7 +211,7 @@ export function Header({ user, onUserUpdate }: HeaderProps) {
                 type="button"
                 onClick={() => setIsLogoutModalOpen(false)}
                 disabled={isLoggingOut}
-                className="flex-1 py-2.5 rounded-xl bg-[#102A43] hover:bg-[#152E4D] border border-[#243B55] text-xs font-bold text-slate-300 transition-colors disabled:opacity-50"
+                className="flex-1 py-2.5 rounded-xl bg-[#102A43] hover:bg-[#152E4D] border border-[#243B55] text-xs font-bold text-slate-300 transition-colors disabled:opacity-50 cursor-pointer"
               >
                 Cancelar
               </button>
@@ -198,7 +220,7 @@ export function Header({ user, onUserUpdate }: HeaderProps) {
                 type="button"
                 onClick={handleLogout}
                 disabled={isLoggingOut}
-                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white text-xs font-bold shadow-lg shadow-rose-600/30 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white text-xs font-bold shadow-lg shadow-rose-600/30 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
               >
                 {isLoggingOut ? (
                   <span>Saliendo...</span>
@@ -211,7 +233,8 @@ export function Header({ user, onUserUpdate }: HeaderProps) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </header>
   );
