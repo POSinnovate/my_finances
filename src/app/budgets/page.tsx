@@ -7,7 +7,6 @@ import { BottomNav } from '@/components/layout/BottomNav';
 import { BudgetCard } from '@/components/budgets/BudgetCard';
 import { IncomeSourceCard } from '@/components/budgets/IncomeSourceCard';
 import { QuickExpenseModal } from '@/components/expenses/QuickExpenseModal';
-import { ScheduledItemsModal } from '@/components/categories/ScheduledItemsModal';
 import { formatCOP } from '@/lib/utils';
 import { 
   useUser, 
@@ -74,6 +73,11 @@ export default function BudgetsPage() {
   const [newCatFrequency, setNewCatFrequency] = useState<'MONTHLY' | 'ONCE' | 'NONE'>('MONTHLY');
   const [newCatDueDay, setNewCatDueDay] = useState('');
   const [newCatSpecificDate, setNewCatSpecificDate] = useState('');
+  const [newCatHasMultiple, setNewCatHasMultiple] = useState(false);
+  const [newCatItems, setNewCatItems] = useState<Array<{ amount: string; due_day: string; specific_date?: string; frequency: 'MONTHLY' | 'ONCE' }>>([
+    { amount: '', due_day: '15', frequency: 'MONTHLY' },
+    { amount: '', due_day: '30', frequency: 'MONTHLY' },
+  ]);
   const [isSubmittingCat, setIsSubmittingCat] = useState(false);
 
   // New Payment Method Form Modal
@@ -99,10 +103,9 @@ export default function BudgetsPage() {
   const [editCategoryFrequency, setEditCategoryFrequency] = useState<'MONTHLY' | 'ONCE' | 'NONE'>('MONTHLY');
   const [editCategoryDueDay, setEditCategoryDueDay] = useState('');
   const [editCategorySpecificDate, setEditCategorySpecificDate] = useState('');
+  const [editCategoryHasMultiple, setEditCategoryHasMultiple] = useState(false);
+  const [editCategoryItems, setEditCategoryItems] = useState<Array<{ id?: string; amount: string; due_day: string; specific_date?: string; frequency: 'MONTHLY' | 'ONCE' }>>([]);
   const [isSavingEditCategory, setIsSavingEditCategory] = useState(false);
-
-  // Scheduled Items Management Modal
-  const [scheduledCategory, setScheduledCategory] = useState<any | null>(null);
 
   const handleOpenAdd = () => {
     if (activeTab === 'PAYMENT_METHODS') {
@@ -113,8 +116,43 @@ export default function BudgetsPage() {
       setNewCatFrequency('MONTHLY');
       setNewCatDueDay(activeTab === 'INCOME' ? '15' : '');
       setNewCatSpecificDate('');
+      setNewCatHasMultiple(false);
+      setNewCatItems([
+        { amount: '', due_day: '15', frequency: 'MONTHLY' },
+        { amount: '', due_day: '30', frequency: 'MONTHLY' },
+      ]);
       setIsAddCategoryOpen(true);
     }
+  };
+
+  const handleAddNewCatItem = () => {
+    setNewCatItems(prev => [
+      ...prev,
+      { amount: '', due_day: '15', frequency: 'MONTHLY' }
+    ]);
+  };
+
+  const handleUpdateNewCatItem = (index: number, field: string, value: any) => {
+    setNewCatItems(prev => prev.map((it, idx) => idx === index ? { ...it, [field]: value } : it));
+  };
+
+  const handleRemoveNewCatItem = (index: number) => {
+    setNewCatItems(prev => prev.filter((_, idx) => idx !== index));
+  };
+
+  const handleAddEditCatItem = () => {
+    setEditCategoryItems(prev => [
+      ...prev,
+      { amount: '', due_day: '15', frequency: 'MONTHLY' }
+    ]);
+  };
+
+  const handleUpdateEditCatItem = (index: number, field: string, value: any) => {
+    setEditCategoryItems(prev => prev.map((it, idx) => idx === index ? { ...it, [field]: value } : it));
+  };
+
+  const handleRemoveEditCatItem = (index: number) => {
+    setEditCategoryItems(prev => prev.filter((_, idx) => idx !== index));
   };
 
   const handleCreateCategory = async (e: React.FormEvent) => {
@@ -124,20 +162,41 @@ export default function BudgetsPage() {
       return;
     }
 
+    if (newCatHasMultiple) {
+      const validItems = newCatItems.filter(it => Number(it.amount) > 0);
+      if (validItems.length === 0) {
+        toast.error('Debes agregar al menos una fecha con monto mayor a 0');
+        return;
+      }
+    }
+
     setIsSubmittingCat(true);
     try {
+      const itemsPayload = newCatHasMultiple
+        ? newCatItems
+            .filter(it => Number(it.amount) > 0)
+            .map(it => ({
+              amount: Number(it.amount),
+              due_day: it.frequency === 'MONTHLY' && it.due_day ? Number(it.due_day) : null,
+              specific_date: it.frequency === 'ONCE' && it.specific_date ? it.specific_date : null,
+              frequency: it.frequency,
+            }))
+        : [];
+
       const res = await fetch('/api/categories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: newCatName.trim(),
           type: newCatType,
-          monthly_budget: Number(newCatBudget) || 0,
+          monthly_budget: newCatHasMultiple ? undefined : (Number(newCatBudget) || 0),
           color: newCatColor,
           is_fixed: newCatType === 'EXPENSE' ? newCatIsFixed : false,
           frequency: newCatFrequency,
           due_day: newCatFrequency === 'MONTHLY' && newCatDueDay ? Number(newCatDueDay) : null,
           specific_date: newCatFrequency === 'ONCE' && newCatSpecificDate ? newCatSpecificDate : null,
+          has_multiple_items: newCatHasMultiple ? 1 : 0,
+          items: itemsPayload,
         }),
       });
 
@@ -267,6 +326,23 @@ export default function BudgetsPage() {
     setEditCategoryFrequency(cat.frequency || (cat.specific_date ? 'ONCE' : (cat.due_day ? 'MONTHLY' : 'MONTHLY')));
     setEditCategoryDueDay(cat.due_day ? String(cat.due_day) : '');
     setEditCategorySpecificDate(cat.specific_date ? String(cat.specific_date).slice(0, 10) : '');
+
+    const hasMultiple = cat.has_multiple_items === 1 || (Array.isArray(cat.items) && cat.items.length > 0);
+    setEditCategoryHasMultiple(hasMultiple);
+
+    if (Array.isArray(cat.items) && cat.items.length > 0) {
+      setEditCategoryItems(cat.items.map((it: any) => ({
+        id: it.id,
+        amount: it.amount ? String(it.amount) : '',
+        due_day: it.due_day ? String(it.due_day) : '',
+        specific_date: it.specific_date ? String(it.specific_date).slice(0, 10) : '',
+        frequency: it.frequency || (it.specific_date ? 'ONCE' : 'MONTHLY'),
+      })));
+    } else {
+      setEditCategoryItems([
+        { amount: cat.monthly_budget ? String(cat.monthly_budget) : '', due_day: cat.due_day ? String(cat.due_day) : '15', frequency: 'MONTHLY' }
+      ]);
+    }
   };
 
   const handleSaveEditCategory = async (e: React.FormEvent) => {
@@ -277,8 +353,28 @@ export default function BudgetsPage() {
       return;
     }
 
+    if (editCategoryHasMultiple) {
+      const validItems = editCategoryItems.filter(it => Number(it.amount) > 0);
+      if (validItems.length === 0) {
+        toast.error('Debes tener al menos una fecha con monto mayor a 0');
+        return;
+      }
+    }
+
     setIsSavingEditCategory(true);
     try {
+      const itemsPayload = editCategoryHasMultiple
+        ? editCategoryItems
+            .filter(it => Number(it.amount) > 0)
+            .map(it => ({
+              id: it.id,
+              amount: Number(it.amount),
+              due_day: it.frequency === 'MONTHLY' && it.due_day ? Number(it.due_day) : null,
+              specific_date: it.frequency === 'ONCE' && it.specific_date ? it.specific_date : null,
+              frequency: it.frequency,
+            }))
+        : [];
+
       const res = await fetch('/api/categories', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -286,11 +382,13 @@ export default function BudgetsPage() {
           id: editingCategory.id,
           name: editCategoryName.trim(),
           color: editCategoryColor,
-          monthly_budget: Number(editCategoryBudget) || 0,
+          monthly_budget: editCategoryHasMultiple ? undefined : (Number(editCategoryBudget) || 0),
           is_fixed: editingCategory.type === 'INCOME' ? 0 : (editCategoryIsFixed ? 1 : 0),
           frequency: editCategoryFrequency,
           due_day: editCategoryFrequency === 'MONTHLY' && editCategoryDueDay ? Number(editCategoryDueDay) : null,
           specific_date: editCategoryFrequency === 'ONCE' && editCategorySpecificDate ? editCategorySpecificDate : null,
+          has_multiple_items: editCategoryHasMultiple ? 1 : 0,
+          items: itemsPayload,
         }),
       });
 
@@ -492,7 +590,6 @@ export default function BudgetsPage() {
                       category={cat}
                       onEdit={handleOpenEditCategory}
                       onDelete={(id, name) => handleDeleteCategory(id, name, 'EXPENSE')}
-                      onManageSchedule={(category) => setScheduledCategory(category)}
                     />
                   ))}
                 </div>
@@ -528,7 +625,6 @@ export default function BudgetsPage() {
                       category={cat}
                       onEdit={handleOpenEditCategory}
                       onDelete={(id, name) => handleDeleteCategory(id, name, 'EXPENSE')}
-                      onManageSchedule={(category) => setScheduledCategory(category)}
                     />
                   ))}
                 </div>
@@ -604,7 +700,6 @@ export default function BudgetsPage() {
                       isTopSource={idx === 0 && (cat.earned_this_month || 0) > 0}
                       onEdit={handleOpenEditCategory}
                       onDelete={(id, name) => handleDeleteCategory(id, name, 'INCOME')}
-                      onManageSchedule={(category) => setScheduledCategory(category)}
                     />
                   ))}
                 </div>
@@ -876,111 +971,228 @@ export default function BudgetsPage() {
                   />
                 </div>
 
+                {/* Selector de Modalidad */}
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-semibold text-slate-300">
-                      {editingCategory.type === 'INCOME' ? 'Monto Mensual Estimado ($ COP)' : 'Presupuesto Mensual Estimado ($ COP)'}
-                    </label>
-                    {Number(editCategoryBudget) > 0 && (
-                      <span className="text-[11px] text-[#00ADB5] font-bold">
-                        {formatCOP(Number(editCategoryBudget))}
-                      </span>
-                    )}
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Modalidad de Programación
+                  </label>
+                  <div className="grid grid-cols-2 gap-2 p-1 bg-[#102A43] rounded-2xl border border-[#243B55]">
+                    <button
+                      type="button"
+                      onClick={() => setEditCategoryHasMultiple(false)}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                        !editCategoryHasMultiple
+                          ? 'bg-[#00ADB5] text-[#0B192C] shadow-sm'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>Fecha Única</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditCategoryHasMultiple(true);
+                        if (editCategoryItems.length === 0) {
+                          setEditCategoryItems([
+                            { amount: editCategoryBudget || '', due_day: editCategoryDueDay || '15', frequency: 'MONTHLY' },
+                            { amount: '', due_day: '30', frequency: 'MONTHLY' },
+                          ]);
+                        }
+                      }}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                        editCategoryHasMultiple
+                          ? 'bg-[#00ADB5] text-[#0B192C] shadow-sm'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <Layers className="w-3.5 h-3.5" />
+                      <span>Múltiples Fechas / Quincenas</span>
+                    </button>
                   </div>
-                  <input
-                    type="number"
-                    value={editCategoryBudget}
-                    onChange={(e) => setEditCategoryBudget(e.target.value)}
-                    placeholder={editingCategory.type === 'INCOME' ? 'Ej: 1500000' : 'Ej: 500000'}
-                    className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2.5 rounded-xl focus:border-[#00ADB5] focus:outline-none"
-                  />
-                  <span className="text-[10px] text-slate-400 mt-1 block">
-                    {editingCategory.type === 'INCOME'
-                      ? 'Este valor alimentará tu verdadero ingreso mensual de manera dinámica.'
-                      : 'Tope máximo o compromiso para este grupo.'}
-                  </span>
                 </div>
 
-                {/* Programación y Fechas Clave */}
-                <div className="p-3 rounded-2xl bg-[#102A43]/70 border border-[#243B55] space-y-2.5">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-200">
-                    <Calendar className="w-4 h-4 text-[#00ADB5]" />
-                    <span>Programación y Fecha Clave</span>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setEditCategoryFrequency('MONTHLY')}
-                      className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all ${
-                        editCategoryFrequency === 'MONTHLY'
-                          ? 'bg-[#00ADB5] text-[#0B192C]'
-                          : 'bg-[#0B192C] text-slate-400 hover:text-white border border-[#243B55]'
-                      }`}
-                    >
-                      Día Fijo Mes
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditCategoryFrequency('ONCE')}
-                      className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all ${
-                        editCategoryFrequency === 'ONCE'
-                          ? 'bg-[#00ADB5] text-[#0B192C]'
-                          : 'bg-[#0B192C] text-slate-400 hover:text-white border border-[#243B55]'
-                      }`}
-                    >
-                      Fecha Única
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditCategoryFrequency('NONE')}
-                      className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all ${
-                        editCategoryFrequency === 'NONE'
-                          ? 'bg-[#00ADB5] text-[#0B192C]'
-                          : 'bg-[#0B192C] text-slate-400 hover:text-white border border-[#243B55]'
-                      }`}
-                    >
-                      Sin Fecha
-                    </button>
-                  </div>
-
-                  {editCategoryFrequency === 'MONTHLY' && (
+                {!editCategoryHasMultiple ? (
+                  <>
                     <div>
-                      <label className="block text-[11px] font-medium text-slate-300 mb-1">
-                        Día del mes (1 al 31)
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-semibold text-slate-300">
+                          {editingCategory.type === 'INCOME' ? 'Monto Mensual Estimado ($ COP)' : 'Presupuesto Mensual Estimado ($ COP)'}
+                        </label>
+                        {Number(editCategoryBudget) > 0 && (
+                          <span className="text-[11px] text-[#00ADB5] font-bold">
+                            {formatCOP(Number(editCategoryBudget))}
+                          </span>
+                        )}
+                      </div>
                       <input
                         type="number"
-                        min={1}
-                        max={31}
-                        value={editCategoryDueDay}
-                        onChange={(e) => setEditCategoryDueDay(e.target.value)}
-                        placeholder="Ej: 15 (quincena), 30 (fin de mes), 27 (plan)"
-                        className="w-full bg-[#0B192C] border border-[#243B55] text-white text-xs px-3 py-2 rounded-xl focus:border-[#00ADB5] focus:outline-none"
+                        value={editCategoryBudget}
+                        onChange={(e) => setEditCategoryBudget(e.target.value)}
+                        placeholder={editingCategory.type === 'INCOME' ? 'Ej: 1500000' : 'Ej: 500000'}
+                        className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2.5 rounded-xl focus:border-[#00ADB5] focus:outline-none"
                       />
                       <span className="text-[10px] text-slate-400 mt-1 block">
-                        Se proyectará cada mes en este día para calcular tu gasto diario inteligente.
+                        {editingCategory.type === 'INCOME'
+                          ? 'Este valor alimentará tu verdadero ingreso mensual de manera dinámica.'
+                          : 'Tope máximo o compromiso para este grupo.'}
                       </span>
                     </div>
-                  )}
 
-                  {editCategoryFrequency === 'ONCE' && (
-                    <div>
-                      <label className="block text-[11px] font-medium text-slate-300 mb-1">
-                        Fecha exacta (Año-Mes-Día)
-                      </label>
-                      <input
-                        type="date"
-                        value={editCategorySpecificDate}
-                        onChange={(e) => setEditCategorySpecificDate(e.target.value)}
-                        className="w-full bg-[#0B192C] border border-[#243B55] text-white text-xs px-3 py-2 rounded-xl focus:border-[#00ADB5] focus:outline-none"
-                      />
-                      <span className="text-[10px] text-slate-400 mt-1 block">
-                        Para salidas, seguros, viajes o gastos puntuales con fecha definida.
+                    {/* Programación y Fechas Clave */}
+                    <div className="p-3 rounded-2xl bg-[#102A43]/70 border border-[#243B55] space-y-2.5">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-200">
+                        <Calendar className="w-4 h-4 text-[#00ADB5]" />
+                        <span>Programación y Fecha Clave</span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setEditCategoryFrequency('MONTHLY')}
+                          className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all ${
+                            editCategoryFrequency === 'MONTHLY'
+                              ? 'bg-[#00ADB5] text-[#0B192C]'
+                              : 'bg-[#0B192C] text-slate-400 hover:text-white border border-[#243B55]'
+                          }`}
+                        >
+                          Día Fijo Mes
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditCategoryFrequency('ONCE')}
+                          className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all ${
+                            editCategoryFrequency === 'ONCE'
+                              ? 'bg-[#00ADB5] text-[#0B192C]'
+                              : 'bg-[#0B192C] text-slate-400 hover:text-white border border-[#243B55]'
+                          }`}
+                        >
+                          Fecha Única
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditCategoryFrequency('NONE')}
+                          className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all ${
+                            editCategoryFrequency === 'NONE'
+                              ? 'bg-[#00ADB5] text-[#0B192C]'
+                              : 'bg-[#0B192C] text-slate-400 hover:text-white border border-[#243B55]'
+                          }`}
+                        >
+                          Sin Fecha
+                        </button>
+                      </div>
+
+                      {editCategoryFrequency === 'MONTHLY' && (
+                        <div>
+                          <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                            Día del mes (1 al 31)
+                          </label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={31}
+                            value={editCategoryDueDay}
+                            onChange={(e) => setEditCategoryDueDay(e.target.value)}
+                            placeholder="Ej: 15 (quincena), 30 (fin de mes), 27 (plan)"
+                            className="w-full bg-[#0B192C] border border-[#243B55] text-white text-xs px-3 py-2 rounded-xl focus:border-[#00ADB5] focus:outline-none"
+                          />
+                          <span className="text-[10px] text-slate-400 mt-1 block">
+                            Se proyectará cada mes en este día para calcular tu gasto diario inteligente.
+                          </span>
+                        </div>
+                      )}
+
+                      {editCategoryFrequency === 'ONCE' && (
+                        <div>
+                          <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                            Fecha exacta (Año-Mes-Día)
+                          </label>
+                          <input
+                            type="date"
+                            value={editCategorySpecificDate}
+                            onChange={(e) => setEditCategorySpecificDate(e.target.value)}
+                            className="w-full bg-[#0B192C] border border-[#243B55] text-white text-xs px-3 py-2 rounded-xl focus:border-[#00ADB5] focus:outline-none"
+                          />
+                          <span className="text-[10px] text-slate-400 mt-1 block">
+                            Para salidas, seguros, viajes o gastos puntuales con fecha definida.
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  /* Múltiples Fechas / Quincenas */
+                  <div className="space-y-3 p-3.5 rounded-2xl bg-[#102A43]/50 border border-[#243B55]">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-[#00ADB5]" />
+                          <span>Fechas o Quincenas del Grupo</span>
+                        </span>
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          Monto y día de cada cobro o quincena. El total se calcula sumando los items.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleAddEditCatItem}
+                        className="px-2.5 py-1 rounded-lg bg-[#00ADB5]/15 text-[#00ADB5] hover:bg-[#00ADB5]/25 text-[11px] font-bold flex items-center gap-1 transition-colors"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Agregar Fecha</span>
+                      </button>
+                    </div>
+
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {editCategoryItems.map((item, idx) => (
+                        <div key={idx} className="flex items-center gap-2 bg-[#0B192C] p-2 rounded-xl border border-[#1E3A5F]">
+                          <div className="flex-1 min-w-0">
+                            <label className="text-[9px] text-slate-400 font-bold block mb-0.5">Monto ($ COP)</label>
+                            <input
+                              type="number"
+                              placeholder="Ej: 1200000"
+                              value={item.amount}
+                              onChange={(e) => handleUpdateEditCatItem(idx, 'amount', e.target.value)}
+                              className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-2.5 py-1.5 rounded-lg focus:border-[#00ADB5] focus:outline-none"
+                            />
+                          </div>
+
+                          <div className="w-24 shrink-0">
+                            <label className="text-[9px] text-slate-400 font-bold block mb-0.5">Día del mes</label>
+                            <input
+                              type="number"
+                              min={1}
+                              max={31}
+                              placeholder="1-31"
+                              value={item.due_day}
+                              onChange={(e) => handleUpdateEditCatItem(idx, 'due_day', e.target.value)}
+                              className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-2.5 py-1.5 rounded-lg focus:border-[#00ADB5] focus:outline-none text-center font-bold"
+                            />
+                          </div>
+
+                          {editCategoryItems.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveEditCatItem(idx)}
+                              className="p-1.5 mt-3 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
+                              title="Eliminar fecha"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Live Total */}
+                    <div className="flex items-center justify-between pt-2 border-t border-[#1E3A5F] text-xs">
+                      <span className="text-slate-400 font-medium">Total mensual calculado:</span>
+                      <span className="text-emerald-400 font-mono font-black text-sm">
+                        {formatCOP(editCategoryItems.reduce((sum, it) => sum + (Number(it.amount) || 0), 0))}
                       </span>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {editingCategory.type !== 'INCOME' && (
                   <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300 pt-1">
@@ -1103,111 +1315,220 @@ export default function BudgetsPage() {
                   />
                 </div>
 
+                {/* Selector de Modalidad */}
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-semibold text-slate-300">
-                      {newCatType === 'INCOME' ? 'Monto Estimado por Ingreso / Mes ($ COP)' : 'Presupuesto Estimado Mensual ($ COP)'}
-                    </label>
-                    {Number(newCatBudget) > 0 && (
-                      <span className="text-[11px] text-[#00ADB5] font-bold">
-                        {formatCOP(Number(newCatBudget))}
-                      </span>
-                    )}
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Modalidad de Programación
+                  </label>
+                  <div className="grid grid-cols-2 gap-2 p-1 bg-[#102A43] rounded-2xl border border-[#243B55]">
+                    <button
+                      type="button"
+                      onClick={() => setNewCatHasMultiple(false)}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                        !newCatHasMultiple
+                          ? 'bg-[#00ADB5] text-[#0B192C] shadow-sm'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>Fecha Única</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewCatHasMultiple(true)}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                        newCatHasMultiple
+                          ? 'bg-[#00ADB5] text-[#0B192C] shadow-sm'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <Layers className="w-3.5 h-3.5" />
+                      <span>Múltiples Fechas / Quincenas</span>
+                    </button>
                   </div>
-                  <input
-                    type="number"
-                    placeholder={newCatType === 'INCOME' ? 'Ej: 1500000' : 'Ej: 150000'}
-                    value={newCatBudget}
-                    onChange={(e) => setNewCatBudget(e.target.value)}
-                    className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2.5 rounded-xl focus:border-[#00ADB5] focus:outline-none"
-                  />
-                  <span className="text-[10px] text-slate-400 mt-1 block">
-                    {newCatType === 'INCOME'
-                      ? 'Calculará tu ingreso mensual proyectado de forma dinámica.'
-                      : 'Tope máximo o compromiso para este grupo.'}
-                  </span>
                 </div>
 
-                {/* Programación y Fechas Clave */}
-                <div className="p-3 rounded-2xl bg-[#102A43]/70 border border-[#243B55] space-y-2.5">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-200">
-                    <Calendar className="w-4 h-4 text-[#00ADB5]" />
-                    <span>Programación y Fecha Clave</span>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setNewCatFrequency('MONTHLY')}
-                      className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all ${
-                        newCatFrequency === 'MONTHLY'
-                          ? 'bg-[#00ADB5] text-[#0B192C]'
-                          : 'bg-[#0B192C] text-slate-400 hover:text-white border border-[#243B55]'
-                      }`}
-                    >
-                      Día Fijo Mes
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setNewCatFrequency('ONCE')}
-                      className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all ${
-                        newCatFrequency === 'ONCE'
-                          ? 'bg-[#00ADB5] text-[#0B192C]'
-                          : 'bg-[#0B192C] text-slate-400 hover:text-white border border-[#243B55]'
-                      }`}
-                    >
-                      Fecha Única
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setNewCatFrequency('NONE')}
-                      className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all ${
-                        newCatFrequency === 'NONE'
-                          ? 'bg-[#00ADB5] text-[#0B192C]'
-                          : 'bg-[#0B192C] text-slate-400 hover:text-white border border-[#243B55]'
-                      }`}
-                    >
-                      Sin Fecha
-                    </button>
-                  </div>
-
-                  {newCatFrequency === 'MONTHLY' && (
+                {!newCatHasMultiple ? (
+                  <>
                     <div>
-                      <label className="block text-[11px] font-medium text-slate-300 mb-1">
-                        Día del mes (1 al 31)
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-semibold text-slate-300">
+                          {newCatType === 'INCOME' ? 'Monto Estimado por Ingreso / Mes ($ COP)' : 'Presupuesto Estimado Mensual ($ COP)'}
+                        </label>
+                        {Number(newCatBudget) > 0 && (
+                          <span className="text-[11px] text-[#00ADB5] font-bold">
+                            {formatCOP(Number(newCatBudget))}
+                          </span>
+                        )}
+                      </div>
                       <input
                         type="number"
-                        min={1}
-                        max={31}
-                        value={newCatDueDay}
-                        onChange={(e) => setNewCatDueDay(e.target.value)}
-                        placeholder="Ej: 15 (quincena), 30 (fin de mes), 27 (plan)"
-                        className="w-full bg-[#0B192C] border border-[#243B55] text-white text-xs px-3 py-2 rounded-xl focus:border-[#00ADB5] focus:outline-none"
+                        placeholder={newCatType === 'INCOME' ? 'Ej: 1500000' : 'Ej: 150000'}
+                        value={newCatBudget}
+                        onChange={(e) => setNewCatBudget(e.target.value)}
+                        className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2.5 rounded-xl focus:border-[#00ADB5] focus:outline-none"
                       />
                       <span className="text-[10px] text-slate-400 mt-1 block">
-                        Se proyectará cada mes en este día para calcular tu gasto diario inteligente.
+                        {newCatType === 'INCOME'
+                          ? 'Calculará tu ingreso mensual proyectado de forma dinámica.'
+                          : 'Tope máximo o compromiso para este grupo.'}
                       </span>
                     </div>
-                  )}
 
-                  {newCatFrequency === 'ONCE' && (
-                    <div>
-                      <label className="block text-[11px] font-medium text-slate-300 mb-1">
-                        Fecha exacta (Año-Mes-Día)
-                      </label>
-                      <input
-                        type="date"
-                        value={newCatSpecificDate}
-                        onChange={(e) => setNewCatSpecificDate(e.target.value)}
-                        className="w-full bg-[#0B192C] border border-[#243B55] text-white text-xs px-3 py-2 rounded-xl focus:border-[#00ADB5] focus:outline-none"
-                      />
-                      <span className="text-[10px] text-slate-400 mt-1 block">
-                        Para salidas, seguros, viajes o gastos puntuales con fecha definida.
+                    {/* Programación y Fechas Clave */}
+                    <div className="p-3 rounded-2xl bg-[#102A43]/70 border border-[#243B55] space-y-2.5">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-200">
+                        <Calendar className="w-4 h-4 text-[#00ADB5]" />
+                        <span>Programación y Fecha Clave</span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setNewCatFrequency('MONTHLY')}
+                          className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all ${
+                            newCatFrequency === 'MONTHLY'
+                              ? 'bg-[#00ADB5] text-[#0B192C]'
+                              : 'bg-[#0B192C] text-slate-400 hover:text-white border border-[#243B55]'
+                          }`}
+                        >
+                          Día Fijo Mes
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNewCatFrequency('ONCE')}
+                          className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all ${
+                            newCatFrequency === 'ONCE'
+                              ? 'bg-[#00ADB5] text-[#0B192C]'
+                              : 'bg-[#0B192C] text-slate-400 hover:text-white border border-[#243B55]'
+                          }`}
+                        >
+                          Fecha Única
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNewCatFrequency('NONE')}
+                          className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all ${
+                            newCatFrequency === 'NONE'
+                              ? 'bg-[#00ADB5] text-[#0B192C]'
+                              : 'bg-[#0B192C] text-slate-400 hover:text-white border border-[#243B55]'
+                          }`}
+                        >
+                          Sin Fecha
+                        </button>
+                      </div>
+
+                      {newCatFrequency === 'MONTHLY' && (
+                        <div>
+                          <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                            Día del mes (1 al 31)
+                          </label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={31}
+                            value={newCatDueDay}
+                            onChange={(e) => setNewCatDueDay(e.target.value)}
+                            placeholder="Ej: 15 (quincena), 30 (fin de mes), 27 (plan)"
+                            className="w-full bg-[#0B192C] border border-[#243B55] text-white text-xs px-3 py-2 rounded-xl focus:border-[#00ADB5] focus:outline-none"
+                          />
+                          <span className="text-[10px] text-slate-400 mt-1 block">
+                            Se proyectará cada mes en este día para calcular tu gasto diario inteligente.
+                          </span>
+                        </div>
+                      )}
+
+                      {newCatFrequency === 'ONCE' && (
+                        <div>
+                          <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                            Fecha exacta (Año-Mes-Día)
+                          </label>
+                          <input
+                            type="date"
+                            value={newCatSpecificDate}
+                            onChange={(e) => setNewCatSpecificDate(e.target.value)}
+                            className="w-full bg-[#0B192C] border border-[#243B55] text-white text-xs px-3 py-2 rounded-xl focus:border-[#00ADB5] focus:outline-none"
+                          />
+                          <span className="text-[10px] text-slate-400 mt-1 block">
+                            Para salidas, seguros, viajes o gastos puntuales con fecha definida.
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  /* Múltiples Fechas / Quincenas */
+                  <div className="space-y-3 p-3.5 rounded-2xl bg-[#102A43]/50 border border-[#243B55]">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-[#00ADB5]" />
+                          <span>Fechas o Quincenas del Grupo</span>
+                        </span>
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          Monto y día de cada cobro o quincena. El total se calcula sumando los items.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleAddNewCatItem}
+                        className="px-2.5 py-1 rounded-lg bg-[#00ADB5]/15 text-[#00ADB5] hover:bg-[#00ADB5]/25 text-[11px] font-bold flex items-center gap-1 transition-colors"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Agregar Fecha</span>
+                      </button>
+                    </div>
+
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {newCatItems.map((item, idx) => (
+                        <div key={idx} className="flex items-center gap-2 bg-[#0B192C] p-2 rounded-xl border border-[#1E3A5F]">
+                          <div className="flex-1 min-w-0">
+                            <label className="text-[9px] text-slate-400 font-bold block mb-0.5">Monto ($ COP)</label>
+                            <input
+                              type="number"
+                              placeholder="Ej: 1200000"
+                              value={item.amount}
+                              onChange={(e) => handleUpdateNewCatItem(idx, 'amount', e.target.value)}
+                              className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-2.5 py-1.5 rounded-lg focus:border-[#00ADB5] focus:outline-none"
+                            />
+                          </div>
+
+                          <div className="w-24 shrink-0">
+                            <label className="text-[9px] text-slate-400 font-bold block mb-0.5">Día del mes</label>
+                            <input
+                              type="number"
+                              min={1}
+                              max={31}
+                              placeholder="1-31"
+                              value={item.due_day}
+                              onChange={(e) => handleUpdateNewCatItem(idx, 'due_day', e.target.value)}
+                              className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-2.5 py-1.5 rounded-lg focus:border-[#00ADB5] focus:outline-none text-center font-bold"
+                            />
+                          </div>
+
+                          {newCatItems.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveNewCatItem(idx)}
+                              className="p-1.5 mt-3 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
+                              title="Eliminar fecha"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Live Total */}
+                    <div className="flex items-center justify-between pt-2 border-t border-[#1E3A5F] text-xs">
+                      <span className="text-slate-400 font-medium">Total mensual calculado:</span>
+                      <span className="text-emerald-400 font-mono font-black text-sm">
+                        {formatCOP(newCatItems.reduce((sum, it) => sum + (Number(it.amount) || 0), 0))}
                       </span>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {newCatType === 'EXPENSE' && (
                   <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300 pt-1">
@@ -1367,12 +1688,6 @@ export default function BudgetsPage() {
         onClose={() => setIsQuickExpenseOpen(false)}
         onExpenseAdded={invalidateFinance}
         categories={categories}
-      />
-
-      <ScheduledItemsModal
-        isOpen={!!scheduledCategory}
-        onClose={() => setScheduledCategory(null)}
-        category={scheduledCategory}
       />
     </div>
   );

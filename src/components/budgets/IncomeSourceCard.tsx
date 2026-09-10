@@ -15,6 +15,8 @@ export interface IncomeCategory {
   due_day?: number | null;
   specific_date?: string | null;
   frequency?: string | null;
+  has_multiple_items?: number;
+  items?: any[];
   type?: 'INCOME';
 }
 
@@ -68,7 +70,12 @@ export function IncomeSourceCard({
             <span className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wider whitespace-nowrap">
               Fuente de Ingreso
             </span>
-            {category.frequency === 'MONTHLY' && category.due_day ? (
+            {category.has_multiple_items === 1 && category.items && category.items.length > 0 ? (
+              <div className="flex items-center gap-1 text-[10px] font-semibold text-emerald-300 mt-1">
+                <Calendar className="w-3 h-3 text-emerald-400 shrink-0" />
+                <span>{category.items.length} fechas: {category.items.map((it: any) => it.due_day ? `Día ${it.due_day}` : it.specific_date?.slice(5, 10)).join(', ')}</span>
+              </div>
+            ) : category.frequency === 'MONTHLY' && category.due_day ? (
               <div className="flex items-center gap-1 text-[10px] font-semibold text-emerald-300 mt-1">
                 <Calendar className="w-3 h-3 text-emerald-400 shrink-0" />
                 <span>Día {category.due_day} de cada mes</span>
@@ -136,18 +143,6 @@ export function IncomeSourceCard({
           />
         </div>
       </div>
-
-      {/* Action to Manage Granular Scheduled Sub-Items */}
-      {onManageSchedule && (
-        <button
-          type="button"
-          onClick={() => onManageSchedule(category)}
-          className="w-full py-1.5 px-3 rounded-xl bg-[#070F1E]/80 hover:bg-[#1E3A5F] border border-[#1E3A5F] hover:border-emerald-500/50 text-slate-300 hover:text-white text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all mt-2"
-        >
-          <Calendar className="w-3.5 h-3.5 text-emerald-400" />
-          <span>Fechas y Cobros Programados</span>
-        </button>
-      )}
     </div>
   );
 }

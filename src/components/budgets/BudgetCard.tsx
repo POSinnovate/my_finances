@@ -14,6 +14,8 @@ export interface CategoryWithBudget {
   due_day?: number | null;
   specific_date?: string | null;
   frequency?: string | null;
+  has_multiple_items?: number;
+  items?: any[];
   spent_this_month: number;
   remaining_budget: number;
   percentage_used: number;
@@ -66,7 +68,12 @@ export function BudgetCard({ category, onEdit, onDelete, onManageSchedule }: Bud
                 </span>
               )}
             </div>
-            {category.frequency === 'MONTHLY' && category.due_day ? (
+            {category.has_multiple_items === 1 && category.items && category.items.length > 0 ? (
+              <div className="flex items-center gap-1 text-[10px] font-semibold text-cyan-300 mt-1">
+                <Calendar className="w-3 h-3 text-cyan-400 shrink-0" />
+                <span>{category.items.length} fechas: {category.items.map((it: any) => it.due_day ? `Día ${it.due_day}` : it.specific_date?.slice(5, 10)).join(', ')}</span>
+              </div>
+            ) : category.frequency === 'MONTHLY' && category.due_day ? (
               <div className="flex items-center gap-1 text-[10px] font-semibold text-cyan-300 mt-1">
                 <Calendar className="w-3 h-3 text-cyan-400 shrink-0" />
                 <span>Día {category.due_day} de cada mes</span>
@@ -129,18 +136,6 @@ export function BudgetCard({ category, onEdit, onDelete, onManageSchedule }: Bud
           </span>
         </div>
       </div>
-
-      {/* Action to Manage Granular Scheduled Sub-Items */}
-      {onManageSchedule && (
-        <button
-          type="button"
-          onClick={() => onManageSchedule(category)}
-          className="w-full py-1.5 px-3 rounded-xl bg-[#070F1E]/80 hover:bg-[#1E3A5F] border border-[#1E3A5F] hover:border-[#00ADB5]/50 text-slate-300 hover:text-white text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all mt-2"
-        >
-          <Calendar className="w-3.5 h-3.5 text-[#00ADB5]" />
-          <span>Fechas y Compromisos Programados</span>
-        </button>
-      )}
 
       {isExceeded && (
         <div className="mt-2 text-[11px] text-rose-300 bg-rose-950/40 border border-rose-800/40 rounded-lg p-1.5 flex items-center gap-1.5">

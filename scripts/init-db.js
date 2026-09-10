@@ -65,6 +65,10 @@ export async function initDatabaseSchema() {
     ALTER TABLE categories ADD COLUMN IF NOT EXISTS frequency VARCHAR(20) DEFAULT 'MONTHLY';
   `;
 
+  await sql`
+    ALTER TABLE categories ADD COLUMN IF NOT EXISTS has_multiple_items INTEGER NOT NULL DEFAULT 0;
+  `;
+
   // 3. Expenses table
   await sql`
     CREATE TABLE IF NOT EXISTS expenses (
