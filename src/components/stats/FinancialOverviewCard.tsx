@@ -444,7 +444,6 @@ export function FinancialOverviewCard({
                 <span className="text-[10px] font-extrabold text-emerald-400 uppercase tracking-wider block">
                   {nextIncome.categoryName || 'Fuente de Ingreso'}
                 </span>
-                <p className="text-base font-black text-white mt-0.5">{nextIncome.name}</p>
                 <span className="text-xs text-slate-300 mt-1 block">
                   Fecha estimada: <strong className="text-white">{nextIncome.dateStr}</strong>
                 </span>
@@ -635,7 +634,6 @@ export function FinancialOverviewCard({
                 <span className="text-[10px] font-extrabold text-rose-400 uppercase tracking-wider block">
                   {nextExpense.categoryName || 'Grupo de Gasto'}
                 </span>
-                <p className="text-base font-black text-white mt-0.5">{nextExpense.name}</p>
                 <span className="text-xs text-slate-300 mt-1 block">
                   Fecha estimada: <strong className="text-white">{nextExpense.dateStr}</strong>
                 </span>
