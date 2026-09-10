@@ -41,6 +41,7 @@ export default function DashboardPage() {
   const { data: recentExpenses = [], isLoading: loadingExpenses } = useRecentExpenses(5);
 
   const [isQuickExpenseOpen, setIsQuickExpenseOpen] = useState(false);
+  const [prefillExpense, setPrefillExpense] = useState<{ categoryId?: string; amount?: number; notes?: string } | null>(null);
   const [selectedMovement, setSelectedMovement] = useState<any | null>(null);
 
   const handleDeleteExpense = async (id: string) => {
@@ -89,7 +90,10 @@ export default function DashboardPage() {
           </div>
 
           <button
-            onClick={() => setIsQuickExpenseOpen(true)}
+            onClick={() => {
+              setPrefillExpense(null);
+              setIsQuickExpenseOpen(true);
+            }}
             className="self-start sm:self-center py-2.5 px-4 rounded-2xl bg-linear-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] font-extrabold text-xs shadow-lg shadow-[#00ADB5]/20 flex items-center gap-2 hover:opacity-95 active:scale-95 transition-all whitespace-nowrap shrink-0"
           >
             <PlusCircle className="w-4 h-4 stroke-[2.5px]" />
@@ -103,6 +107,11 @@ export default function DashboardPage() {
             summary={stats.summary}
             health={stats.health}
             cashFlow={stats.cashFlow}
+            onRefresh={invalidateFinance}
+            onRegisterExpense={(data) => {
+              setPrefillExpense(data);
+              setIsQuickExpenseOpen(true);
+            }}
           />
         )}
 
@@ -132,7 +141,10 @@ export default function DashboardPage() {
               <Receipt className="w-8 h-8 mx-auto mb-2 opacity-30 text-[#00ADB5]" />
               <p className="text-xs">Aún no has registrado ningún movimiento.</p>
               <button
-                onClick={() => setIsQuickExpenseOpen(true)}
+                onClick={() => {
+                  setPrefillExpense(null);
+                  setIsQuickExpenseOpen(true);
+                }}
                 className="mt-3 text-xs text-[#00ADB5] font-bold underline"
               >
                 Registrar el primer movimiento ahora
@@ -236,15 +248,22 @@ export default function DashboardPage() {
       </main>
 
       <BottomNav
-        onOpenQuickExpense={() => setIsQuickExpenseOpen(true)}
+        onOpenQuickExpense={() => {
+          setPrefillExpense(null);
+          setIsQuickExpenseOpen(true);
+        }}
         userRole={user?.role}
       />
 
       <QuickExpenseModal
         isOpen={isQuickExpenseOpen}
-        onClose={() => setIsQuickExpenseOpen(false)}
+        onClose={() => {
+          setIsQuickExpenseOpen(false);
+          setPrefillExpense(null);
+        }}
         onExpenseAdded={invalidateFinance}
         categories={categories}
+        initialData={prefillExpense}
       />
 
       <MovementDetailModal

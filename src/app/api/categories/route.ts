@@ -256,8 +256,9 @@ export async function PUT(req: NextRequest) {
         finalDueDay = null;
         finalSpecificDate = null;
 
-        const catType = type === 'INCOME' ? 'INCOME' : 'EXPENSE';
-        const catName = name?.trim() || 'Ítem';
+        const existingCat = await db.prepare('SELECT type, name FROM categories WHERE id = ? AND user_id = ?').get(id, auth.userId) as any;
+        const catType = (type || existingCat?.type) === 'INCOME' ? 'INCOME' : 'EXPENSE';
+        const catName = name?.trim() || existingCat?.name || 'Ítem';
 
         for (const it of items) {
           const itemId = randomUUID();

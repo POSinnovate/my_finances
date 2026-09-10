@@ -30,6 +30,12 @@ interface QuickExpenseModalProps {
   onClose: () => void;
   onExpenseAdded: () => void;
   categories: Category[];
+  initialData?: {
+    categoryId?: string;
+    amount?: number;
+    notes?: string;
+    type?: 'EXPENSE' | 'INCOME' | 'TRANSFER';
+  } | null;
 }
 
 const DEFAULT_METHODS: PaymentMethod[] = [
@@ -43,7 +49,13 @@ const QUICK_AMOUNTS_EXPENSE = [5000, 10000, 20000, 35000, 50000, 100000];
 const QUICK_AMOUNTS_INCOME = [100000, 200000, 500000, 1000000, 1500000, 2000000];
 const QUICK_AMOUNTS_TRANSFER = [20000, 50000, 100000, 200000, 500000];
 
-export function QuickExpenseModal({ isOpen, onClose, onExpenseAdded, categories: initialCategories }: QuickExpenseModalProps) {
+export function QuickExpenseModal({ 
+  isOpen, 
+  onClose, 
+  onExpenseAdded, 
+  categories: initialCategories,
+  initialData 
+}: QuickExpenseModalProps) {
   const [txType, setTxType] = useState<'EXPENSE' | 'INCOME' | 'TRANSFER'>('EXPENSE');
   const [amount, setAmount] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
@@ -113,6 +125,26 @@ export function QuickExpenseModal({ isOpen, onClose, onExpenseAdded, categories:
       setDate(getTodayColombiaDate());
     }
   }, [isOpen, refreshPaymentMethods]);
+
+  // Handle prefilling if passed
+  useEffect(() => {
+    if (isOpen && initialData) {
+      if (initialData.type) {
+        setTxType(initialData.type);
+      } else {
+        setTxType('EXPENSE');
+      }
+      if (initialData.amount !== undefined) {
+        setAmount(initialData.amount.toString());
+      }
+      if (initialData.categoryId) {
+        setSelectedCategory(initialData.categoryId);
+      }
+      if (initialData.notes) {
+        setNotes(initialData.notes);
+      }
+    }
+  }, [isOpen, initialData]);
 
   const expenseCategories = localCategories.filter((c) => c.type !== 'INCOME');
   const incomeCategories = localCategories.filter((c) => c.type === 'INCOME');

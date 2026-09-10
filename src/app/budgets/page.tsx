@@ -381,6 +381,7 @@ export default function BudgetsPage() {
         body: JSON.stringify({
           id: editingCategory.id,
           name: editCategoryName.trim(),
+          type: editingCategory.type,
           color: editCategoryColor,
           monthly_budget: editCategoryHasMultiple ? undefined : (Number(editCategoryBudget) || 0),
           is_fixed: editingCategory.type === 'INCOME' ? 0 : (editCategoryIsFixed ? 1 : 0),

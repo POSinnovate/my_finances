@@ -29,26 +29,8 @@ export async function GET() {
       WHERE user_id = ? AND type = 'INCOME' AND strftime('%Y-%m', date) = ?
     `).get(auth.userId, currentMonth) as any;
 
-    let totalIncomeThisMonth = Number(incomeRow?.total_income) || 0;
-    let incomeCount = Number(incomeRow?.count) || 0;
-
-    // If current calendar month has no registered income yet (e.g., paid on 30/31st of previous month for current quincena),
-    // use income from the last 35 days as active period income so stats and health are accurate.
-    if (totalIncomeThisMonth === 0) {
-      const thirtyFiveDaysAgo = new Date(Date.now() - 35 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      const recentIncomeRow = await db.prepare(`
-        SELECT 
-          COALESCE(SUM(amount), 0) as total_income,
-          COUNT(id) as count
-        FROM expenses
-        WHERE user_id = ? AND type = 'INCOME' AND date >= ?
-      `).get(auth.userId, thirtyFiveDaysAgo) as any;
-
-      if (recentIncomeRow && Number(recentIncomeRow.total_income) > 0) {
-        totalIncomeThisMonth = Number(recentIncomeRow.total_income);
-        incomeCount = Number(recentIncomeRow.count);
-      }
-    }
+    const totalIncomeThisMonth = Number(incomeRow?.total_income) || 0;
+    const incomeCount = Number(incomeRow?.count) || 0;
 
     // 3. Real Expenses of the current month (Sum of all registered EXPENSE transactions)
     const expensesRow = await db.prepare(`
@@ -75,9 +57,6 @@ export async function GET() {
     `).get(auth.userId) as any;
 
     const totalFixedBudget = Number(fixedCommitmentsRow?.total_fixed_budget) || 0;
-
-    // Net Difference / Savings of this month
-    const netDifference = totalIncomeThisMonth - totalSpent;
 
     // 5. Category Breakdown for Expenses
     const categoryStats = await db.prepare(`
@@ -146,7 +125,7 @@ export async function GET() {
     });
 
     // 7. Financial Health Metrics
-    const effectiveIncome = totalIncomeThisMonth > 0 ? totalIncomeThisMonth : cashFlow.dynamicMonthlyIncome;
+    const effectiveIncome = cashFlow.dynamicMonthlyIncome > 0 ? cashFlow.dynamicMonthlyIncome : totalIncomeThisMonth;
     const baseHealth = calculateFinancialHealth({
       monthlyIncome: effectiveIncome,
       currentCash,
@@ -159,15 +138,15 @@ export async function GET() {
       safeDailySpend: cashFlow.safeDailySpend,
       rawDailySpend: cashFlow.rawDailySpend,
       daysRemaining: cashFlow.daysRemaining,
-      paydayLabel: cashFlow.nextIncome.label,
+      paydayLabel: cashFlow.nextIncome ? cashFlow.nextIncome.label : 'Fin de mes',
       totalPendingCommitments: cashFlow.totalPendingCommitments,
       freeCashForPeriod: cashFlow.freeCashForPeriod,
     };
 
     // 8. Intelligent Alerts & Notifications
-    const alerts: { id: string; type: 'CRITICAL' | 'WARNING' | 'INFO'; title: string; message: string; date?: string }[] = [];
+    const alerts: { id: string; type: 'CRITICAL' | 'WARNING' | 'INFO'; title: string; message: string; date?: string; action?: any }[] = [];
 
-    // Include cash flow alerts first (liquidity shortages, upcoming commitments, upcoming incomes)
+    // Include cash flow alerts first (overdue items, liquidity shortages, upcoming commitments, upcoming incomes)
     alerts.push(...cashFlow.alerts);
 
     if (currentCash <= 250000 && !alerts.some(a => a.id === 'cash-low' || a.id === 'liquidity-shortage')) {
@@ -218,7 +197,9 @@ export async function GET() {
         variable_spent: variableSpent,
         fixed_budget: totalFixedBudget,
         expense_count: expenseCount,
-        net_difference: netDifference,
+        net_difference: cashFlow.projectedNetBalance,
+        projected_net_balance: cashFlow.projectedNetBalance,
+        total_pending_fixed_expenses: cashFlow.totalPendingFixedExpensesMonth,
         current_cash: currentCash,
         payday_day: paydayDay,
       },
@@ -226,7 +207,10 @@ export async function GET() {
       cashFlow: {
         nextIncome: cashFlow.nextIncome,
         upcomingCommitments: cashFlow.upcomingCommitments,
+        overdueCommitments: cashFlow.overdueCommitments,
         totalPendingCommitments: cashFlow.totalPendingCommitments,
+        totalPendingFixedExpensesMonth: cashFlow.totalPendingFixedExpensesMonth,
+        projectedNetBalance: cashFlow.projectedNetBalance,
         freeCashForPeriod: cashFlow.freeCashForPeriod,
       },
       breakdown,
