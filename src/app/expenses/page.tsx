@@ -336,7 +336,7 @@ export default function ExpensesPage() {
         </div>
 
         {/* Summary Breakdown Card */}
-        <div className="bg-[#102A43] border border-[#243B55] rounded-2xl p-4 grid grid-cols-3 gap-2 text-center shadow-md">
+        <div className="grid grid-cols-3 gap-2 text-center">
           <div>
             <span className="block text-[10px] sm:text-[11px] font-semibold text-slate-400 whitespace-nowrap">Ingresos Filtrados</span>
             <span className="text-xs sm:text-sm font-black text-emerald-400 whitespace-nowrap">
@@ -358,7 +358,7 @@ export default function ExpensesPage() {
         </div>
 
         {/* Movements Table / Cards */}
-        <div className="bg-[#0B192C] border border-[#1E3A5F] rounded-3xl p-5 shadow-xl">
+        <div>
           {totalItems === 0 ? (
             <div className="text-center py-12 text-slate-400">
               <Receipt className="w-10 h-10 mx-auto mb-2 opacity-30 text-[#00ADB5]" />

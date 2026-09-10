@@ -116,7 +116,7 @@ export default function DashboardPage() {
         )}
 
         {/* Recent Expenses List (Strictly last 5) */}
-        <div className="bg-[#0B192C] border border-[#1E3A5F] rounded-3xl p-5 shadow-xl">
+        <div>
           <div className="flex items-center justify-between gap-2 mb-4">
             <div className="flex items-center gap-2 min-w-0">
               <div className="w-7 h-7 rounded-lg bg-[#00ADB5]/20 text-[#00ADB5] flex items-center justify-center shrink-0">

@@ -541,20 +541,20 @@ export default function BudgetsPage() {
         {activeTab === 'EXPENSE' && (
           <div className="space-y-5">
             {/* Total Budget vs Actual Spend Banner */}
-            <div className="bg-[#102A43] border border-[#243B55] rounded-3xl p-4 sm:p-5 grid grid-cols-2 sm:grid-cols-4 gap-3 shadow-lg">
-              <div className="p-2.5 rounded-xl bg-[#0B192C]/60 border border-[#1E3A5F]">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-2.5 rounded-xl bg-[#102A43] border border-[#1E3A5F]">
                 <span className="text-[10px] sm:text-[11px] font-semibold text-cyan-400 block whitespace-nowrap">Compromisos Fijos</span>
                 <p className="text-sm sm:text-base font-black text-white mt-0.5 whitespace-nowrap">{formatCOP(totalFixedBudgeted)}</p>
               </div>
-              <div className="p-2.5 rounded-xl bg-[#0B192C]/60 border border-[#1E3A5F]">
+              <div className="p-2.5 rounded-xl bg-[#102A43] border border-[#1E3A5F]">
                 <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 block whitespace-nowrap">Tope Variable</span>
                 <p className="text-sm sm:text-base font-black text-white mt-0.5 whitespace-nowrap">{formatCOP(totalVariableBudgeted)}</p>
               </div>
-              <div className="p-2.5 rounded-xl bg-[#0B192C]/60 border border-[#1E3A5F]">
+              <div className="p-2.5 rounded-xl bg-[#102A43] border border-[#1E3A5F]">
                 <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 block whitespace-nowrap">Total Gastado Mes</span>
                 <p className="text-sm sm:text-base font-black text-rose-400 mt-0.5 whitespace-nowrap">{formatCOP(totalSpent)}</p>
               </div>
-              <div className="p-2.5 rounded-xl bg-[#0B192C]/60 border border-[#1E3A5F]">
+              <div className="p-2.5 rounded-xl bg-[#102A43] border border-[#1E3A5F]">
                 <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 block whitespace-nowrap">Margen Restante</span>
                 <p className={`text-sm sm:text-base font-black mt-0.5 whitespace-nowrap ${totalExpenseBudgeted - totalSpent >= 0 ? 'text-[#00ADB5]' : 'text-rose-400'}`}>
                   {formatCOP(totalExpenseBudgeted - totalSpent)}
