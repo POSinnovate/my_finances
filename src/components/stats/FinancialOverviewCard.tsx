@@ -441,7 +441,7 @@ export function FinancialOverviewCard({
             {/* Income Highlight Box */}
             <div className="p-4 rounded-2xl bg-[#102A43] border border-[#243B55] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <span className="text-base font-extrabold text-emerald-400 uppercase tracking-wider block text-nowrap truncate">
+                <span className="text-base font-extrabold text-white uppercase tracking-wider block text-nowrap truncate">
                   {nextIncome.categoryName || 'Fuente de Ingreso'}
                 </span>
                 <span className="text-xs text-slate-300 mt-1 block">
@@ -452,7 +452,7 @@ export function FinancialOverviewCard({
               <div className="text-left sm:text-right">
                 <span className="text-xs font-semibold text-slate-400 block">Monto a recibir:</span>
                 <span className="text-xl font-black text-emerald-400 font-mono block">
-                  +{formatCOP(nextIncome.amount)}
+                  {formatCOP(nextIncome.amount)}
                 </span>
                 <span className="text-[10px] font-bold text-cyan-300 block mt-0.5">
                   {nextIncome.isOverdue
@@ -631,7 +631,7 @@ export function FinancialOverviewCard({
             {/* Expense Highlight Box */}
             <div className="p-4 rounded-2xl bg-[#102A43] border border-[#243B55] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <span className="text-base font-extrabold text-rose-400 uppercase tracking-wider block text-nowrap truncate">
+                <span className="text-base font-extrabold text-white uppercase tracking-wider block text-nowrap truncate">
                   {nextExpense.categoryName || 'Grupo de Gasto'}
                 </span>
                 <span className="text-xs text-slate-300 mt-1 block">
@@ -642,7 +642,7 @@ export function FinancialOverviewCard({
               <div className="text-left sm:text-right">
                 <span className="text-xs font-semibold text-slate-400 block">Monto a pagar:</span>
                 <span className="text-xl font-black text-rose-400 font-mono block">
-                  -{formatCOP(nextExpense.amount)}
+                  {formatCOP(nextExpense.amount)}
                 </span>
                 <span className="text-[10px] font-bold text-rose-300 block mt-0.5">
                   {nextExpense.isOverdue
