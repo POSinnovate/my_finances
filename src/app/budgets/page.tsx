@@ -1007,7 +1007,7 @@ export default function BudgetsPage() {
                       }`}
                     >
                       <Layers className="w-3.5 h-3.5" />
-                      <span>Múltiples Fechas / Quincenas</span>
+                      <span>Múltiples Fechas</span>
                     </button>
                   </div>
                 </div>
@@ -1127,7 +1127,7 @@ export default function BudgetsPage() {
                       <div>
                         <span className="text-xs font-bold text-white flex items-center gap-1.5">
                           <Calendar className="w-3.5 h-3.5 text-[#00ADB5]" />
-                          <span>Fechas o Quincenas del Grupo</span>
+                          <span>Fechas del Grupo</span>
                         </span>
                         <p className="text-[10px] text-slate-400 mt-0.5">
                           Monto y día de cada cobro o quincena. El total se calcula sumando los items.
@@ -1138,8 +1138,7 @@ export default function BudgetsPage() {
                         onClick={handleAddEditCatItem}
                         className="px-2.5 py-1 rounded-lg bg-[#00ADB5]/15 text-[#00ADB5] hover:bg-[#00ADB5]/25 text-[11px] font-bold flex items-center gap-1 transition-colors"
                       >
-                        <Plus className="w-3 h-3" />
-                        <span>Agregar Fecha</span>
+                        <Plus className="w-6 h-6" />
                       </button>
                     </div>
 
@@ -1263,7 +1262,7 @@ export default function BudgetsPage() {
                     <Layers className="w-4 h-4 text-[#00ADB5]" />
                   )}
 
-                  <div className="flex items-center bg-[#102A43] p-0.5 rounded-lg border border-[#243B55]">
+                  <div className="flex items-center bg-[#102A43] py-1.5 px-4 rounded-lg border border-[#243B55]">
                     <button
                       type="button"
                       onClick={() => {

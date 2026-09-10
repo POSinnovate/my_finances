@@ -122,7 +122,7 @@ export default function DashboardPage() {
               href="/expenses"
               className="text-xs text-[#00ADB5] hover:underline flex items-center gap-1 font-semibold whitespace-nowrap shrink-0"
             >
-              <span>Ver todos los movimientos</span>
+              <span>Todos</span>
               <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
