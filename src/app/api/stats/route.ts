@@ -206,6 +206,7 @@ export async function GET() {
       health,
       cashFlow: {
         nextIncome: cashFlow.nextIncome,
+        nextExpense: cashFlow.nextExpense,
         upcomingCommitments: cashFlow.upcomingCommitments,
         overdueCommitments: cashFlow.overdueCommitments,
         totalPendingCommitments: cashFlow.totalPendingCommitments,

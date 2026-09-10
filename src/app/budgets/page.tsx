@@ -63,22 +63,20 @@ export default function BudgetsPage() {
   const [activeTab, setActiveTab] = useState<'EXPENSE' | 'INCOME' | 'PAYMENT_METHODS'>('EXPENSE');
   const [isQuickExpenseOpen, setIsQuickExpenseOpen] = useState(false);
 
-  // New Category Form Modal
-  const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
-  const [newCatType, setNewCatType] = useState<'EXPENSE' | 'INCOME'>('EXPENSE');
-  const [newCatName, setNewCatName] = useState('');
-  const [newCatBudget, setNewCatBudget] = useState('');
-  const [newCatColor, setNewCatColor] = useState(COLOR_OPTIONS[0]);
-  const [newCatIsFixed, setNewCatIsFixed] = useState(false);
-  const [newCatFrequency, setNewCatFrequency] = useState<'MONTHLY' | 'ONCE' | 'NONE'>('MONTHLY');
-  const [newCatDueDay, setNewCatDueDay] = useState('');
-  const [newCatSpecificDate, setNewCatSpecificDate] = useState('');
-  const [newCatHasMultiple, setNewCatHasMultiple] = useState(false);
-  const [newCatItems, setNewCatItems] = useState<Array<{ amount: string; due_day: string; specific_date?: string; frequency: 'MONTHLY' | 'ONCE' }>>([
-    { amount: '', due_day: '15', frequency: 'MONTHLY' },
-    { amount: '', due_day: '30', frequency: 'MONTHLY' },
-  ]);
-  const [isSubmittingCat, setIsSubmittingCat] = useState(false);
+  // Unified Category Modal (Crear / Editar Grupos de Gasto y Fuentes de Ingreso)
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<any | null>(null);
+  const [catType, setCatType] = useState<'EXPENSE' | 'INCOME'>('EXPENSE');
+  const [catName, setCatName] = useState('');
+  const [catBudget, setCatBudget] = useState('');
+  const [catColor, setCatColor] = useState(COLOR_OPTIONS[0]);
+  const [catIsFixed, setCatIsFixed] = useState(false);
+  const [catFrequency, setCatFrequency] = useState<'MONTHLY' | 'ONCE' | 'NONE'>('MONTHLY');
+  const [catDueDay, setCatDueDay] = useState('');
+  const [catSpecificDate, setCatSpecificDate] = useState('');
+  const [catHasMultiple, setCatHasMultiple] = useState(false);
+  const [catItems, setCatItems] = useState<Array<{ id?: string; amount: string; due_day: string; specific_date?: string; frequency: 'MONTHLY' | 'ONCE' }>>([]);
+  const [isSavingCategory, setIsSavingCategory] = useState(false);
 
   // New Payment Method Form Modal
   const [isAddMethodOpen, setIsAddMethodOpen] = useState(false);
@@ -94,128 +92,41 @@ export default function BudgetsPage() {
   const [editMethodColor, setEditMethodColor] = useState(COLOR_OPTIONS[0]);
   const [isSavingEditMethod, setIsSavingEditMethod] = useState(false);
 
-  // Edit Category Modal (Grupos de Gasto y Fuentes de Ingreso)
-  const [editingCategory, setEditingCategory] = useState<any | null>(null);
-  const [editCategoryName, setEditCategoryName] = useState('');
-  const [editCategoryBudget, setEditCategoryBudget] = useState('');
-  const [editCategoryColor, setEditCategoryColor] = useState(COLOR_OPTIONS[0]);
-  const [editCategoryIsFixed, setEditCategoryIsFixed] = useState(false);
-  const [editCategoryFrequency, setEditCategoryFrequency] = useState<'MONTHLY' | 'ONCE' | 'NONE'>('MONTHLY');
-  const [editCategoryDueDay, setEditCategoryDueDay] = useState('');
-  const [editCategorySpecificDate, setEditCategorySpecificDate] = useState('');
-  const [editCategoryHasMultiple, setEditCategoryHasMultiple] = useState(false);
-  const [editCategoryItems, setEditCategoryItems] = useState<Array<{ id?: string; amount: string; due_day: string; specific_date?: string; frequency: 'MONTHLY' | 'ONCE' }>>([]);
-  const [isSavingEditCategory, setIsSavingEditCategory] = useState(false);
-
   const handleOpenAdd = () => {
     if (activeTab === 'PAYMENT_METHODS') {
       setIsAddMethodOpen(true);
     } else {
-      setNewCatType(activeTab);
-      setNewCatColor(activeTab === 'INCOME' ? '#10B981' : '#00ADB5');
-      setNewCatFrequency('MONTHLY');
-      setNewCatDueDay(activeTab === 'INCOME' ? '15' : '');
-      setNewCatSpecificDate('');
-      setNewCatHasMultiple(false);
-      setNewCatItems([
+      setEditingCategory(null);
+      setCatType(activeTab);
+      setCatName('');
+      setCatBudget('');
+      setCatColor(activeTab === 'INCOME' ? '#10B981' : '#00ADB5');
+      setCatIsFixed(false);
+      setCatFrequency('MONTHLY');
+      setCatDueDay(activeTab === 'INCOME' ? '15' : '');
+      setCatSpecificDate('');
+      setCatHasMultiple(false);
+      setCatItems([
         { amount: '', due_day: '15', frequency: 'MONTHLY' },
         { amount: '', due_day: '30', frequency: 'MONTHLY' },
       ]);
-      setIsAddCategoryOpen(true);
+      setIsCategoryModalOpen(true);
     }
   };
 
-  const handleAddNewCatItem = () => {
-    setNewCatItems(prev => [
+  const handleAddCatItem = () => {
+    setCatItems(prev => [
       ...prev,
       { amount: '', due_day: '15', frequency: 'MONTHLY' }
     ]);
   };
 
-  const handleUpdateNewCatItem = (index: number, field: string, value: any) => {
-    setNewCatItems(prev => prev.map((it, idx) => idx === index ? { ...it, [field]: value } : it));
+  const handleUpdateCatItem = (index: number, field: string, value: any) => {
+    setCatItems(prev => prev.map((it, idx) => idx === index ? { ...it, [field]: value } : it));
   };
 
-  const handleRemoveNewCatItem = (index: number) => {
-    setNewCatItems(prev => prev.filter((_, idx) => idx !== index));
-  };
-
-  const handleAddEditCatItem = () => {
-    setEditCategoryItems(prev => [
-      ...prev,
-      { amount: '', due_day: '15', frequency: 'MONTHLY' }
-    ]);
-  };
-
-  const handleUpdateEditCatItem = (index: number, field: string, value: any) => {
-    setEditCategoryItems(prev => prev.map((it, idx) => idx === index ? { ...it, [field]: value } : it));
-  };
-
-  const handleRemoveEditCatItem = (index: number) => {
-    setEditCategoryItems(prev => prev.filter((_, idx) => idx !== index));
-  };
-
-  const handleCreateCategory = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newCatName.trim()) {
-      toast.error('El nombre es obligatorio');
-      return;
-    }
-
-    if (newCatHasMultiple) {
-      const validItems = newCatItems.filter(it => Number(it.amount) > 0);
-      if (validItems.length === 0) {
-        toast.error('Debes agregar al menos una fecha con monto mayor a 0');
-        return;
-      }
-    }
-
-    setIsSubmittingCat(true);
-    try {
-      const itemsPayload = newCatHasMultiple
-        ? newCatItems
-            .filter(it => Number(it.amount) > 0)
-            .map(it => ({
-              amount: Number(it.amount),
-              due_day: it.frequency === 'MONTHLY' && it.due_day ? Number(it.due_day) : null,
-              specific_date: it.frequency === 'ONCE' && it.specific_date ? it.specific_date : null,
-              frequency: it.frequency,
-            }))
-        : [];
-
-      const res = await fetch('/api/categories', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newCatName.trim(),
-          type: newCatType,
-          monthly_budget: newCatHasMultiple ? undefined : (Number(newCatBudget) || 0),
-          color: newCatColor,
-          is_fixed: newCatType === 'EXPENSE' ? newCatIsFixed : false,
-          frequency: newCatFrequency,
-          due_day: newCatFrequency === 'MONTHLY' && newCatDueDay ? Number(newCatDueDay) : null,
-          specific_date: newCatFrequency === 'ONCE' && newCatSpecificDate ? newCatSpecificDate : null,
-          has_multiple_items: newCatHasMultiple ? 1 : 0,
-          items: itemsPayload,
-        }),
-      });
-
-      if (res.ok) {
-        toast.success(newCatType === 'INCOME' ? `Fuente "${newCatName}" creada` : `Grupo "${newCatName}" creado`);
-        setNewCatName('');
-        setNewCatBudget('');
-        setNewCatDueDay('');
-        setNewCatSpecificDate('');
-        setIsAddCategoryOpen(false);
-        invalidateFinance();
-      } else {
-        toast.error('Error al crear el grupo');
-      }
-    } catch {
-      toast.error('Error de conexión');
-    } finally {
-      setIsSubmittingCat(false);
-    }
+  const handleRemoveCatItem = (index: number) => {
+    setCatItems(prev => prev.filter((_, idx) => idx !== index));
   };
 
   const handleCreatePaymentMethod = async (e: React.FormEvent) => {
@@ -319,19 +230,20 @@ export default function BudgetsPage() {
 
   const handleOpenEditCategory = (cat: any) => {
     setEditingCategory(cat);
-    setEditCategoryName(cat.name);
-    setEditCategoryBudget(cat.monthly_budget ? cat.monthly_budget.toString() : '');
-    setEditCategoryColor(cat.color || (cat.type === 'INCOME' ? '#10B981' : '#00ADB5'));
-    setEditCategoryIsFixed(cat.is_fixed === 1);
-    setEditCategoryFrequency(cat.frequency || (cat.specific_date ? 'ONCE' : (cat.due_day ? 'MONTHLY' : 'MONTHLY')));
-    setEditCategoryDueDay(cat.due_day ? String(cat.due_day) : '');
-    setEditCategorySpecificDate(cat.specific_date ? String(cat.specific_date).slice(0, 10) : '');
+    setCatType(cat.type);
+    setCatName(cat.name);
+    setCatBudget(cat.monthly_budget ? cat.monthly_budget.toString() : '');
+    setCatColor(cat.color || (cat.type === 'INCOME' ? '#10B981' : '#00ADB5'));
+    setCatIsFixed(cat.is_fixed === 1);
+    setCatFrequency(cat.frequency || (cat.specific_date ? 'ONCE' : (cat.due_day ? 'MONTHLY' : 'MONTHLY')));
+    setCatDueDay(cat.due_day ? String(cat.due_day) : '');
+    setCatSpecificDate(cat.specific_date ? String(cat.specific_date).slice(0, 10) : '');
 
     const hasMultiple = cat.has_multiple_items === 1 || (Array.isArray(cat.items) && cat.items.length > 0);
-    setEditCategoryHasMultiple(hasMultiple);
+    setCatHasMultiple(hasMultiple);
 
     if (Array.isArray(cat.items) && cat.items.length > 0) {
-      setEditCategoryItems(cat.items.map((it: any) => ({
+      setCatItems(cat.items.map((it: any) => ({
         id: it.id,
         amount: it.amount ? String(it.amount) : '',
         due_day: it.due_day ? String(it.due_day) : '',
@@ -339,35 +251,36 @@ export default function BudgetsPage() {
         frequency: it.frequency || (it.specific_date ? 'ONCE' : 'MONTHLY'),
       })));
     } else {
-      setEditCategoryItems([
+      setCatItems([
         { amount: cat.monthly_budget ? String(cat.monthly_budget) : '', due_day: cat.due_day ? String(cat.due_day) : '15', frequency: 'MONTHLY' }
       ]);
     }
+    setIsCategoryModalOpen(true);
   };
 
-  const handleSaveEditCategory = async (e: React.FormEvent) => {
+  const handleSaveCategory = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingCategory) return;
-    if (!editCategoryName.trim()) {
+    if (!catName.trim()) {
       toast.error('El nombre es obligatorio');
       return;
     }
 
-    if (editCategoryHasMultiple) {
-      const validItems = editCategoryItems.filter(it => Number(it.amount) > 0);
+    if (catHasMultiple) {
+      const validItems = catItems.filter(it => Number(it.amount) > 0);
       if (validItems.length === 0) {
         toast.error('Debes tener al menos una fecha con monto mayor a 0');
         return;
       }
     }
 
-    setIsSavingEditCategory(true);
+    setIsSavingCategory(true);
     try {
-      const itemsPayload = editCategoryHasMultiple
-        ? editCategoryItems
+      const isEdit = Boolean(editingCategory);
+      const itemsPayload = catHasMultiple
+        ? catItems
             .filter(it => Number(it.amount) > 0)
             .map(it => ({
-              id: it.id,
+              ...(it.id ? { id: it.id } : {}),
               amount: Number(it.amount),
               due_day: it.frequency === 'MONTHLY' && it.due_day ? Number(it.due_day) : null,
               specific_date: it.frequency === 'ONCE' && it.specific_date ? it.specific_date : null,
@@ -375,40 +288,48 @@ export default function BudgetsPage() {
             }))
         : [];
 
+      const payload: any = {
+        name: catName.trim(),
+        type: catType,
+        color: catColor,
+        monthly_budget: catHasMultiple ? undefined : (Number(catBudget) || 0),
+        is_fixed: catType === 'INCOME' ? 0 : (catIsFixed ? 1 : 0),
+        frequency: catFrequency,
+        due_day: catFrequency === 'MONTHLY' && catDueDay ? Number(catDueDay) : null,
+        specific_date: catFrequency === 'ONCE' && catSpecificDate ? catSpecificDate : null,
+        has_multiple_items: catHasMultiple ? 1 : 0,
+        items: itemsPayload,
+      };
+
+      if (isEdit) {
+        payload.id = editingCategory.id;
+      }
+
       const res = await fetch('/api/categories', {
-        method: 'PUT',
+        method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: editingCategory.id,
-          name: editCategoryName.trim(),
-          type: editingCategory.type,
-          color: editCategoryColor,
-          monthly_budget: editCategoryHasMultiple ? undefined : (Number(editCategoryBudget) || 0),
-          is_fixed: editingCategory.type === 'INCOME' ? 0 : (editCategoryIsFixed ? 1 : 0),
-          frequency: editCategoryFrequency,
-          due_day: editCategoryFrequency === 'MONTHLY' && editCategoryDueDay ? Number(editCategoryDueDay) : null,
-          specific_date: editCategoryFrequency === 'ONCE' && editCategorySpecificDate ? editCategorySpecificDate : null,
-          has_multiple_items: editCategoryHasMultiple ? 1 : 0,
-          items: itemsPayload,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
+        const noun = catType === 'INCOME' ? 'Fuente' : 'Grupo';
+        const actionVerb = isEdit ? 'actualizado' : 'creado';
         toast.success(
-          editingCategory.type === 'INCOME'
-            ? `Fuente "${editCategoryName.trim()}" actualizada`
-            : `Grupo "${editCategoryName.trim()}" actualizado`
+          catType === 'INCOME'
+            ? `${noun} "${catName.trim()}" ${isEdit ? 'actualizada' : 'creada'}`
+            : `${noun} "${catName.trim()}" ${actionVerb}`
         );
+        setIsCategoryModalOpen(false);
         setEditingCategory(null);
         invalidateFinance();
       } else {
-        const data = await res.json();
-        toast.error(data.error || 'Error al actualizar');
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error || `Error al ${isEdit ? 'actualizar' : 'crear'}`);
       }
     } catch {
       toast.error('Error de conexión');
     } finally {
-      setIsSavingEditCategory(false);
+      setIsSavingCategory(false);
     }
   };
 
@@ -451,8 +372,6 @@ export default function BudgetsPage() {
   // Sort income categories by month earnings descending
   const sortedIncomeCategories = [...incomeCategories].sort((a: any, b: any) => (b.earned_this_month || 0) - (a.earned_this_month || 0));
   const topIncomeSource = sortedIncomeCategories[0];
-
-  const numericNewBudget = Number(newCatBudget) || 0;
 
   return (
     <div className="min-h-screen bg-[#070F1E] flex flex-col">
@@ -929,43 +848,87 @@ export default function BudgetsPage() {
           </div>
         )}
 
-        {/* Modal: Edit Category (Expense or Income) */}
-        {editingCategory && (
+        {/* Modal Unificado: Crear / Editar Categoría o Fuente */}
+        {isCategoryModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
             <div className={`w-full max-w-md bg-[#0B192C] border rounded-3xl p-6 shadow-2xl relative ${
-              editingCategory.type === 'INCOME' ? 'border-emerald-500' : 'border-[#00ADB5]'
+              catType === 'INCOME' ? 'border-emerald-500' : 'border-[#00ADB5]'
             }`}>
               <div className="flex items-center justify-between pb-3 border-b border-[#1E3A5F]">
-                <span className="text-sm font-bold text-white flex items-center gap-2">
-                  {editingCategory.type === 'INCOME' ? (
-                    <>
+                {editingCategory ? (
+                  <span className="text-sm font-bold text-white flex items-center gap-2">
+                    {catType === 'INCOME' ? (
+                      <>
+                        <Briefcase className="w-4 h-4 text-emerald-400" />
+                        <span>Editar Fuente de Ingreso</span>
+                      </>
+                    ) : (
+                      <>
+                        <Layers className="w-4 h-4 text-[#00ADB5]" />
+                        <span>Editar Grupo de Gasto</span>
+                      </>
+                    )}
+                  </span>
+                ) : (
+                  <div className="flex items-center gap-2 whitespace-nowrap">
+                    {catType === 'INCOME' ? (
                       <Briefcase className="w-4 h-4 text-emerald-400" />
-                      <span>Editar Fuente de Ingreso</span>
-                    </>
-                  ) : (
-                    <>
+                    ) : (
                       <Layers className="w-4 h-4 text-[#00ADB5]" />
-                      <span>Editar Grupo de Gasto</span>
-                    </>
-                  )}
-                </span>
+                    )}
+
+                    <div className="flex items-center bg-[#102A43] py-1.5 px-4 rounded-lg border border-[#243B55]">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCatType('EXPENSE');
+                          setCatColor('#00ADB5');
+                        }}
+                        className={`text-[11px] font-bold px-2 py-0.5 rounded-md transition-all ${
+                          catType === 'EXPENSE' ? 'bg-[#00ADB5] text-[#0B192C]' : 'text-slate-400'
+                        }`}
+                      >
+                        Grupo de Gasto
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCatType('INCOME');
+                          setCatColor('#10B981');
+                        }}
+                        className={`text-[11px] font-bold px-2 py-0.5 rounded-md transition-all ${
+                          catType === 'INCOME' ? 'bg-emerald-500 text-slate-950' : 'text-slate-400'
+                        }`}
+                      >
+                        Fuente de Ingreso
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <button
-                  onClick={() => setEditingCategory(null)}
+                  onClick={() => {
+                    setIsCategoryModalOpen(false);
+                    setEditingCategory(null);
+                  }}
                   className="text-slate-400 hover:text-white"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              <form onSubmit={handleSaveEditCategory} className="mt-4 space-y-3.5">
+              <form onSubmit={handleSaveCategory} className="mt-4 space-y-3.5">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    {editingCategory.type === 'INCOME' ? 'Nombre de la Fuente' : 'Nombre del Grupo'}
+                    {catType === 'INCOME' 
+                      ? (editingCategory ? 'Nombre de la Fuente' : 'Nombre de la Fuente de Ingreso') 
+                      : (editingCategory ? 'Nombre del Grupo' : 'Nombre del Grupo de Gasto')}
                   </label>
                   <input
                     type="text"
-                    value={editCategoryName}
-                    onChange={(e) => setEditCategoryName(e.target.value)}
+                    placeholder={catType === 'INCOME' ? 'Ej: Suscripciones Sistemas, Quincenas' : 'Ej: Mascotas, Gimnasio, Arriendo'}
+                    value={catName}
+                    onChange={(e) => setCatName(e.target.value)}
                     className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2.5 rounded-xl focus:border-[#00ADB5] focus:outline-none"
                     required
                     autoFocus
@@ -980,9 +943,9 @@ export default function BudgetsPage() {
                   <div className="grid grid-cols-2 gap-2 p-1 bg-[#102A43] rounded-2xl border border-[#243B55]">
                     <button
                       type="button"
-                      onClick={() => setEditCategoryHasMultiple(false)}
+                      onClick={() => setCatHasMultiple(false)}
                       className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
-                        !editCategoryHasMultiple
+                        !catHasMultiple
                           ? 'bg-[#00ADB5] text-[#0B192C] shadow-sm'
                           : 'text-slate-400 hover:text-white'
                       }`}
@@ -993,16 +956,16 @@ export default function BudgetsPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        setEditCategoryHasMultiple(true);
-                        if (editCategoryItems.length === 0) {
-                          setEditCategoryItems([
-                            { amount: editCategoryBudget || '', due_day: editCategoryDueDay || '15', frequency: 'MONTHLY' },
+                        setCatHasMultiple(true);
+                        if (catItems.length === 0) {
+                          setCatItems([
+                            { amount: catBudget || '', due_day: catDueDay || '15', frequency: 'MONTHLY' },
                             { amount: '', due_day: '30', frequency: 'MONTHLY' },
                           ]);
                         }
                       }}
                       className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
-                        editCategoryHasMultiple
+                        catHasMultiple
                           ? 'bg-[#00ADB5] text-[#0B192C] shadow-sm'
                           : 'text-slate-400 hover:text-white'
                       }`}
@@ -1013,28 +976,28 @@ export default function BudgetsPage() {
                   </div>
                 </div>
 
-                {!editCategoryHasMultiple ? (
+                {!catHasMultiple ? (
                   <>
                     <div>
                       <div className="flex items-center justify-between mb-1">
                         <label className="text-xs font-semibold text-slate-300">
-                          {editingCategory.type === 'INCOME' ? 'Monto Mensual Estimado ($ COP)' : 'Presupuesto Mensual Estimado ($ COP)'}
+                          {catType === 'INCOME' ? 'Monto Mensual Estimado ($ COP)' : 'Presupuesto Mensual Estimado ($ COP)'}
                         </label>
-                        {Number(editCategoryBudget) > 0 && (
+                        {Number(catBudget) > 0 && (
                           <span className="text-[11px] text-[#00ADB5] font-bold">
-                            {formatCOP(Number(editCategoryBudget))}
+                            {formatCOP(Number(catBudget))}
                           </span>
                         )}
                       </div>
                       <input
                         type="number"
-                        value={editCategoryBudget}
-                        onChange={(e) => setEditCategoryBudget(e.target.value)}
-                        placeholder={editingCategory.type === 'INCOME' ? 'Ej: 1500000' : 'Ej: 500000'}
+                        value={catBudget}
+                        onChange={(e) => setCatBudget(e.target.value)}
+                        placeholder={catType === 'INCOME' ? 'Ej: 1500000' : 'Ej: 500000'}
                         className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2.5 rounded-xl focus:border-[#00ADB5] focus:outline-none"
                       />
                       <span className="text-[10px] text-slate-400 mt-1 block">
-                        {editingCategory.type === 'INCOME'
+                        {catType === 'INCOME'
                           ? 'Este valor alimentará tu verdadero ingreso mensual de manera dinámica.'
                           : 'Tope máximo o compromiso para este grupo.'}
                       </span>
@@ -1050,9 +1013,9 @@ export default function BudgetsPage() {
                       <div className="grid grid-cols-3 gap-1.5">
                         <button
                           type="button"
-                          onClick={() => setEditCategoryFrequency('MONTHLY')}
+                          onClick={() => setCatFrequency('MONTHLY')}
                           className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all ${
-                            editCategoryFrequency === 'MONTHLY'
+                            catFrequency === 'MONTHLY'
                               ? 'bg-[#00ADB5] text-[#0B192C]'
                               : 'bg-[#0B192C] text-slate-400 hover:text-white border border-[#243B55]'
                           }`}
@@ -1061,9 +1024,9 @@ export default function BudgetsPage() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => setEditCategoryFrequency('ONCE')}
+                          onClick={() => setCatFrequency('ONCE')}
                           className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all ${
-                            editCategoryFrequency === 'ONCE'
+                            catFrequency === 'ONCE'
                               ? 'bg-[#00ADB5] text-[#0B192C]'
                               : 'bg-[#0B192C] text-slate-400 hover:text-white border border-[#243B55]'
                           }`}
@@ -1072,9 +1035,9 @@ export default function BudgetsPage() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => setEditCategoryFrequency('NONE')}
+                          onClick={() => setCatFrequency('NONE')}
                           className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all ${
-                            editCategoryFrequency === 'NONE'
+                            catFrequency === 'NONE'
                               ? 'bg-[#00ADB5] text-[#0B192C]'
                               : 'bg-[#0B192C] text-slate-400 hover:text-white border border-[#243B55]'
                           }`}
@@ -1083,7 +1046,7 @@ export default function BudgetsPage() {
                         </button>
                       </div>
 
-                      {editCategoryFrequency === 'MONTHLY' && (
+                      {catFrequency === 'MONTHLY' && (
                         <div>
                           <label className="block text-[11px] font-medium text-slate-300 mb-1">
                             Día del mes (1 al 31)
@@ -1092,8 +1055,8 @@ export default function BudgetsPage() {
                             type="number"
                             min={1}
                             max={31}
-                            value={editCategoryDueDay}
-                            onChange={(e) => setEditCategoryDueDay(e.target.value)}
+                            value={catDueDay}
+                            onChange={(e) => setCatDueDay(e.target.value)}
                             placeholder="Ej: 15 (quincena), 30 (fin de mes), 27 (plan)"
                             className="w-full bg-[#0B192C] border border-[#243B55] text-white text-xs px-3 py-2 rounded-xl focus:border-[#00ADB5] focus:outline-none"
                           />
@@ -1103,15 +1066,15 @@ export default function BudgetsPage() {
                         </div>
                       )}
 
-                      {editCategoryFrequency === 'ONCE' && (
+                      {catFrequency === 'ONCE' && (
                         <div>
                           <label className="block text-[11px] font-medium text-slate-300 mb-1">
                             Fecha exacta (Año-Mes-Día)
                           </label>
                           <input
                             type="date"
-                            value={editCategorySpecificDate}
-                            onChange={(e) => setEditCategorySpecificDate(e.target.value)}
+                            value={catSpecificDate}
+                            onChange={(e) => setCatSpecificDate(e.target.value)}
                             className="w-full bg-[#0B192C] border border-[#243B55] text-white text-xs px-3 py-2 rounded-xl focus:border-[#00ADB5] focus:outline-none"
                           />
                           <span className="text-[10px] text-slate-400 mt-1 block">
@@ -1122,7 +1085,7 @@ export default function BudgetsPage() {
                     </div>
                   </>
                 ) : (
-                  /* Múltiples Fechas / Quincenas */
+                  /* Múltiples Fechas */
                   <div className="space-y-3 p-3.5 rounded-2xl bg-[#102A43]/50 border border-[#243B55]">
                     <div className="flex items-center justify-between">
                       <div>
@@ -1136,7 +1099,7 @@ export default function BudgetsPage() {
                       </div>
                       <button
                         type="button"
-                        onClick={handleAddEditCatItem}
+                        onClick={handleAddCatItem}
                         className="px-2.5 py-1 rounded-lg bg-[#00ADB5]/15 text-[#00ADB5] hover:bg-[#00ADB5]/25 text-[11px] font-bold flex items-center gap-1 transition-colors"
                       >
                         <Plus className="w-6 h-6" />
@@ -1144,7 +1107,7 @@ export default function BudgetsPage() {
                     </div>
 
                     <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                      {editCategoryItems.map((item, idx) => (
+                      {catItems.map((item, idx) => (
                         <div key={idx} className="flex items-center gap-2 bg-[#0B192C] p-2 rounded-xl border border-[#1E3A5F]">
                           <div className="flex-1 min-w-0">
                             <label className="text-[9px] text-slate-400 font-bold block mb-0.5">Monto ($ COP)</label>
@@ -1152,7 +1115,7 @@ export default function BudgetsPage() {
                               type="number"
                               placeholder="Ej: 1200000"
                               value={item.amount}
-                              onChange={(e) => handleUpdateEditCatItem(idx, 'amount', e.target.value)}
+                              onChange={(e) => handleUpdateCatItem(idx, 'amount', e.target.value)}
                               className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-2.5 py-1.5 rounded-lg focus:border-[#00ADB5] focus:outline-none"
                             />
                           </div>
@@ -1165,15 +1128,15 @@ export default function BudgetsPage() {
                               max={31}
                               placeholder="1-31"
                               value={item.due_day}
-                              onChange={(e) => handleUpdateEditCatItem(idx, 'due_day', e.target.value)}
+                              onChange={(e) => handleUpdateCatItem(idx, 'due_day', e.target.value)}
                               className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-2.5 py-1.5 rounded-lg focus:border-[#00ADB5] focus:outline-none text-center font-bold"
                             />
                           </div>
 
-                          {editCategoryItems.length > 1 && (
+                          {catItems.length > 1 && (
                             <button
                               type="button"
-                              onClick={() => handleRemoveEditCatItem(idx)}
+                              onClick={() => handleRemoveCatItem(idx)}
                               className="p-1.5 mt-3 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
                               title="Eliminar fecha"
                             >
@@ -1188,18 +1151,18 @@ export default function BudgetsPage() {
                     <div className="flex items-center justify-between pt-2 border-t border-[#1E3A5F] text-xs">
                       <span className="text-slate-400 font-medium">Total mensual calculado:</span>
                       <span className="text-emerald-400 font-mono font-black text-sm">
-                        {formatCOP(editCategoryItems.reduce((sum, it) => sum + (Number(it.amount) || 0), 0))}
+                        {formatCOP(catItems.reduce((sum, it) => sum + (Number(it.amount) || 0), 0))}
                       </span>
                     </div>
                   </div>
                 )}
 
-                {editingCategory.type !== 'INCOME' && (
+                {catType !== 'INCOME' && (
                   <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300 pt-1">
                     <input
                       type="checkbox"
-                      checked={editCategoryIsFixed}
-                      onChange={(e) => setEditCategoryIsFixed(e.target.checked)}
+                      checked={catIsFixed}
+                      onChange={(e) => setCatIsFixed(e.target.checked)}
                       className="rounded border-[#243B55] text-[#00ADB5] focus:ring-0"
                     />
                     <span>¿Es un compromiso fijo mensual obligatorio? (Ej: papás, arriendo)</span>
@@ -1213,9 +1176,9 @@ export default function BudgetsPage() {
                       <button
                         key={c}
                         type="button"
-                        onClick={() => setEditCategoryColor(c)}
+                        onClick={() => setCatColor(c)}
                         className={`w-7 h-7 rounded-full border-2 transition-transform ${
-                          editCategoryColor === c ? 'scale-110 border-white' : 'border-transparent'
+                          catColor === c ? 'scale-110 border-white' : 'border-transparent'
                         }`}
                         style={{ backgroundColor: c }}
                       />
@@ -1226,359 +1189,31 @@ export default function BudgetsPage() {
                 <div className="flex justify-end gap-2 pt-3 border-t border-[#1E3A5F]">
                   <button
                     type="button"
-                    onClick={() => setEditingCategory(null)}
+                    onClick={() => {
+                      setIsCategoryModalOpen(false);
+                      setEditingCategory(null);
+                    }}
                     className="px-3 py-1.5 rounded-xl text-xs text-slate-400 hover:text-white"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
-                    disabled={isSavingEditCategory}
+                    disabled={isSavingCategory}
                     className={`px-4 py-2 rounded-xl font-extrabold text-xs shadow-md flex items-center gap-1.5 transition-colors ${
-                      editingCategory.type === 'INCOME'
+                      catType === 'INCOME'
                         ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'
                         : 'bg-[#00ADB5] hover:opacity-90 text-[#0B192C]'
                     }`}
                   >
                     <Check className="w-3.5 h-3.5 stroke-[3px]" />
-                    <span>{isSavingEditCategory ? 'Guardando...' : 'Guardar Cambios'}</span>
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Modal: Crear Nueva Categoría / Fuente */}
-        {isAddCategoryOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-            <div className={`w-full max-w-md bg-[#0B192C] border rounded-3xl p-6 shadow-2xl relative ${
-              newCatType === 'INCOME' ? 'border-emerald-500' : 'border-[#00ADB5]'
-            }`}>
-              <div className="flex items-center justify-between pb-3 border-b border-[#1E3A5F]">
-                <div className="flex items-center gap-2 whitespace-nowrap">
-                  {newCatType === 'INCOME' ? (
-                    <Briefcase className="w-4 h-4 text-emerald-400" />
-                  ) : (
-                    <Layers className="w-4 h-4 text-[#00ADB5]" />
-                  )}
-
-                  <div className="flex items-center bg-[#102A43] py-1.5 px-4 rounded-lg border border-[#243B55]">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setNewCatType('EXPENSE');
-                        setNewCatColor('#00ADB5');
-                      }}
-                      className={`text-[11px] font-bold px-2 py-0.5 rounded-md transition-all ${
-                        newCatType === 'EXPENSE' ? 'bg-[#00ADB5] text-[#0B192C]' : 'text-slate-400'
-                      }`}
-                    >
-                      Grupo de Gasto
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setNewCatType('INCOME');
-                        setNewCatColor('#10B981');
-                      }}
-                      className={`text-[11px] font-bold px-2 py-0.5 rounded-md transition-all ${
-                        newCatType === 'INCOME' ? 'bg-emerald-500 text-slate-950' : 'text-slate-400'
-                      }`}
-                    >
-                      Fuente de Ingreso
-                    </button>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => setIsAddCategoryOpen(false)}
-                  className="text-slate-400 hover:text-white"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <form onSubmit={handleCreateCategory} className="mt-4 space-y-3.5">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    {newCatType === 'INCOME' ? 'Nombre de la Fuente de Ingreso' : 'Nombre del Grupo de Gasto'}
-                  </label>
-                  <input
-                    type="text"
-                    placeholder={newCatType === 'INCOME' ? 'Ej: Suscripciones Sistemas, Quincenas' : 'Ej: Mascotas, Gimnasio, Arriendo'}
-                    value={newCatName}
-                    onChange={(e) => setNewCatName(e.target.value)}
-                    className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2.5 rounded-xl focus:border-[#00ADB5] focus:outline-none"
-                    required
-                    autoFocus
-                  />
-                </div>
-
-                {/* Selector de Modalidad */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Modalidad de Programación
-                  </label>
-                  <div className="grid grid-cols-2 gap-2 p-1 bg-[#102A43] rounded-2xl border border-[#243B55]">
-                    <button
-                      type="button"
-                      onClick={() => setNewCatHasMultiple(false)}
-                      className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
-                        !newCatHasMultiple
-                          ? 'bg-[#00ADB5] text-[#0B192C] shadow-sm'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      <Clock className="w-3.5 h-3.5" />
-                      <span>Fecha Única</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setNewCatHasMultiple(true)}
-                      className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
-                        newCatHasMultiple
-                          ? 'bg-[#00ADB5] text-[#0B192C] shadow-sm'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      <Layers className="w-3.5 h-3.5" />
-                      <span>Múltiples Fechas / Quincenas</span>
-                    </button>
-                  </div>
-                </div>
-
-                {!newCatHasMultiple ? (
-                  <>
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-semibold text-slate-300">
-                          {newCatType === 'INCOME' ? 'Monto Estimado por Ingreso / Mes ($ COP)' : 'Presupuesto Estimado Mensual ($ COP)'}
-                        </label>
-                        {Number(newCatBudget) > 0 && (
-                          <span className="text-[11px] text-[#00ADB5] font-bold">
-                            {formatCOP(Number(newCatBudget))}
-                          </span>
-                        )}
-                      </div>
-                      <input
-                        type="number"
-                        placeholder={newCatType === 'INCOME' ? 'Ej: 1500000' : 'Ej: 150000'}
-                        value={newCatBudget}
-                        onChange={(e) => setNewCatBudget(e.target.value)}
-                        className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2.5 rounded-xl focus:border-[#00ADB5] focus:outline-none"
-                      />
-                      <span className="text-[10px] text-slate-400 mt-1 block">
-                        {newCatType === 'INCOME'
-                          ? 'Calculará tu ingreso mensual proyectado de forma dinámica.'
-                          : 'Tope máximo o compromiso para este grupo.'}
-                      </span>
-                    </div>
-
-                    {/* Programación y Fechas Clave */}
-                    <div className="p-3 rounded-2xl bg-[#102A43]/70 border border-[#243B55] space-y-2.5">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-200">
-                        <Calendar className="w-4 h-4 text-[#00ADB5]" />
-                        <span>Programación y Fecha Clave</span>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => setNewCatFrequency('MONTHLY')}
-                          className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all ${
-                            newCatFrequency === 'MONTHLY'
-                              ? 'bg-[#00ADB5] text-[#0B192C]'
-                              : 'bg-[#0B192C] text-slate-400 hover:text-white border border-[#243B55]'
-                          }`}
-                        >
-                          Día Fijo Mes
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setNewCatFrequency('ONCE')}
-                          className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all ${
-                            newCatFrequency === 'ONCE'
-                              ? 'bg-[#00ADB5] text-[#0B192C]'
-                              : 'bg-[#0B192C] text-slate-400 hover:text-white border border-[#243B55]'
-                          }`}
-                        >
-                          Fecha Única
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setNewCatFrequency('NONE')}
-                          className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all ${
-                            newCatFrequency === 'NONE'
-                              ? 'bg-[#00ADB5] text-[#0B192C]'
-                              : 'bg-[#0B192C] text-slate-400 hover:text-white border border-[#243B55]'
-                          }`}
-                        >
-                          Sin Fecha
-                        </button>
-                      </div>
-
-                      {newCatFrequency === 'MONTHLY' && (
-                        <div>
-                          <label className="block text-[11px] font-medium text-slate-300 mb-1">
-                            Día del mes (1 al 31)
-                          </label>
-                          <input
-                            type="number"
-                            min={1}
-                            max={31}
-                            value={newCatDueDay}
-                            onChange={(e) => setNewCatDueDay(e.target.value)}
-                            placeholder="Ej: 15 (quincena), 30 (fin de mes), 27 (plan)"
-                            className="w-full bg-[#0B192C] border border-[#243B55] text-white text-xs px-3 py-2 rounded-xl focus:border-[#00ADB5] focus:outline-none"
-                          />
-                          <span className="text-[10px] text-slate-400 mt-1 block">
-                            Se proyectará cada mes en este día para calcular tu gasto diario inteligente.
-                          </span>
-                        </div>
-                      )}
-
-                      {newCatFrequency === 'ONCE' && (
-                        <div>
-                          <label className="block text-[11px] font-medium text-slate-300 mb-1">
-                            Fecha exacta (Año-Mes-Día)
-                          </label>
-                          <input
-                            type="date"
-                            value={newCatSpecificDate}
-                            onChange={(e) => setNewCatSpecificDate(e.target.value)}
-                            className="w-full bg-[#0B192C] border border-[#243B55] text-white text-xs px-3 py-2 rounded-xl focus:border-[#00ADB5] focus:outline-none"
-                          />
-                          <span className="text-[10px] text-slate-400 mt-1 block">
-                            Para salidas, seguros, viajes o gastos puntuales con fecha definida.
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  /* Múltiples Fechas / Quincenas */
-                  <div className="space-y-3 p-3.5 rounded-2xl bg-[#102A43]/50 border border-[#243B55]">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                          <Calendar className="w-3.5 h-3.5 text-[#00ADB5]" />
-                          <span>Fechas o Quincenas del Grupo</span>
-                        </span>
-                        <p className="text-[10px] text-slate-400 mt-0.5">
-                          Monto y día de cada cobro o quincena. El total se calcula sumando los items.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleAddNewCatItem}
-                        className="px-2.5 py-1 rounded-lg bg-[#00ADB5]/15 text-[#00ADB5] hover:bg-[#00ADB5]/25 text-[11px] font-bold flex items-center gap-1 transition-colors"
-                      >
-                        <Plus className="w-3 h-3" />
-                        <span>Agregar Fecha</span>
-                      </button>
-                    </div>
-
-                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                      {newCatItems.map((item, idx) => (
-                        <div key={idx} className="flex items-center gap-2 bg-[#0B192C] p-2 rounded-xl border border-[#1E3A5F]">
-                          <div className="flex-1 min-w-0">
-                            <label className="text-[9px] text-slate-400 font-bold block mb-0.5">Monto ($ COP)</label>
-                            <input
-                              type="number"
-                              placeholder="Ej: 1200000"
-                              value={item.amount}
-                              onChange={(e) => handleUpdateNewCatItem(idx, 'amount', e.target.value)}
-                              className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-2.5 py-1.5 rounded-lg focus:border-[#00ADB5] focus:outline-none"
-                            />
-                          </div>
-
-                          <div className="w-24 shrink-0">
-                            <label className="text-[9px] text-slate-400 font-bold block mb-0.5">Día del mes</label>
-                            <input
-                              type="number"
-                              min={1}
-                              max={31}
-                              placeholder="1-31"
-                              value={item.due_day}
-                              onChange={(e) => handleUpdateNewCatItem(idx, 'due_day', e.target.value)}
-                              className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-2.5 py-1.5 rounded-lg focus:border-[#00ADB5] focus:outline-none text-center font-bold"
-                            />
-                          </div>
-
-                          {newCatItems.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveNewCatItem(idx)}
-                              className="p-1.5 mt-3 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
-                              title="Eliminar fecha"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Live Total */}
-                    <div className="flex items-center justify-between pt-2 border-t border-[#1E3A5F] text-xs">
-                      <span className="text-slate-400 font-medium">Total mensual calculado:</span>
-                      <span className="text-emerald-400 font-mono font-black text-sm">
-                        {formatCOP(newCatItems.reduce((sum, it) => sum + (Number(it.amount) || 0), 0))}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {newCatType === 'EXPENSE' && (
-                  <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300 pt-1">
-                    <input
-                      type="checkbox"
-                      checked={newCatIsFixed}
-                      onChange={(e) => setNewCatIsFixed(e.target.checked)}
-                      className="rounded border-[#243B55] text-[#00ADB5] focus:ring-0"
-                    />
-                    <span>¿Es un compromiso fijo mensual? (Ej: papás, arriendo)</span>
-                  </label>
-                )}
-
-                {/* Color selector */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Color Distintivo</label>
-                  <div className="flex items-center gap-2 pt-1">
-                    {COLOR_OPTIONS.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => setNewCatColor(c)}
-                        className={`w-7 h-7 rounded-full border-2 transition-transform ${
-                          newCatColor === c ? 'scale-110 border-white' : 'border-transparent'
-                        }`}
-                        style={{ backgroundColor: c }}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-2 pt-3 border-t border-[#1E3A5F]">
-                  <button
-                    type="button"
-                    onClick={() => setIsAddCategoryOpen(false)}
-                    className="px-3 py-1.5 rounded-xl text-xs text-slate-400 hover:text-white"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmittingCat}
-                    className={`px-4 py-2 rounded-xl font-extrabold text-xs shadow-md flex items-center gap-1.5 transition-colors ${
-                      newCatType === 'INCOME'
-                        ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'
-                        : 'bg-[#00ADB5] hover:opacity-90 text-[#0B192C]'
-                    }`}
-                  >
-                    <Check className="w-3.5 h-3.5 stroke-[3px]" />
-                    <span>{isSubmittingCat ? 'Guardando...' : 'Crear Rubro'}</span>
+                    <span>
+                      {isSavingCategory 
+                        ? 'Guardando...' 
+                        : editingCategory 
+                          ? 'Guardar Cambios' 
+                          : (catType === 'INCOME' ? 'Crear Fuente' : 'Crear Grupo')}
+                    </span>
                   </button>
                 </div>
               </form>

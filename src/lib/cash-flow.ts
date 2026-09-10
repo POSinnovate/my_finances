@@ -52,15 +52,21 @@ export interface UpcomingCommitment {
   icon?: string;
 }
 
-export interface NextIncomeInfo {
+export interface NextPaymentInfo {
+  id?: string;
   name: string;
   amount: number;
   dateStr: string;
   daysRemaining: number;
+  isOverdue: boolean;
+  daysOverdue: number;
   label: string;
   categoryName?: string;
   categoryId?: string;
+  type: 'INCOME' | 'EXPENSE';
 }
+
+export type NextIncomeInfo = NextPaymentInfo;
 
 export interface OverdueCommitment {
   id: string;
@@ -78,7 +84,8 @@ export interface OverdueCommitment {
 
 export interface CashFlowResult {
   dynamicMonthlyIncome: number;
-  nextIncome: NextIncomeInfo | null;
+  nextIncome: NextPaymentInfo | null;
+  nextExpense: NextPaymentInfo | null;
   upcomingCommitments: UpcomingCommitment[];
   overdueCommitments: OverdueCommitment[];
   totalPendingCommitments: number;
@@ -220,169 +227,7 @@ export function computeCashFlow({
     }
   }
 
-  // 2. Determine Next Income Date (ONLY from scheduled items or categories with dates)
-  interface IncomeCandidate {
-    name: string;
-    amount: number;
-    dateStr: string;
-    daysRemaining: number;
-    label: string;
-    categoryName?: string;
-    categoryId?: string;
-  }
-
-  const incomeCandidates: IncomeCandidate[] = [];
-
-  // A) Candidates from scheduled items
-  for (const item of activeItems.filter(i => i.type === 'INCOME')) {
-    const amt = Number(item.amount) || 0;
-    const freq = item.frequency || (item.specific_date ? 'ONCE' : 'MONTHLY');
-    const cat = categoryMap.get(item.category_id);
-    const catName = cat?.name || 'Ingreso';
-
-    if (freq === 'MONTHLY' && item.due_day) {
-      const clampedThisMonth = clampDay(today.year, today.month, item.due_day);
-      if (clampedThisMonth >= today.day) {
-        const dateStr = formatDateISO(today.year, today.month, clampedThisMonth);
-        const days = Math.max(1, clampedThisMonth - today.day);
-        incomeCandidates.push({
-          name: item.name,
-          amount: amt,
-          dateStr,
-          daysRemaining: days,
-          label: `${item.name} (Día ${clampedThisMonth})`,
-          categoryName: catName,
-          categoryId: item.category_id,
-        });
-      } else {
-        const nextMonth = today.month === 12 ? 1 : today.month + 1;
-        const nextYear = today.month === 12 ? today.year + 1 : today.year;
-        const clampedNext = clampDay(nextYear, nextMonth, item.due_day);
-        const dateStr = formatDateISO(nextYear, nextMonth, clampedNext);
-        const daysLeftThisMonth = getDaysInMonth(today.year, today.month) - today.day;
-        const days = Math.max(1, daysLeftThisMonth + clampedNext);
-        incomeCandidates.push({
-          name: item.name,
-          amount: amt,
-          dateStr,
-          daysRemaining: days,
-          label: `${item.name} (Próx. Día ${clampedNext})`,
-          categoryName: catName,
-          categoryId: item.category_id,
-        });
-      }
-    } else if (freq === 'ONCE' && item.specific_date) {
-      const targetStr = safeFormatDate(item.specific_date);
-      if (targetStr >= today.dateStr) {
-        const targetDateObj = new Date(targetStr + 'T00:00:00Z');
-        const diffMs = targetDateObj.getTime() - today.dateObj.getTime();
-        const days = Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)));
-        incomeCandidates.push({
-          name: item.name,
-          amount: amt,
-          dateStr: targetStr,
-          daysRemaining: days,
-          label: `${item.name} (${targetStr})`,
-          categoryName: catName,
-          categoryId: item.category_id,
-        });
-      }
-    } else if (freq === 'ANNUAL' && item.specific_date) {
-      const origDateStr = safeFormatDate(item.specific_date);
-      const m = Number(origDateStr.slice(5, 7));
-      const d = Number(origDateStr.slice(8, 10));
-      let candidateYear = today.year;
-      let candidateDateStr = formatDateISO(candidateYear, m, clampDay(candidateYear, m, d));
-      if (candidateDateStr < today.dateStr) {
-        candidateYear += 1;
-        candidateDateStr = formatDateISO(candidateYear, m, clampDay(candidateYear, m, d));
-      }
-      const targetDateObj = new Date(candidateDateStr + 'T00:00:00Z');
-      const diffMs = targetDateObj.getTime() - today.dateObj.getTime();
-      const days = Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)));
-      incomeCandidates.push({
-        name: item.name,
-        amount: amt,
-        dateStr: candidateDateStr,
-        daysRemaining: days,
-        label: `${item.name} (Anual ${candidateDateStr})`,
-        categoryName: catName,
-      });
-    }
-  }
-
-  // B) Candidates from categories without sub-items (ONLY with due_day or specific_date)
-  for (const cat of categories.filter(c => c.type === 'INCOME')) {
-    if (!categoriesWithItems.has(cat.id)) {
-      const budget = Number(cat.monthly_budget) || 0;
-      const freq = cat.frequency || (cat.specific_date ? 'ONCE' : 'MONTHLY');
-
-      if (freq === 'MONTHLY' && cat.due_day) {
-        const clampedThisMonth = clampDay(today.year, today.month, cat.due_day);
-        if (clampedThisMonth >= today.day) {
-          const dateStr = formatDateISO(today.year, today.month, clampedThisMonth);
-          const days = Math.max(1, clampedThisMonth - today.day);
-          incomeCandidates.push({
-            name: cat.name,
-            amount: budget,
-            dateStr,
-            daysRemaining: days,
-            label: `${cat.name} (Día ${clampedThisMonth})`,
-            categoryName: cat.name,
-            categoryId: cat.id,
-          });
-        } else {
-          const nextMonth = today.month === 12 ? 1 : today.month + 1;
-          const nextYear = today.month === 12 ? today.year + 1 : today.year;
-          const clampedNext = clampDay(nextYear, nextMonth, cat.due_day);
-          const dateStr = formatDateISO(nextYear, nextMonth, clampedNext);
-          const daysLeftThisMonth = getDaysInMonth(today.year, today.month) - today.day;
-          const days = Math.max(1, daysLeftThisMonth + clampedNext);
-          incomeCandidates.push({
-            name: cat.name,
-            amount: budget,
-            dateStr,
-            daysRemaining: days,
-            label: `${cat.name} (Próx. Día ${clampedNext})`,
-            categoryName: cat.name,
-            categoryId: cat.id,
-          });
-        }
-      } else if (freq === 'ONCE' && cat.specific_date) {
-        const targetStr = safeFormatDate(cat.specific_date);
-        if (targetStr >= today.dateStr) {
-          const targetDateObj = new Date(targetStr + 'T00:00:00Z');
-          const diffMs = targetDateObj.getTime() - today.dateObj.getTime();
-          const days = Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)));
-          incomeCandidates.push({
-            name: cat.name,
-            amount: budget,
-            dateStr: targetStr,
-            daysRemaining: days,
-            label: `${cat.name} (${targetStr})`,
-            categoryName: cat.name,
-            categoryId: cat.id,
-          });
-        }
-      }
-    }
-  }
-
-  // Sort chronologically and pick closest next income
-  incomeCandidates.sort((a, b) => a.daysRemaining - b.daysRemaining);
-  const nextIncome = incomeCandidates.length > 0 ? incomeCandidates[0] : null;
-
-  // Target date for upcoming commitments before next income
-  const daysInMonth = getDaysInMonth(today.year, today.month);
-  const endOfMonthStr = formatDateISO(today.year, today.month, daysInMonth);
-  const targetEndStr = nextIncome ? nextIncome.dateStr : endOfMonthStr;
-  const daysRemaining = nextIncome ? Math.max(1, nextIncome.daysRemaining) : Math.max(1, daysInMonth - today.day + 1);
-
-  // 3. Find Overdue and Upcoming Commitments
-  const upcomingCommitments: UpcomingCommitment[] = [];
-  const overdueCommitments: OverdueCommitment[] = [];
-
-  // Track paid and received amounts per category in the current month (safe date parsing)
+  // 2. Track paid and received amounts per category in the current month (safe date parsing)
   const paidByCategory = new Map<string, number>();
   const receivedByCategory = new Map<string, number>();
 
@@ -403,24 +248,56 @@ export function computeCashFlow({
 
   const deferTagCurrentMonth = `[Pospuesto al sig. mes - ${currentMonthPrefix}]`;
 
-  // A) Commitments from scheduled items (EXPENSE & INCOME)
+  // 3. Find Overdue and Upcoming Commitments, and build Next Income & Next Expense candidates
+  const upcomingCommitments: UpcomingCommitment[] = [];
+  const overdueCommitments: OverdueCommitment[] = [];
+  const incomeCandidates: NextPaymentInfo[] = [];
+  const expenseCandidates: NextPaymentInfo[] = [];
+
+  const daysInMonth = getDaysInMonth(today.year, today.month);
+  const endOfMonthStr = formatDateISO(today.year, today.month, daysInMonth);
+
+  // A) Process scheduled sub-items
   for (const item of activeItems) {
     const amt = Number(item.amount) || 0;
     const freq = item.frequency || (item.specific_date ? 'ONCE' : (item.due_day ? 'MONTHLY' : 'NONE'));
     const cat = categoryMap.get(item.category_id);
-    const isDeferred = item.notes && item.notes.includes(deferTagCurrentMonth);
+    const catName = cat?.name || (item.type === 'INCOME' ? 'Ingreso' : 'Egreso');
+    const isDeferred = Boolean(item.notes && item.notes.includes(deferTagCurrentMonth));
     const isIncome = item.type === 'INCOME';
+    const fulfilled = isIncome
+      ? (receivedByCategory.get(item.category_id) || 0) >= amt
+      : (paidByCategory.get(item.category_id) || 0) >= amt;
 
     if (freq === 'MONTHLY' && item.due_day) {
       const clampedThisMonth = clampDay(today.year, today.month, item.due_day);
       const dateStrThisMonth = formatDateISO(today.year, today.month, clampedThisMonth);
-      const fulfilled = isIncome
-        ? (receivedByCategory.get(item.category_id) || 0) >= amt
-        : (paidByCategory.get(item.category_id) || 0) >= amt;
 
-      // Check if due today or overdue in this month
+      // Overdue or due today in current month
       if (clampedThisMonth <= today.day) {
         if (!fulfilled && !isDeferred) {
+          const daysOver = today.day - clampedThisMonth;
+          const isOver = daysOver > 0;
+          const candidate: NextPaymentInfo = {
+            id: item.id,
+            name: item.name,
+            amount: amt,
+            dateStr: dateStrThisMonth,
+            daysRemaining: isOver ? -daysOver : 0,
+            isOverdue: isOver,
+            daysOverdue: daysOver,
+            label: isOver ? `${item.name} (Venció hace ${daysOver}d)` : `${item.name} (¡HOY!)`,
+            categoryName: catName,
+            categoryId: item.category_id,
+            type: isIncome ? 'INCOME' : 'EXPENSE',
+          };
+
+          if (isIncome) {
+            incomeCandidates.push(candidate);
+          } else {
+            expenseCandidates.push(candidate);
+          }
+
           overdueCommitments.push({
             id: item.id,
             categoryId: item.category_id,
@@ -429,14 +306,56 @@ export function computeCashFlow({
             type: isIncome ? 'INCOME' : 'EXPENSE',
             dueDay: clampedThisMonth,
             dateStr: dateStrThisMonth,
-            daysOverdue: today.day - clampedThisMonth,
+            daysOverdue: daysOver,
             frequency: 'MONTHLY',
             color: cat?.color || (isIncome ? '#10B981' : '#00ADB5'),
             icon: cat?.icon || (isIncome ? 'ArrowUpCircle' : 'Tag'),
           });
+        } else {
+          // Fulfilled or deferred: project next month
+          const nextMonth = today.month === 12 ? 1 : today.month + 1;
+          const nextYear = today.month === 12 ? today.year + 1 : today.year;
+          const clampedNext = clampDay(nextYear, nextMonth, item.due_day);
+          const dateStrNext = formatDateISO(nextYear, nextMonth, clampedNext);
+          const daysLeftThisMonth = daysInMonth - today.day;
+          const days = Math.max(1, daysLeftThisMonth + clampedNext);
+
+          const candidate: NextPaymentInfo = {
+            id: item.id,
+            name: item.name,
+            amount: amt,
+            dateStr: dateStrNext,
+            daysRemaining: days,
+            isOverdue: false,
+            daysOverdue: 0,
+            label: `${item.name} (Próx. Día ${clampedNext})`,
+            categoryName: catName,
+            categoryId: item.category_id,
+            type: isIncome ? 'INCOME' : 'EXPENSE',
+          };
+          if (isIncome) incomeCandidates.push(candidate);
+          else expenseCandidates.push(candidate);
         }
-      } else if (dateStrThisMonth <= targetEndStr) {
-        const days = Math.max(0, clampedThisMonth - today.day);
+      } else {
+        // Due later this month (daysRemaining > 0)
+        const days = clampedThisMonth - today.day;
+        const candidate: NextPaymentInfo = {
+          id: item.id,
+          name: item.name,
+          amount: amt,
+          dateStr: dateStrThisMonth,
+          daysRemaining: days,
+          isOverdue: false,
+          daysOverdue: 0,
+          label: `${item.name} (Día ${clampedThisMonth})`,
+          categoryName: catName,
+          categoryId: item.category_id,
+          type: isIncome ? 'INCOME' : 'EXPENSE',
+        };
+
+        if (isIncome) incomeCandidates.push(candidate);
+        else expenseCandidates.push(candidate);
+
         upcomingCommitments.push({
           id: item.id,
           categoryId: item.category_id,
@@ -453,15 +372,30 @@ export function computeCashFlow({
       }
     } else if (freq === 'ONCE' && item.specific_date) {
       const targetStr = safeFormatDate(item.specific_date);
-      const fulfilled = isIncome
-        ? (receivedByCategory.get(item.category_id) || 0) >= amt
-        : (paidByCategory.get(item.category_id) || 0) >= amt;
+      const targetDateObj = new Date(targetStr + 'T00:00:00Z');
+      const diffMs = targetDateObj.getTime() - today.dateObj.getTime();
+      const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
 
       if (targetStr <= today.dateStr && targetStr.startsWith(currentMonthPrefix)) {
         if (!fulfilled && !isDeferred) {
-          const targetDateObj = new Date(targetStr + 'T00:00:00Z');
-          const diffMs = today.dateObj.getTime() - targetDateObj.getTime();
-          const daysOverdue = Math.max(0, Math.round(diffMs / (1000 * 60 * 60 * 24)));
+          const daysOver = Math.max(0, -diffDays);
+          const isOver = daysOver > 0;
+          const candidate: NextPaymentInfo = {
+            id: item.id,
+            name: item.name,
+            amount: amt,
+            dateStr: targetStr,
+            daysRemaining: isOver ? -daysOver : 0,
+            isOverdue: isOver,
+            daysOverdue: daysOver,
+            label: `${item.name} (${targetStr})`,
+            categoryName: catName,
+            categoryId: item.category_id,
+            type: isIncome ? 'INCOME' : 'EXPENSE',
+          };
+          if (isIncome) incomeCandidates.push(candidate);
+          else expenseCandidates.push(candidate);
+
           overdueCommitments.push({
             id: item.id,
             categoryId: item.category_id,
@@ -470,16 +404,29 @@ export function computeCashFlow({
             type: isIncome ? 'INCOME' : 'EXPENSE',
             dueDay: Number(targetStr.slice(8, 10)),
             dateStr: targetStr,
-            daysOverdue,
+            daysOverdue: daysOver,
             frequency: 'ONCE',
             color: cat?.color || (isIncome ? '#10B981' : '#00ADB5'),
             icon: cat?.icon || (isIncome ? 'ArrowUpCircle' : 'Tag'),
           });
         }
-      } else if (targetStr > today.dateStr && targetStr <= targetEndStr) {
-        const targetDateObj = new Date(targetStr + 'T00:00:00Z');
-        const diffMs = targetDateObj.getTime() - today.dateObj.getTime();
-        const days = Math.max(0, Math.round(diffMs / (1000 * 60 * 60 * 24)));
+      } else if (targetStr > today.dateStr) {
+        const days = Math.max(1, diffDays);
+        const candidate: NextPaymentInfo = {
+          id: item.id,
+          name: item.name,
+          amount: amt,
+          dateStr: targetStr,
+          daysRemaining: days,
+          isOverdue: false,
+          daysOverdue: 0,
+          label: `${item.name} (${targetStr})`,
+          categoryName: catName,
+          categoryId: item.category_id,
+          type: isIncome ? 'INCOME' : 'EXPENSE',
+        };
+        if (isIncome) incomeCandidates.push(candidate);
+        else expenseCandidates.push(candidate);
 
         upcomingCommitments.push({
           id: item.id,
@@ -498,22 +445,40 @@ export function computeCashFlow({
     }
   }
 
-  // B) Commitments from categories that don't have scheduled items
+  // B) Process single-date categories without sub-items
   for (const cat of categories) {
     if (!categoriesWithItems.has(cat.id)) {
       const budget = Number(cat.monthly_budget) || 0;
       const freq = cat.frequency || (cat.specific_date ? 'ONCE' : (cat.due_day ? 'MONTHLY' : 'NONE'));
       const isIncome = cat.type === 'INCOME';
+      const fulfilled = isIncome
+        ? (receivedByCategory.get(cat.id) || 0) >= budget
+        : (paidByCategory.get(cat.id) || 0) >= budget;
 
-      if (freq === 'MONTHLY' && cat.due_day) {
+      if (freq === 'MONTHLY' && cat.due_day && budget > 0) {
         const clampedThisMonth = clampDay(today.year, today.month, cat.due_day);
         const dateStrThisMonth = formatDateISO(today.year, today.month, clampedThisMonth);
-        const fulfilled = isIncome
-          ? (receivedByCategory.get(cat.id) || 0) >= budget
-          : (paidByCategory.get(cat.id) || 0) >= budget;
 
         if (clampedThisMonth <= today.day) {
-          if (!fulfilled && budget > 0) {
+          if (!fulfilled) {
+            const daysOver = today.day - clampedThisMonth;
+            const isOver = daysOver > 0;
+            const candidate: NextPaymentInfo = {
+              id: cat.id,
+              name: cat.name,
+              amount: budget,
+              dateStr: dateStrThisMonth,
+              daysRemaining: isOver ? -daysOver : 0,
+              isOverdue: isOver,
+              daysOverdue: daysOver,
+              label: isOver ? `${cat.name} (Venció hace ${daysOver}d)` : `${cat.name} (¡HOY!)`,
+              categoryName: cat.name,
+              categoryId: cat.id,
+              type: isIncome ? 'INCOME' : 'EXPENSE',
+            };
+            if (isIncome) incomeCandidates.push(candidate);
+            else expenseCandidates.push(candidate);
+
             overdueCommitments.push({
               id: cat.id,
               categoryId: cat.id,
@@ -522,14 +487,53 @@ export function computeCashFlow({
               type: isIncome ? 'INCOME' : 'EXPENSE',
               dueDay: clampedThisMonth,
               dateStr: dateStrThisMonth,
-              daysOverdue: today.day - clampedThisMonth,
+              daysOverdue: daysOver,
               frequency: 'MONTHLY',
               color: cat.color || (isIncome ? '#10B981' : '#00ADB5'),
               icon: cat.icon || (isIncome ? 'ArrowUpCircle' : 'Tag'),
             });
+          } else {
+            const nextMonth = today.month === 12 ? 1 : today.month + 1;
+            const nextYear = today.month === 12 ? today.year + 1 : today.year;
+            const clampedNext = clampDay(nextYear, nextMonth, cat.due_day);
+            const dateStrNext = formatDateISO(nextYear, nextMonth, clampedNext);
+            const daysLeftThisMonth = daysInMonth - today.day;
+            const days = Math.max(1, daysLeftThisMonth + clampedNext);
+
+            const candidate: NextPaymentInfo = {
+              id: cat.id,
+              name: cat.name,
+              amount: budget,
+              dateStr: dateStrNext,
+              daysRemaining: days,
+              isOverdue: false,
+              daysOverdue: 0,
+              label: `${cat.name} (Próx. Día ${clampedNext})`,
+              categoryName: cat.name,
+              categoryId: cat.id,
+              type: isIncome ? 'INCOME' : 'EXPENSE',
+            };
+            if (isIncome) incomeCandidates.push(candidate);
+            else expenseCandidates.push(candidate);
           }
-        } else if (dateStrThisMonth <= targetEndStr) {
-          const days = Math.max(0, clampedThisMonth - today.day);
+        } else {
+          const days = clampedThisMonth - today.day;
+          const candidate: NextPaymentInfo = {
+            id: cat.id,
+            name: cat.name,
+            amount: budget,
+            dateStr: dateStrThisMonth,
+            daysRemaining: days,
+            isOverdue: false,
+            daysOverdue: 0,
+            label: `${cat.name} (Día ${clampedThisMonth})`,
+            categoryName: cat.name,
+            categoryId: cat.id,
+            type: isIncome ? 'INCOME' : 'EXPENSE',
+          };
+          if (isIncome) incomeCandidates.push(candidate);
+          else expenseCandidates.push(candidate);
+
           upcomingCommitments.push({
             categoryId: cat.id,
             name: cat.name,
@@ -543,17 +547,32 @@ export function computeCashFlow({
             icon: cat.icon || (isIncome ? 'ArrowUpCircle' : 'Tag'),
           });
         }
-      } else if (freq === 'ONCE' && cat.specific_date) {
+      } else if (freq === 'ONCE' && cat.specific_date && budget > 0) {
         const targetStr = safeFormatDate(cat.specific_date);
-        const fulfilled = isIncome
-          ? (receivedByCategory.get(cat.id) || 0) >= budget
-          : (paidByCategory.get(cat.id) || 0) >= budget;
+        const targetDateObj = new Date(targetStr + 'T00:00:00Z');
+        const diffMs = targetDateObj.getTime() - today.dateObj.getTime();
+        const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
 
         if (targetStr <= today.dateStr && targetStr.startsWith(currentMonthPrefix)) {
-          if (!fulfilled && budget > 0) {
-            const targetDateObj = new Date(targetStr + 'T00:00:00Z');
-            const diffMs = today.dateObj.getTime() - targetDateObj.getTime();
-            const daysOverdue = Math.max(0, Math.round(diffMs / (1000 * 60 * 60 * 24)));
+          if (!fulfilled) {
+            const daysOver = Math.max(0, -diffDays);
+            const isOver = daysOver > 0;
+            const candidate: NextPaymentInfo = {
+              id: cat.id,
+              name: cat.name,
+              amount: budget,
+              dateStr: targetStr,
+              daysRemaining: isOver ? -daysOver : 0,
+              isOverdue: isOver,
+              daysOverdue: daysOver,
+              label: `${cat.name} (${targetStr})`,
+              categoryName: cat.name,
+              categoryId: cat.id,
+              type: isIncome ? 'INCOME' : 'EXPENSE',
+            };
+            if (isIncome) incomeCandidates.push(candidate);
+            else expenseCandidates.push(candidate);
+
             overdueCommitments.push({
               id: cat.id,
               categoryId: cat.id,
@@ -562,16 +581,29 @@ export function computeCashFlow({
               type: isIncome ? 'INCOME' : 'EXPENSE',
               dueDay: Number(targetStr.slice(8, 10)),
               dateStr: targetStr,
-              daysOverdue,
+              daysOverdue: daysOver,
               frequency: 'ONCE',
               color: cat.color || (isIncome ? '#10B981' : '#00ADB5'),
               icon: cat.icon || (isIncome ? 'ArrowUpCircle' : 'Tag'),
             });
           }
-        } else if (targetStr > today.dateStr && targetStr <= targetEndStr) {
-          const targetDateObj = new Date(targetStr + 'T00:00:00Z');
-          const diffMs = targetDateObj.getTime() - today.dateObj.getTime();
-          const days = Math.max(0, Math.round(diffMs / (1000 * 60 * 60 * 24)));
+        } else if (targetStr > today.dateStr) {
+          const days = Math.max(1, diffDays);
+          const candidate: NextPaymentInfo = {
+            id: cat.id,
+            name: cat.name,
+            amount: budget,
+            dateStr: targetStr,
+            daysRemaining: days,
+            isOverdue: false,
+            daysOverdue: 0,
+            label: `${cat.name} (${targetStr})`,
+            categoryName: cat.name,
+            categoryId: cat.id,
+            type: isIncome ? 'INCOME' : 'EXPENSE',
+          };
+          if (isIncome) incomeCandidates.push(candidate);
+          else expenseCandidates.push(candidate);
 
           upcomingCommitments.push({
             categoryId: cat.id,
@@ -589,6 +621,24 @@ export function computeCashFlow({
       }
     }
   }
+
+  // Priority sorting: Due today first, then Overdue, then closest Upcoming
+  function sortPaymentCandidates(a: NextPaymentInfo, b: NextPaymentInfo) {
+    if (a.daysRemaining === 0 && b.daysRemaining !== 0) return -1;
+    if (b.daysRemaining === 0 && a.daysRemaining !== 0) return 1;
+
+    if (a.isOverdue && !b.isOverdue) return -1;
+    if (!a.isOverdue && b.isOverdue) return 1;
+    if (a.isOverdue && b.isOverdue) return a.daysRemaining - b.daysRemaining;
+
+    return a.daysRemaining - b.daysRemaining;
+  }
+
+  incomeCandidates.sort(sortPaymentCandidates);
+  const nextIncome = incomeCandidates.length > 0 ? incomeCandidates[0] : null;
+
+  expenseCandidates.sort(sortPaymentCandidates);
+  const nextExpense = expenseCandidates.length > 0 ? expenseCandidates[0] : null;
 
   // Sort upcoming commitments chronologically
   upcomingCommitments.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
@@ -616,6 +666,10 @@ export function computeCashFlow({
   // Projected Net Balance = Dynamic Monthly Income - (Real Expenses Spent + Pending Fixed Commitments of the Month)
   const totalProjectedMonthExpenses = totalSpentMonth + totalPendingFixedExpensesMonth;
   const projectedNetBalance = dynamicMonthlyIncome - totalProjectedMonthExpenses;
+
+  const daysRemaining = nextIncome && nextIncome.daysRemaining > 0
+    ? nextIncome.daysRemaining
+    : Math.max(1, daysInMonth - today.day + 1);
 
   const freeCashForPeriod = Math.max(0, currentCash - totalPendingCommitments);
   const safeDailySpend = Math.max(0, Math.floor(freeCashForPeriod / daysRemaining));
@@ -691,6 +745,7 @@ export function computeCashFlow({
   return {
     dynamicMonthlyIncome,
     nextIncome,
+    nextExpense,
     upcomingCommitments,
     overdueCommitments,
     totalPendingCommitments,
