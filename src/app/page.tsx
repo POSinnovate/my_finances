@@ -88,17 +88,6 @@ export default function DashboardPage() {
               Mantén el registro al instante para erradicar las fugas y llegar con dinero al fin de mes.
             </p>
           </div>
-
-          <button
-            onClick={() => {
-              setPrefillExpense(null);
-              setIsQuickExpenseOpen(true);
-            }}
-            className="self-start sm:self-center py-2.5 px-4 rounded-2xl bg-linear-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] font-extrabold text-xs shadow-lg shadow-[#00ADB5]/20 flex items-center gap-2 hover:opacity-95 active:scale-95 transition-all whitespace-nowrap shrink-0"
-          >
-            <PlusCircle className="w-4 h-4 stroke-[2.5px]" />
-            <span>Registrar Movimiento</span>
-          </button>
         </div>
 
         {/* Executive 6-KPI Overview Grid */}

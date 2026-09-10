@@ -596,21 +596,11 @@ export function FinancialOverviewCard({
                       className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md transition-all whitespace-nowrap"
                     >
                       <CheckCircle2 className="w-4 h-4" />
-                      <span>⚡ Ingreso anticipado</span>
+                      <span>Ingreso anticipado</span>
                     </button>
                   )}
                 </div>
               )}
-            </div>
-
-            <div className="flex justify-end pt-1">
-              <button
-                type="button"
-                onClick={() => setIsNextIncomeModalOpen(false)}
-                className="px-4 py-2 rounded-xl bg-[#102A43] hover:bg-[#1E3A5F] text-xs font-bold text-white transition-colors"
-              >
-                Cerrar
-              </button>
             </div>
           </div>
         </div>
@@ -797,21 +787,11 @@ export function FinancialOverviewCard({
                       className="px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md transition-all whitespace-nowrap"
                     >
                       <CheckCircle2 className="w-4 h-4" />
-                      <span>⚡ Pago anticipado</span>
+                      <span>Pago anticipado</span>
                     </button>
                   )}
                 </div>
               )}
-            </div>
-
-            <div className="flex justify-end pt-1">
-              <button
-                type="button"
-                onClick={() => setIsNextExpenseModalOpen(false)}
-                className="px-4 py-2 rounded-xl bg-[#102A43] hover:bg-[#1E3A5F] text-xs font-bold text-white transition-colors"
-              >
-                Cerrar
-              </button>
             </div>
           </div>
         </div>
