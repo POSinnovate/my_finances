@@ -128,20 +128,12 @@ export function NotificationCenter() {
             onClick={() => setIsOpen(false)}
           />
 
-          <div className="fixed inset-x-3 top-16 max-h-[82vh] flex flex-col z-50 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-3 sm:w-[420px] sm:max-h-[540px] bg-[#0B192C] border border-[#1E3A5F] rounded-3xl shadow-2xl shadow-black/80 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+          <div className="fixed inset-x-3 top-16 max-h-[82vh] flex flex-col z-50 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-3 sm:w-105 sm:max-h-135 bg-[#0B192C] border border-[#1E3A5F] rounded-3xl shadow-2xl shadow-black/80 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             {/* Header */}
             <div className="px-5 py-4 border-b border-[#1E3A5F] flex items-center justify-between bg-[#102A43]/80 shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="w-7 h-7 rounded-xl bg-[#00ADB5]/20 flex items-center justify-center text-[#00ADB5]">
                   <Bell className="w-4 h-4" />
-                </div>
-                <div>
-                  <span className="text-xs font-black text-white uppercase tracking-wider block leading-none">
-                    Avisos y Compromisos
-                  </span>
-                  <span className="text-[10px] text-slate-400 mt-0.5 block">
-                    Control inteligente de vencimientos
-                  </span>
                 </div>
                 {activeAlerts.length > 0 && (
                   <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-[#102A43] text-[#00ADB5] border border-[#00ADB5]/30 ml-1">
@@ -154,7 +146,7 @@ export function NotificationCenter() {
                 {activeAlerts.length > 0 && (
                   <button
                     onClick={handleDismissAll}
-                    className="text-xs text-slate-400 hover:text-white font-medium px-2 py-1 rounded-lg hover:bg-slate-800 transition-colors"
+                    className="text-xs text-slate-400 hover:text-white font-medium px-2 py-1 rounded-lg hover:bg-slate-800 transition-colors text-nowrap"
                   >
                     Limpiar todo
                   </button>
@@ -170,7 +162,7 @@ export function NotificationCenter() {
             </div>
 
             {/* Alert List with Generous Padding */}
-            <div className="max-h-[400px] overflow-y-auto p-4 space-y-3">
+            <div className="max-h-100 overflow-y-auto p-4 space-y-3">
               {activeAlerts.length === 0 ? (
                 <div className="py-12 px-6 text-center space-y-2">
                   <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto text-emerald-400 shadow-sm">
@@ -191,10 +183,10 @@ export function NotificationCenter() {
                       key={alert.id}
                       className={`p-4 rounded-2xl transition-all relative group border shadow-sm ${
                         isCritical
-                          ? 'bg-rose-950/20 border-rose-500/40 text-rose-300'
+                          ? 'bg-rose-500/5 border-rose-500/40 text-rose-300'
                           : isWarning
-                          ? 'bg-amber-950/20 border-amber-500/40 text-amber-300'
-                          : 'bg-cyan-950/20 border-[#00ADB5]/40 text-cyan-300'
+                          ? 'bg-amber-500/5 border-amber-500/40 text-amber-300'
+                          : 'bg-cyan-500/5 border-[#00ADB5]/40 text-cyan-300'
                       }`}
                     >
                       <div className="flex items-start gap-3">
