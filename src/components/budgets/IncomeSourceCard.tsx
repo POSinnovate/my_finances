@@ -24,6 +24,7 @@ interface IncomeSourceCardProps {
   isTopSource?: boolean;
   onEdit: (category: IncomeCategory) => void;
   onDelete: (id: string, name: string) => void;
+  onManageSchedule?: (category: IncomeCategory) => void;
 }
 
 export function IncomeSourceCard({
@@ -32,6 +33,7 @@ export function IncomeSourceCard({
   isTopSource = false,
   onEdit,
   onDelete,
+  onManageSchedule,
 }: IncomeSourceCardProps) {
   const earnedMonth = Number(category.earned_this_month) || 0;
   const earnedYear = Number(category.earned_this_year) || 0;
@@ -134,6 +136,18 @@ export function IncomeSourceCard({
           />
         </div>
       </div>
+
+      {/* Action to Manage Granular Scheduled Sub-Items */}
+      {onManageSchedule && (
+        <button
+          type="button"
+          onClick={() => onManageSchedule(category)}
+          className="w-full py-1.5 px-3 rounded-xl bg-[#070F1E]/80 hover:bg-[#1E3A5F] border border-[#1E3A5F] hover:border-emerald-500/50 text-slate-300 hover:text-white text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all mt-2"
+        >
+          <Calendar className="w-3.5 h-3.5 text-emerald-400" />
+          <span>Fechas y Cobros Programados</span>
+        </button>
+      )}
     </div>
   );
 }

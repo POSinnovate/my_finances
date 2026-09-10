@@ -135,6 +135,40 @@ export function DailyBurnCard({ health, currentCash, cashFlow }: DailyBurnCardPr
         </div>
       )}
 
+      {/* Upcoming Commitments Mini-List */}
+      {cashFlow?.upcomingCommitments && cashFlow.upcomingCommitments.length > 0 && (
+        <div className="mb-3.5 space-y-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+            Compromisos fijos antes del próximo ingreso ({cashFlow.upcomingCommitments.length}):
+          </span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {cashFlow.upcomingCommitments.map((c, i) => (
+              <div 
+                key={i} 
+                className={`p-2 rounded-xl text-xs flex items-center justify-between border ${
+                  c.isPaid 
+                    ? 'bg-emerald-950/20 border-emerald-800/30 text-emerald-300' 
+                    : 'bg-[#0B192C]/80 border-[#243B55] text-slate-300'
+                }`}
+              >
+                <div className="min-w-0 flex-1 pr-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold truncate">{c.name}</span>
+                    {c.isPaid && <span className="text-[9px] font-extrabold text-emerald-400 bg-emerald-500/20 px-1 rounded">Pagado</span>}
+                  </div>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">
+                    {c.daysUntil === 0 ? 'Vence hoy' : c.daysUntil === 1 ? 'Vence mañana' : `En ${c.daysUntil} días`} ({c.dateStr})
+                  </span>
+                </div>
+                <span className="font-extrabold text-white shrink-0">
+                  {formatCOP(c.amount)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Metrics Row */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-3 border-t border-[#243B55]">
         <div className="bg-[#0B192C]/70 border border-[#243B55] rounded-xl p-2.5">

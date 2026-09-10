@@ -114,11 +114,20 @@ export async function GET() {
 
     const topLeaks = breakdown.filter(c => c.total_spent > 0).slice(0, 3);
 
-    // 6. Cash Flow Engine: Next income date, upcoming commitments, and adjusted daily burn rate
+    // 6. Cash Flow Engine: Query categories & granular scheduled items
     const allCategories = await db.prepare(`
       SELECT id, name, type, monthly_budget, is_fixed, due_day, specific_date, frequency, color, icon
       FROM categories
       WHERE user_id = ?
+    `).all(auth.userId) as any[];
+
+    const scheduledItems = await db.prepare(`
+      SELECT 
+        si.id, si.category_id, si.name, si.amount, si.type, si.frequency, si.due_day, si.specific_date, si.is_active, si.notes,
+        c.name as category_name, c.color, c.icon
+      FROM scheduled_items si
+      LEFT JOIN categories c ON c.id = si.category_id
+      WHERE si.user_id = ? AND si.is_active = 1
     `).all(auth.userId) as any[];
 
     const recentExpenses = await db.prepare(`
@@ -133,6 +142,7 @@ export async function GET() {
       userMonthlyIncome,
       categories: allCategories,
       expenses: recentExpenses,
+      scheduledItems,
     });
 
     // 7. Financial Health Metrics

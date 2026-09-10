@@ -24,9 +24,10 @@ interface BudgetCardProps {
   category: CategoryWithBudget;
   onEdit: (category: CategoryWithBudget) => void;
   onDelete: (id: string, name: string) => void;
+  onManageSchedule?: (category: CategoryWithBudget) => void;
 }
 
-export function BudgetCard({ category, onEdit, onDelete }: BudgetCardProps) {
+export function BudgetCard({ category, onEdit, onDelete, onManageSchedule }: BudgetCardProps) {
   const isExceeded = category.spent_this_month > category.monthly_budget && category.monthly_budget > 0;
   const progressWidth = Math.min(100, category.percentage_used);
 
@@ -128,6 +129,18 @@ export function BudgetCard({ category, onEdit, onDelete }: BudgetCardProps) {
           </span>
         </div>
       </div>
+
+      {/* Action to Manage Granular Scheduled Sub-Items */}
+      {onManageSchedule && (
+        <button
+          type="button"
+          onClick={() => onManageSchedule(category)}
+          className="w-full py-1.5 px-3 rounded-xl bg-[#070F1E]/80 hover:bg-[#1E3A5F] border border-[#1E3A5F] hover:border-[#00ADB5]/50 text-slate-300 hover:text-white text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all mt-2"
+        >
+          <Calendar className="w-3.5 h-3.5 text-[#00ADB5]" />
+          <span>Fechas y Compromisos Programados</span>
+        </button>
+      )}
 
       {isExceeded && (
         <div className="mt-2 text-[11px] text-rose-300 bg-rose-950/40 border border-rose-800/40 rounded-lg p-1.5 flex items-center gap-1.5">

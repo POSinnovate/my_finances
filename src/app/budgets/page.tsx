@@ -7,6 +7,7 @@ import { BottomNav } from '@/components/layout/BottomNav';
 import { BudgetCard } from '@/components/budgets/BudgetCard';
 import { IncomeSourceCard } from '@/components/budgets/IncomeSourceCard';
 import { QuickExpenseModal } from '@/components/expenses/QuickExpenseModal';
+import { ScheduledItemsModal } from '@/components/categories/ScheduledItemsModal';
 import { formatCOP } from '@/lib/utils';
 import { 
   useUser, 
@@ -99,6 +100,9 @@ export default function BudgetsPage() {
   const [editCategoryDueDay, setEditCategoryDueDay] = useState('');
   const [editCategorySpecificDate, setEditCategorySpecificDate] = useState('');
   const [isSavingEditCategory, setIsSavingEditCategory] = useState(false);
+
+  // Scheduled Items Management Modal
+  const [scheduledCategory, setScheduledCategory] = useState<any | null>(null);
 
   const handleOpenAdd = () => {
     if (activeTab === 'PAYMENT_METHODS') {
@@ -488,6 +492,7 @@ export default function BudgetsPage() {
                       category={cat}
                       onEdit={handleOpenEditCategory}
                       onDelete={(id, name) => handleDeleteCategory(id, name, 'EXPENSE')}
+                      onManageSchedule={(category) => setScheduledCategory(category)}
                     />
                   ))}
                 </div>
@@ -523,6 +528,7 @@ export default function BudgetsPage() {
                       category={cat}
                       onEdit={handleOpenEditCategory}
                       onDelete={(id, name) => handleDeleteCategory(id, name, 'EXPENSE')}
+                      onManageSchedule={(category) => setScheduledCategory(category)}
                     />
                   ))}
                 </div>
@@ -598,6 +604,7 @@ export default function BudgetsPage() {
                       isTopSource={idx === 0 && (cat.earned_this_month || 0) > 0}
                       onEdit={handleOpenEditCategory}
                       onDelete={(id, name) => handleDeleteCategory(id, name, 'INCOME')}
+                      onManageSchedule={(category) => setScheduledCategory(category)}
                     />
                   ))}
                 </div>
@@ -1360,6 +1367,12 @@ export default function BudgetsPage() {
         onClose={() => setIsQuickExpenseOpen(false)}
         onExpenseAdded={invalidateFinance}
         categories={categories}
+      />
+
+      <ScheduledItemsModal
+        isOpen={!!scheduledCategory}
+        onClose={() => setScheduledCategory(null)}
+        category={scheduledCategory}
       />
     </div>
   );

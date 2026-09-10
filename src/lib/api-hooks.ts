@@ -126,9 +126,29 @@ export function useGoals() {
   });
 }
 
+export function useScheduledItems(categoryId?: string, type?: string) {
+  return useQuery({
+    queryKey: ['scheduled-items', categoryId || 'ALL', type || 'ALL'],
+    queryFn: async () => {
+      let url = '/api/scheduled-items';
+      const params = new URLSearchParams();
+      if (categoryId && categoryId !== 'ALL') params.set('categoryId', categoryId);
+      if (type && type !== 'ALL') params.set('type', type);
+      const qs = params.toString();
+      if (qs) url += `?${qs}`;
+
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Error al cargar items programados');
+      const data = await res.json();
+      return data.items || [];
+    },
+    staleTime: 1000 * 60 * 3,
+  });
+}
+
 /**
  * Invalidate all finance data across the app after a mutation
- * (creating/editing/deleting expenses, categories, payment methods, or goals)
+ * (creating/editing/deleting expenses, categories, payment methods, goals or scheduled items)
  */
 export function useInvalidateFinance() {
   const queryClient = useQueryClient();
@@ -139,6 +159,7 @@ export function useInvalidateFinance() {
     queryClient.invalidateQueries({ queryKey: ['categories'] });
     queryClient.invalidateQueries({ queryKey: ['payment-methods'] });
     queryClient.invalidateQueries({ queryKey: ['goals'] });
+    queryClient.invalidateQueries({ queryKey: ['scheduled-items'] });
     queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
   };
 }

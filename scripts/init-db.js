@@ -112,11 +112,31 @@ export async function initDatabaseSchema() {
     );
   `;
 
+  // 6. Scheduled items table (Multiple dates & commitments per group/category)
+  await sql`
+    CREATE TABLE IF NOT EXISTS scheduled_items (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      category_id TEXT NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      amount NUMERIC NOT NULL DEFAULT 0,
+      type VARCHAR(10) NOT NULL DEFAULT 'EXPENSE',
+      frequency VARCHAR(20) NOT NULL DEFAULT 'MONTHLY',
+      due_day INTEGER,
+      specific_date DATE,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      notes TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `;
+
   // Indexes
   await sql`CREATE INDEX IF NOT EXISTS idx_expenses_user_date ON expenses(user_id, date);`;
   await sql`CREATE INDEX IF NOT EXISTS idx_categories_user ON categories(user_id);`;
   await sql`CREATE INDEX IF NOT EXISTS idx_goals_user ON goals(user_id);`;
   await sql`CREATE INDEX IF NOT EXISTS idx_payment_methods_user ON payment_methods(user_id);`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_scheduled_items_user ON scheduled_items(user_id);`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_scheduled_items_cat ON scheduled_items(category_id);`;
 
   console.log('✅ Tablas creadas exitosamente.');
 
