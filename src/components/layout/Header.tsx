@@ -118,9 +118,8 @@ export function Header({ user, onUserUpdate }: HeaderProps) {
                 className="group bg-[#102A43] hover:bg-[#152E4D] border border-[#243B55] hover:border-[#00ADB5]/50 px-2.5 sm:px-3 py-1.5 rounded-xl flex items-center gap-2 transition-all cursor-pointer text-left shrink-0 shadow-sm"
                 title="Click para ajustar fondo disponible"
               >
-                <div className="w-7 h-7 rounded-lg bg-[#00ADB5]/10 border border-[#00ADB5]/20 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                  <Wallet className="w-3.5 h-3.5 text-[#00ADB5]" />
-                </div>
+
+                <Wallet className="w-4 h-4 text-[#00ADB5]" />
                 <div className="flex flex-col min-w-0">
                   <span className="text-[9px] text-slate-400 font-semibold uppercase tracking-wider leading-none">
                     Fondo Disponible
@@ -129,7 +128,6 @@ export function Header({ user, onUserUpdate }: HeaderProps) {
                     <span className="text-xs sm:text-sm font-black text-white group-hover:text-[#00ADB5] transition-colors leading-tight">
                       {formatCOP(user.current_cash)}
                     </span>
-                    <Edit3 className="w-3 h-3 text-slate-500 group-hover:text-[#00ADB5] transition-colors shrink-0" />
                   </div>
                 </div>
               </button>

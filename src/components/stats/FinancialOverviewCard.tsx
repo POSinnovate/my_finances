@@ -268,7 +268,7 @@ export function FinancialOverviewCard({
             <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" />
           </div>
           <p className="text-sm sm:text-base font-black text-emerald-400 truncate">
-            +{formatCOP(monthlyIncomeWithDates)}
+            {formatCOP(monthlyIncomeWithDates)}
           </p>
           <span className="text-[9px] sm:text-[10px] text-slate-400 block mt-0.5 truncate" title="Suma de ingresos fijos programados con fechas y quincenas">
             {monthlyIncomeWithDates > 0 ? 'Suma de ingresos con fecha' : 'Sin ingresos con fecha'}
@@ -282,7 +282,7 @@ export function FinancialOverviewCard({
             <ArrowDownRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-400" />
           </div>
           <p className="text-sm sm:text-base font-black text-rose-400 truncate">
-            -{formatCOP(summary.total_spent)}
+            {formatCOP(summary.total_spent)}
           </p>
           <span className="text-[9px] sm:text-[10px] text-slate-400 block mt-0.5 truncate">
             {summary.expense_count} gastos registrados
@@ -296,7 +296,7 @@ export function FinancialOverviewCard({
             <Scale className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isPositiveBalance ? 'text-[#00ADB5]' : 'text-rose-400'}`} />
           </div>
           <p className={`text-sm sm:text-base font-black truncate ${isPositiveBalance ? 'text-[#00ADB5]' : 'text-rose-400'}`}>
-            {isPositiveBalance ? `+${formatCOP(projectedNetBalance)}` : formatCOP(projectedNetBalance)}
+            {isPositiveBalance ? `${formatCOP(projectedNetBalance)}` : formatCOP(projectedNetBalance)}
           </p>
           <span className="text-[9px] sm:text-[10px] text-slate-400 block mt-0.5 truncate" title="Ingresos con fecha menos los gastos del mes ya ejecutados y los egresos fijos pendientes por registrar">
             {isPositiveBalance ? 'Ahorro proyectado neto' : 'Déficit proyectado mes'}
