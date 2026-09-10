@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     const id = randomUUID();
     const passwordHash = hashPassword(password);
     const assignedRole = 'USER';
-    const income = Number(monthly_income) || 2000000;
+    const income = Number(monthly_income) || 0;
 
     await db.prepare(`
       INSERT INTO users (id, name, email, password_hash, role, monthly_income, current_cash, payday_day, is_active)

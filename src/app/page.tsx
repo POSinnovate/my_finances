@@ -98,36 +98,28 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* Intelligent Alerts Banner (if any) */}
-        {stats?.alerts && stats.alerts.length > 0 && (
-          <div className="space-y-2">
-            {stats.alerts.map((alert: any) => {
-              const isCrit = alert.type === 'CRITICAL';
-              return (
-                <div
-                  key={alert.id}
-                  className={`p-3.5 rounded-2xl border flex items-start gap-3 transition-all ${
-                    isCrit
-                      ? 'bg-rose-950/40 border-rose-600/50 text-rose-200'
-                      : 'bg-amber-950/40 border-amber-600/50 text-amber-200'
-                  }`}
-                >
-                  <AlertTriangle
-                    className={`w-5 h-5 shrink-0 mt-0.5 ${isCrit ? 'text-rose-400' : 'text-amber-400'}`}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-xs font-bold leading-tight">{alert.title}</h4>
-                    <p className="text-xs opacity-90 mt-0.5 leading-relaxed">{alert.message}</p>
-                  </div>
-                </div>
-              );
-            })}
+        {/* Urgent Critical Alert (if any, keeping dashboard clean) */}
+        {stats?.alerts && stats.alerts.filter((a: any) => a.type === 'CRITICAL').length > 0 && (
+          <div className="p-3.5 rounded-2xl border bg-rose-950/40 border-rose-600/50 text-rose-200 flex items-start gap-3 transition-all">
+            <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-rose-400" />
+            <div className="flex-1 min-w-0">
+              <h4 className="text-xs font-bold leading-tight">
+                {stats.alerts.find((a: any) => a.type === 'CRITICAL')?.title}
+              </h4>
+              <p className="text-xs opacity-90 mt-0.5 leading-relaxed">
+                {stats.alerts.find((a: any) => a.type === 'CRITICAL')?.message}
+              </p>
+            </div>
           </div>
         )}
 
-        {/* Hero Section: Safe Daily Spend Card */}
+        {/* Hero Section: Safe Daily Spend Card with Smart Date Cash Flow */}
         {stats?.health && (
-          <DailyBurnCard health={stats.health} currentCash={stats?.summary?.current_cash ?? user?.current_cash ?? 0} />
+          <DailyBurnCard
+            health={stats.health}
+            currentCash={stats?.summary?.current_cash ?? user?.current_cash ?? 0}
+            cashFlow={stats?.cashFlow}
+          />
         )}
 
         {/* Monthly Financial Overview Cards */}

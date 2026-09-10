@@ -42,12 +42,27 @@ export async function initDatabaseSchema() {
       monthly_budget NUMERIC NOT NULL DEFAULT 0,
       is_fixed INTEGER NOT NULL DEFAULT 0,
       type VARCHAR(10) NOT NULL DEFAULT 'EXPENSE',
+      due_day INTEGER,
+      specific_date DATE,
+      frequency VARCHAR(20) DEFAULT 'MONTHLY',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `;
 
   await sql`
     ALTER TABLE categories ADD COLUMN IF NOT EXISTS type VARCHAR(10) NOT NULL DEFAULT 'EXPENSE';
+  `;
+
+  await sql`
+    ALTER TABLE categories ADD COLUMN IF NOT EXISTS due_day INTEGER;
+  `;
+
+  await sql`
+    ALTER TABLE categories ADD COLUMN IF NOT EXISTS specific_date DATE;
+  `;
+
+  await sql`
+    ALTER TABLE categories ADD COLUMN IF NOT EXISTS frequency VARCHAR(20) DEFAULT 'MONTHLY';
   `;
 
   // 3. Expenses table

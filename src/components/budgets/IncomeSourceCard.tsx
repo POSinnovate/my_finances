@@ -12,6 +12,9 @@ export interface IncomeCategory {
   monthly_budget?: number;
   earned_this_month?: number;
   earned_this_year?: number;
+  due_day?: number | null;
+  specific_date?: string | null;
+  frequency?: string | null;
   type?: 'INCOME';
 }
 
@@ -63,6 +66,17 @@ export function IncomeSourceCard({
             <span className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wider whitespace-nowrap">
               Fuente de Ingreso
             </span>
+            {category.frequency === 'MONTHLY' && category.due_day ? (
+              <div className="flex items-center gap-1 text-[10px] font-semibold text-emerald-300 mt-1">
+                <Calendar className="w-3 h-3 text-emerald-400 shrink-0" />
+                <span>Día {category.due_day} de cada mes</span>
+              </div>
+            ) : category.specific_date ? (
+              <div className="flex items-center gap-1 text-[10px] font-semibold text-amber-300 mt-1">
+                <Calendar className="w-3 h-3 text-amber-400 shrink-0" />
+                <span>Fecha: {category.specific_date.slice(0, 10)}</span>
+              </div>
+            ) : null}
           </div>
         </div>
 

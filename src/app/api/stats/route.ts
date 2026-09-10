@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db/client';
 import { calculateFinancialHealth, formatCOP } from '@/lib/utils';
+import { computeCashFlow } from '@/lib/cash-flow';
 
 export async function GET() {
   try {
@@ -10,13 +11,14 @@ export async function GET() {
 
     // 1. User available fund and payday
     const user = await db.prepare(`
-      SELECT current_cash, payday_day
+      SELECT current_cash, payday_day, monthly_income
       FROM users
       WHERE id = ?
     `).get(auth.userId) as any;
 
     const currentCash = Number(user?.current_cash) || 0;
     const paydayDay = Number(user?.payday_day) || 30;
+    const userMonthlyIncome = Number(user?.monthly_income) || 0;
 
     // 2. Real Income of the current month (Sum of all registered INCOME transactions)
     const incomeRow = await db.prepare(`
@@ -112,23 +114,58 @@ export async function GET() {
 
     const topLeaks = breakdown.filter(c => c.total_spent > 0).slice(0, 3);
 
-    // 6. Financial Health Metrics
-    const health = calculateFinancialHealth({
-      monthlyIncome: totalIncomeThisMonth,
+    // 6. Cash Flow Engine: Next income date, upcoming commitments, and adjusted daily burn rate
+    const allCategories = await db.prepare(`
+      SELECT id, name, type, monthly_budget, is_fixed, due_day, specific_date, frequency, color, icon
+      FROM categories
+      WHERE user_id = ?
+    `).all(auth.userId) as any[];
+
+    const recentExpenses = await db.prepare(`
+      SELECT id, category_id, amount, date, type
+      FROM expenses
+      WHERE user_id = ? AND date >= ?
+    `).all(auth.userId, currentMonth + '-01') as any[];
+
+    const cashFlow = computeCashFlow({
+      currentCash,
+      paydayDay,
+      userMonthlyIncome,
+      categories: allCategories,
+      expenses: recentExpenses,
+    });
+
+    // 7. Financial Health Metrics
+    const effectiveIncome = totalIncomeThisMonth > 0 ? totalIncomeThisMonth : cashFlow.dynamicMonthlyIncome;
+    const baseHealth = calculateFinancialHealth({
+      monthlyIncome: effectiveIncome,
       currentCash,
       totalSpentThisMonth: totalSpent,
       paydayDay,
     });
 
-    // 7. Intelligent Alerts
-    const alerts: { id: string; type: 'CRITICAL' | 'WARNING' | 'INFO'; title: string; message: string }[] = [];
+    const health = {
+      ...baseHealth,
+      safeDailySpend: cashFlow.safeDailySpend,
+      rawDailySpend: cashFlow.rawDailySpend,
+      daysRemaining: cashFlow.daysRemaining,
+      paydayLabel: cashFlow.nextIncome.label,
+      totalPendingCommitments: cashFlow.totalPendingCommitments,
+      freeCashForPeriod: cashFlow.freeCashForPeriod,
+    };
 
-    if (currentCash <= 250000) {
+    // 8. Intelligent Alerts & Notifications
+    const alerts: { id: string; type: 'CRITICAL' | 'WARNING' | 'INFO'; title: string; message: string; date?: string }[] = [];
+
+    // Include cash flow alerts first (liquidity shortages, upcoming commitments, upcoming incomes)
+    alerts.push(...cashFlow.alerts);
+
+    if (currentCash <= 250000 && !alerts.some(a => a.id === 'cash-low' || a.id === 'liquidity-shortage')) {
       alerts.push({
         id: 'cash-low',
         type: 'CRITICAL',
-        title: '¡Fondo Disponible Crítico!',
-        message: `Te quedan ${formatCOP(currentCash)} disponibles en tu fondo. Tu límite diario seguro es de ${formatCOP(health.safeDailySpend)}/día.`,
+        title: '¡Fondo Disponible Bajo!',
+        message: `Te quedan ${formatCOP(currentCash)} disponibles en tu fondo. Tu límite diario seguro es de ${formatCOP(cashFlow.safeDailySpend)}/día.`,
       });
     }
 
@@ -137,7 +174,7 @@ export async function GET() {
         id: 'deficit-month',
         type: 'CRITICAL',
         title: 'Déficit en el Mes',
-        message: `Has gastado ${formatCOP(totalSpent)} y tus ingresos de este mes han sido ${formatCOP(totalIncomeThisMonth)}. Llevas un déficit de ${formatCOP(totalSpent - totalIncomeThisMonth)}.`,
+        message: `Has gastado ${formatCOP(totalSpent)} y tus ingresos registrados de este mes han sido ${formatCOP(totalIncomeThisMonth)}. Llevas un déficit de ${formatCOP(totalSpent - totalIncomeThisMonth)}.`,
       });
     }
 
@@ -164,6 +201,7 @@ export async function GET() {
     return NextResponse.json({
       summary: {
         total_income: totalIncomeThisMonth,
+        dynamic_monthly_income: cashFlow.dynamicMonthlyIncome,
         income_count: incomeCount,
         total_spent: totalSpent,
         fixed_spent: fixedSpent,
@@ -175,6 +213,12 @@ export async function GET() {
         payday_day: paydayDay,
       },
       health,
+      cashFlow: {
+        nextIncome: cashFlow.nextIncome,
+        upcomingCommitments: cashFlow.upcomingCommitments,
+        totalPendingCommitments: cashFlow.totalPendingCommitments,
+        freeCashForPeriod: cashFlow.freeCashForPeriod,
+      },
       breakdown,
       topLeaks,
       alerts,

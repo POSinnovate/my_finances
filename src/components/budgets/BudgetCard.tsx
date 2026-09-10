@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Edit3, AlertCircle, Trash2, Layers } from 'lucide-react';
+import { Edit3, AlertCircle, Trash2, Layers, Calendar } from 'lucide-react';
 import { formatCOP } from '@/lib/utils';
 
 export interface CategoryWithBudget {
@@ -11,6 +11,9 @@ export interface CategoryWithBudget {
   color: string;
   monthly_budget: number;
   is_fixed: number;
+  due_day?: number | null;
+  specific_date?: string | null;
+  frequency?: string | null;
   spent_this_month: number;
   remaining_budget: number;
   percentage_used: number;
@@ -62,6 +65,17 @@ export function BudgetCard({ category, onEdit, onDelete }: BudgetCardProps) {
                 </span>
               )}
             </div>
+            {category.frequency === 'MONTHLY' && category.due_day ? (
+              <div className="flex items-center gap-1 text-[10px] font-semibold text-cyan-300 mt-1">
+                <Calendar className="w-3 h-3 text-cyan-400 shrink-0" />
+                <span>Día {category.due_day} de cada mes</span>
+              </div>
+            ) : category.specific_date ? (
+              <div className="flex items-center gap-1 text-[10px] font-semibold text-amber-300 mt-1">
+                <Calendar className="w-3 h-3 text-amber-400 shrink-0" />
+                <span>Fecha: {category.specific_date.slice(0, 10)}</span>
+              </div>
+            ) : null}
           </div>
         </div>
 

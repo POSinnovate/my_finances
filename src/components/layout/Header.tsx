@@ -7,6 +7,7 @@ import { LogOut, Wallet, Edit3, X, Check } from 'lucide-react';
 import { formatCOP } from '@/lib/utils';
 import { toast } from 'sonner';
 import { InstallPwaButton } from './InstallPwaButton';
+import { NotificationCenter } from './NotificationCenter';
 
 interface UserData {
   id: string;
@@ -103,6 +104,9 @@ export function Header({ user, onUserUpdate }: HeaderProps) {
 
           {user ? (
             <>
+              {/* Intelligent Notification Bell */}
+              <NotificationCenter />
+
               {/* Live Cash Fund Pill */}
               <div className="bg-[#102A43] border border-[#243B55] px-2.5 py-1 rounded-xl flex items-center gap-1.5 sm:gap-2 shrink-0">
                 <div className="w-2 h-2 rounded-full bg-[#00ADB5] animate-pulse shrink-0" />

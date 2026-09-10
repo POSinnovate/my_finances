@@ -21,6 +21,9 @@ export async function GET(req: NextRequest) {
         c.monthly_budget,
         c.is_fixed,
         COALESCE(c.type, 'EXPENSE') as type,
+        c.due_day,
+        c.specific_date,
+        COALESCE(c.frequency, 'MONTHLY') as frequency,
         COALESCE(SUM(CASE WHEN (e.type IS NULL OR e.type = 'EXPENSE') AND strftime('%Y-%m', e.date) = ? THEN e.amount ELSE 0 END), 0) as spent_this_month,
         COALESCE(SUM(CASE WHEN e.type = 'INCOME' AND strftime('%Y-%m', e.date) = ? THEN e.amount ELSE 0 END), 0) as earned_this_month,
         COALESCE(SUM(CASE WHEN e.type = 'INCOME' AND e.date >= ? THEN e.amount ELSE 0 END), 0) as earned_recent,
@@ -65,6 +68,9 @@ export async function GET(req: NextRequest) {
       return {
         ...cat,
         type: cat.type || 'EXPENSE',
+        due_day: cat.due_day ? Number(cat.due_day) : null,
+        specific_date: cat.specific_date || null,
+        frequency: cat.frequency || 'MONTHLY',
         monthly_budget: budget,
         spent_this_month: spent,
         earned_this_month: earnedMonth,
@@ -88,7 +94,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const auth = await requireAuth();
-    const { name, icon, color, monthly_budget, is_fixed, type } = await req.json();
+    const { name, icon, color, monthly_budget, is_fixed, type, due_day, specific_date, frequency } = await req.json();
 
     if (!name) {
       return NextResponse.json({ error: 'El nombre del grupo es obligatorio' }, { status: 400 });
@@ -96,10 +102,13 @@ export async function POST(req: NextRequest) {
 
     const id = randomUUID();
     const catType = type === 'INCOME' ? 'INCOME' : 'EXPENSE';
+    const parsedDueDay = due_day ? Number(due_day) : null;
+    const parsedDate = specific_date ? String(specific_date).slice(0, 10) : null;
+    const parsedFreq = frequency || (parsedDate ? 'ONCE' : 'MONTHLY');
 
     await db.prepare(`
-      INSERT INTO categories (id, user_id, name, icon, color, monthly_budget, is_fixed, type)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO categories (id, user_id, name, icon, color, monthly_budget, is_fixed, type, due_day, specific_date, frequency)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       auth.userId,
@@ -108,7 +117,10 @@ export async function POST(req: NextRequest) {
       color || (catType === 'INCOME' ? '#10B981' : '#00ADB5'),
       Number(monthly_budget) || 0,
       is_fixed ? 1 : 0,
-      catType
+      catType,
+      parsedDueDay,
+      parsedDate,
+      parsedFreq
     );
 
     return NextResponse.json({ success: true, id });
@@ -124,32 +136,29 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const auth = await requireAuth();
-    const { id, name, icon, color, monthly_budget, is_fixed, type } = await req.json();
+    const { id, name, icon, color, monthly_budget, is_fixed, type, due_day, specific_date, frequency } = await req.json();
 
     if (!id) {
       return NextResponse.json({ error: 'ID requerido' }, { status: 400 });
     }
 
-    await db.prepare(`
-      UPDATE categories
-      SET 
-        name = COALESCE(?, name),
-        icon = COALESCE(?, icon),
-        color = COALESCE(?, color),
-        monthly_budget = COALESCE(?, monthly_budget),
-        is_fixed = COALESCE(?, is_fixed),
-        type = COALESCE(?, type)
-      WHERE id = ? AND user_id = ?
-    `).run(
-      name || null, 
-      icon || null, 
-      color || null, 
-      monthly_budget !== undefined ? Number(monthly_budget) : null, 
-      is_fixed !== undefined ? (is_fixed ? 1 : 0) : null, 
-      type || null,
-      id, 
-      auth.userId
-    );
+    const updates: string[] = [];
+    const values: any[] = [];
+
+    if (name !== undefined) { updates.push('name = ?'); values.push(name.trim()); }
+    if (icon !== undefined) { updates.push('icon = ?'); values.push(icon); }
+    if (color !== undefined) { updates.push('color = ?'); values.push(color); }
+    if (monthly_budget !== undefined) { updates.push('monthly_budget = ?'); values.push(Number(monthly_budget) || 0); }
+    if (is_fixed !== undefined) { updates.push('is_fixed = ?'); values.push(is_fixed ? 1 : 0); }
+    if (type !== undefined) { updates.push('type = ?'); values.push(type); }
+    if (due_day !== undefined) { updates.push('due_day = ?'); values.push(due_day ? Number(due_day) : null); }
+    if (specific_date !== undefined) { updates.push('specific_date = ?'); values.push(specific_date ? String(specific_date).slice(0, 10) : null); }
+    if (frequency !== undefined) { updates.push('frequency = ?'); values.push(frequency || 'MONTHLY'); }
+
+    if (updates.length > 0) {
+      values.push(id, auth.userId);
+      await db.prepare(`UPDATE categories SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`).run(...values);
+    }
 
     return NextResponse.json({ success: true });
   } catch (err: unknown) {

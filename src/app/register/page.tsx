@@ -9,7 +9,6 @@ export default function RegisterPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [monthlyIncome, setMonthlyIncome] = useState('2000000');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -28,7 +27,6 @@ export default function RegisterPage() {
           name: name.trim(),
           email: email.trim(),
           password: password.trim(),
-          monthly_income: Number(monthlyIncome) || 2000000,
         }),
       });
 
@@ -110,18 +108,6 @@ export default function RegisterPage() {
                   required
                 />
               </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Ingreso Mensual Estimado ($ COP)</label>
-              <input
-                type="number"
-                value={monthlyIncome}
-                onChange={(e) => setMonthlyIncome(e.target.value)}
-                placeholder="2000000"
-                className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] text-white text-base sm:text-xs px-3 py-2.5 rounded-xl focus:outline-none transition-all placeholder:text-slate-600"
-              />
-              <span className="text-[10px] text-slate-500 mt-0.5 block">Puedes modificarlo después en cualquier momento.</span>
             </div>
 
             <div className="p-2.5 rounded-xl bg-[#102A43]/60 border border-[#243B55] flex items-center gap-2 text-[11px] text-slate-300">
