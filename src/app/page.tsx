@@ -41,7 +41,7 @@ export default function DashboardPage() {
   const { data: recentExpenses = [], isLoading: loadingExpenses } = useRecentExpenses(5);
 
   const [isQuickExpenseOpen, setIsQuickExpenseOpen] = useState(false);
-  const [prefillExpense, setPrefillExpense] = useState<{ categoryId?: string; amount?: number; notes?: string } | null>(null);
+  const [prefillExpense, setPrefillExpense] = useState<{ categoryId?: string; amount?: number; notes?: string; type?: 'EXPENSE' | 'INCOME' | 'TRANSFER' } | null>(null);
   const [selectedMovement, setSelectedMovement] = useState<any | null>(null);
 
   const handleDeleteExpense = async (id: string) => {

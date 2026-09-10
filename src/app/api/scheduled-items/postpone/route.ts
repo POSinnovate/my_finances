@@ -12,11 +12,24 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'itemId es requerido' }, { status: 400 });
     }
 
-    const item = await db.prepare(`
+    let item = await db.prepare(`
       SELECT id, user_id, category_id, name, amount, due_day, specific_date, notes
       FROM scheduled_items
       WHERE id = ? AND user_id = ?
     `).get(itemId, auth.userId) as any;
+
+    let isCategory = false;
+    if (!item) {
+      const cat = await db.prepare(`
+        SELECT id, user_id, name, monthly_budget as amount, due_day, specific_date
+        FROM categories
+        WHERE id = ? AND user_id = ?
+      `).get(itemId, auth.userId) as any;
+      if (cat) {
+        item = cat;
+        isCategory = true;
+      }
+    }
 
     if (!item) {
       return NextResponse.json({ error: 'Compromiso no encontrado' }, { status: 404 });
@@ -38,30 +51,48 @@ export async function POST(req: Request) {
       const newDueDay = Math.min(31, day + waitDays);
       const newNotes = `Prorrogado (+${waitDays} días de espera hasta el Día ${newDueDay})`;
 
-      await db.prepare(`
-        UPDATE scheduled_items
-        SET due_day = ?, notes = ?
-        WHERE id = ? AND user_id = ?
-      `).run(newDueDay, newNotes, itemId, auth.userId);
+      if (isCategory) {
+        await db.prepare(`
+          UPDATE categories
+          SET due_day = ?
+          WHERE id = ? AND user_id = ?
+        `).run(newDueDay, itemId, auth.userId);
+      } else {
+        await db.prepare(`
+          UPDATE scheduled_items
+          SET due_day = ?, notes = ?
+          WHERE id = ? AND user_id = ?
+        `).run(newDueDay, newNotes, itemId, auth.userId);
+      }
 
       return NextResponse.json({
         success: true,
         message: `Se añadieron ${waitDays} días de espera a "${item.name}". Nueva fecha: Día ${newDueDay}.`,
         newDueDay,
       });
-    } else if (action === 'NEXT_MONTH') {
+    } else if (action === 'NEXT_MONTH' || action === 'SKIP_MONTH') {
       const deferTag = `[Pospuesto al sig. mes - ${currentMonthPrefix}]`;
       const updatedNotes = item.notes ? `${item.notes} ${deferTag}` : deferTag;
 
-      await db.prepare(`
-        UPDATE scheduled_items
-        SET notes = ?
-        WHERE id = ? AND user_id = ?
-      `).run(updatedNotes, itemId, auth.userId);
+      if (isCategory) {
+        // For a category without sub-items, we can create an empty deferred scheduled item or adjust due_day
+        // or if categories has notes column or postpone due_day
+        await db.prepare(`
+          UPDATE categories
+          SET due_day = 31
+          WHERE id = ? AND user_id = ?
+        `).run(itemId, auth.userId);
+      } else {
+        await db.prepare(`
+          UPDATE scheduled_items
+          SET notes = ?
+          WHERE id = ? AND user_id = ?
+        `).run(updatedNotes, itemId, auth.userId);
+      }
 
       return NextResponse.json({
         success: true,
-        message: `El compromiso "${item.name}" se programó para el siguiente mes.`,
+        message: `El registro "${item.name}" se pospuso para el siguiente mes.`,
       });
     }
 

@@ -43,6 +43,7 @@ export interface UpcomingCommitment {
   categoryId: string;
   name: string;
   amount: number;
+  type?: 'INCOME' | 'EXPENSE';
   dateStr: string;
   daysUntil: number;
   frequency: string;
@@ -58,6 +59,7 @@ export interface NextIncomeInfo {
   daysRemaining: number;
   label: string;
   categoryName?: string;
+  categoryId?: string;
 }
 
 export interface OverdueCommitment {
@@ -65,6 +67,7 @@ export interface OverdueCommitment {
   categoryId: string;
   name: string;
   amount: number;
+  type: 'INCOME' | 'EXPENSE';
   dueDay?: number | null;
   dateStr: string;
   daysOverdue: number;
@@ -225,6 +228,7 @@ export function computeCashFlow({
     daysRemaining: number;
     label: string;
     categoryName?: string;
+    categoryId?: string;
   }
 
   const incomeCandidates: IncomeCandidate[] = [];
@@ -248,6 +252,7 @@ export function computeCashFlow({
           daysRemaining: days,
           label: `${item.name} (Día ${clampedThisMonth})`,
           categoryName: catName,
+          categoryId: item.category_id,
         });
       } else {
         const nextMonth = today.month === 12 ? 1 : today.month + 1;
@@ -263,6 +268,7 @@ export function computeCashFlow({
           daysRemaining: days,
           label: `${item.name} (Próx. Día ${clampedNext})`,
           categoryName: catName,
+          categoryId: item.category_id,
         });
       }
     } else if (freq === 'ONCE' && item.specific_date) {
@@ -278,6 +284,7 @@ export function computeCashFlow({
           daysRemaining: days,
           label: `${item.name} (${targetStr})`,
           categoryName: catName,
+          categoryId: item.category_id,
         });
       }
     } else if (freq === 'ANNUAL' && item.specific_date) {
@@ -322,6 +329,7 @@ export function computeCashFlow({
             daysRemaining: days,
             label: `${cat.name} (Día ${clampedThisMonth})`,
             categoryName: cat.name,
+            categoryId: cat.id,
           });
         } else {
           const nextMonth = today.month === 12 ? 1 : today.month + 1;
@@ -337,6 +345,7 @@ export function computeCashFlow({
             daysRemaining: days,
             label: `${cat.name} (Próx. Día ${clampedNext})`,
             categoryName: cat.name,
+            categoryId: cat.id,
           });
         }
       } else if (freq === 'ONCE' && cat.specific_date) {
@@ -352,6 +361,7 @@ export function computeCashFlow({
             daysRemaining: days,
             label: `${cat.name} (${targetStr})`,
             categoryName: cat.name,
+            categoryId: cat.id,
           });
         }
       }
@@ -372,47 +382,57 @@ export function computeCashFlow({
   const upcomingCommitments: UpcomingCommitment[] = [];
   const overdueCommitments: OverdueCommitment[] = [];
 
-  // Track paid amounts per category in the current month (safe date parsing)
+  // Track paid and received amounts per category in the current month (safe date parsing)
   const paidByCategory = new Map<string, number>();
+  const receivedByCategory = new Map<string, number>();
 
   for (const exp of expenses) {
-    if (exp.category_id && (!exp.type || exp.type === 'EXPENSE')) {
+    if (exp.category_id) {
       const expDateStr = safeFormatDate(exp.date);
       if (expDateStr.startsWith(currentMonthPrefix)) {
-        const current = paidByCategory.get(exp.category_id) || 0;
-        paidByCategory.set(exp.category_id, current + Number(exp.amount));
+        if (exp.type === 'INCOME') {
+          const current = receivedByCategory.get(exp.category_id) || 0;
+          receivedByCategory.set(exp.category_id, current + Number(exp.amount));
+        } else if (!exp.type || exp.type === 'EXPENSE') {
+          const current = paidByCategory.get(exp.category_id) || 0;
+          paidByCategory.set(exp.category_id, current + Number(exp.amount));
+        }
       }
     }
   }
 
   const deferTagCurrentMonth = `[Pospuesto al sig. mes - ${currentMonthPrefix}]`;
 
-  // A) Expenses from scheduled items
-  for (const item of activeItems.filter(i => i.type === 'EXPENSE')) {
+  // A) Commitments from scheduled items (EXPENSE & INCOME)
+  for (const item of activeItems) {
     const amt = Number(item.amount) || 0;
     const freq = item.frequency || (item.specific_date ? 'ONCE' : (item.due_day ? 'MONTHLY' : 'NONE'));
     const cat = categoryMap.get(item.category_id);
     const isDeferred = item.notes && item.notes.includes(deferTagCurrentMonth);
+    const isIncome = item.type === 'INCOME';
 
     if (freq === 'MONTHLY' && item.due_day) {
       const clampedThisMonth = clampDay(today.year, today.month, item.due_day);
       const dateStrThisMonth = formatDateISO(today.year, today.month, clampedThisMonth);
-      const alreadyPaid = (paidByCategory.get(item.category_id) || 0) >= amt;
+      const fulfilled = isIncome
+        ? (receivedByCategory.get(item.category_id) || 0) >= amt
+        : (paidByCategory.get(item.category_id) || 0) >= amt;
 
-      // Check if overdue in this month
-      if (clampedThisMonth < today.day) {
-        if (!alreadyPaid && !isDeferred) {
+      // Check if due today or overdue in this month
+      if (clampedThisMonth <= today.day) {
+        if (!fulfilled && !isDeferred) {
           overdueCommitments.push({
             id: item.id,
             categoryId: item.category_id,
             name: item.name,
             amount: amt,
+            type: isIncome ? 'INCOME' : 'EXPENSE',
             dueDay: clampedThisMonth,
             dateStr: dateStrThisMonth,
             daysOverdue: today.day - clampedThisMonth,
             frequency: 'MONTHLY',
-            color: cat?.color || '#00ADB5',
-            icon: cat?.icon || 'Tag',
+            color: cat?.color || (isIncome ? '#10B981' : '#00ADB5'),
+            icon: cat?.icon || (isIncome ? 'ArrowUpCircle' : 'Tag'),
           });
         }
       } else if (dateStrThisMonth <= targetEndStr) {
@@ -422,37 +442,41 @@ export function computeCashFlow({
           categoryId: item.category_id,
           name: item.name,
           amount: amt,
+          type: isIncome ? 'INCOME' : 'EXPENSE',
           dateStr: dateStrThisMonth,
           daysUntil: days,
           frequency: 'MONTHLY',
-          isPaid: alreadyPaid,
-          color: cat?.color || '#00ADB5',
-          icon: cat?.icon || 'Tag',
+          isPaid: fulfilled,
+          color: cat?.color || (isIncome ? '#10B981' : '#00ADB5'),
+          icon: cat?.icon || (isIncome ? 'ArrowUpCircle' : 'Tag'),
         });
       }
     } else if (freq === 'ONCE' && item.specific_date) {
       const targetStr = safeFormatDate(item.specific_date);
-      const alreadyPaid = (paidByCategory.get(item.category_id) || 0) >= amt;
+      const fulfilled = isIncome
+        ? (receivedByCategory.get(item.category_id) || 0) >= amt
+        : (paidByCategory.get(item.category_id) || 0) >= amt;
 
-      if (targetStr < today.dateStr && targetStr.startsWith(currentMonthPrefix)) {
-        if (!alreadyPaid && !isDeferred) {
+      if (targetStr <= today.dateStr && targetStr.startsWith(currentMonthPrefix)) {
+        if (!fulfilled && !isDeferred) {
           const targetDateObj = new Date(targetStr + 'T00:00:00Z');
           const diffMs = today.dateObj.getTime() - targetDateObj.getTime();
-          const daysOverdue = Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)));
+          const daysOverdue = Math.max(0, Math.round(diffMs / (1000 * 60 * 60 * 24)));
           overdueCommitments.push({
             id: item.id,
             categoryId: item.category_id,
             name: item.name,
             amount: amt,
+            type: isIncome ? 'INCOME' : 'EXPENSE',
             dueDay: Number(targetStr.slice(8, 10)),
             dateStr: targetStr,
             daysOverdue,
             frequency: 'ONCE',
-            color: cat?.color || '#00ADB5',
-            icon: cat?.icon || 'Tag',
+            color: cat?.color || (isIncome ? '#10B981' : '#00ADB5'),
+            icon: cat?.icon || (isIncome ? 'ArrowUpCircle' : 'Tag'),
           });
         }
-      } else if (targetStr >= today.dateStr && targetStr <= targetEndStr) {
+      } else if (targetStr > today.dateStr && targetStr <= targetEndStr) {
         const targetDateObj = new Date(targetStr + 'T00:00:00Z');
         const diffMs = targetDateObj.getTime() - today.dateObj.getTime();
         const days = Math.max(0, Math.round(diffMs / (1000 * 60 * 60 * 24)));
@@ -462,41 +486,46 @@ export function computeCashFlow({
           categoryId: item.category_id,
           name: item.name,
           amount: amt,
+          type: isIncome ? 'INCOME' : 'EXPENSE',
           dateStr: targetStr,
           daysUntil: days,
           frequency: 'ONCE',
-          isPaid: alreadyPaid,
-          color: cat?.color || '#00ADB5',
-          icon: cat?.icon || 'Tag',
+          isPaid: fulfilled,
+          color: cat?.color || (isIncome ? '#10B981' : '#00ADB5'),
+          icon: cat?.icon || (isIncome ? 'ArrowUpCircle' : 'Tag'),
         });
       }
     }
   }
 
-  // B) Expenses from categories that don't have scheduled items
-  for (const cat of categories.filter(c => c.type === 'EXPENSE')) {
+  // B) Commitments from categories that don't have scheduled items
+  for (const cat of categories) {
     if (!categoriesWithItems.has(cat.id)) {
       const budget = Number(cat.monthly_budget) || 0;
       const freq = cat.frequency || (cat.specific_date ? 'ONCE' : (cat.due_day ? 'MONTHLY' : 'NONE'));
+      const isIncome = cat.type === 'INCOME';
 
       if (freq === 'MONTHLY' && cat.due_day) {
         const clampedThisMonth = clampDay(today.year, today.month, cat.due_day);
         const dateStrThisMonth = formatDateISO(today.year, today.month, clampedThisMonth);
-        const alreadyPaid = (paidByCategory.get(cat.id) || 0) >= budget;
+        const fulfilled = isIncome
+          ? (receivedByCategory.get(cat.id) || 0) >= budget
+          : (paidByCategory.get(cat.id) || 0) >= budget;
 
-        if (clampedThisMonth < today.day) {
-          if (!alreadyPaid && budget > 0) {
+        if (clampedThisMonth <= today.day) {
+          if (!fulfilled && budget > 0) {
             overdueCommitments.push({
               id: cat.id,
               categoryId: cat.id,
               name: cat.name,
               amount: budget,
+              type: isIncome ? 'INCOME' : 'EXPENSE',
               dueDay: clampedThisMonth,
               dateStr: dateStrThisMonth,
               daysOverdue: today.day - clampedThisMonth,
               frequency: 'MONTHLY',
-              color: cat.color,
-              icon: cat.icon,
+              color: cat.color || (isIncome ? '#10B981' : '#00ADB5'),
+              icon: cat.icon || (isIncome ? 'ArrowUpCircle' : 'Tag'),
             });
           }
         } else if (dateStrThisMonth <= targetEndStr) {
@@ -505,37 +534,41 @@ export function computeCashFlow({
             categoryId: cat.id,
             name: cat.name,
             amount: budget,
+            type: isIncome ? 'INCOME' : 'EXPENSE',
             dateStr: dateStrThisMonth,
             daysUntil: days,
             frequency: 'MONTHLY',
-            isPaid: alreadyPaid,
-            color: cat.color,
-            icon: cat.icon,
+            isPaid: fulfilled,
+            color: cat.color || (isIncome ? '#10B981' : '#00ADB5'),
+            icon: cat.icon || (isIncome ? 'ArrowUpCircle' : 'Tag'),
           });
         }
       } else if (freq === 'ONCE' && cat.specific_date) {
         const targetStr = safeFormatDate(cat.specific_date);
-        const alreadyPaid = (paidByCategory.get(cat.id) || 0) >= budget;
+        const fulfilled = isIncome
+          ? (receivedByCategory.get(cat.id) || 0) >= budget
+          : (paidByCategory.get(cat.id) || 0) >= budget;
 
-        if (targetStr < today.dateStr && targetStr.startsWith(currentMonthPrefix)) {
-          if (!alreadyPaid && budget > 0) {
+        if (targetStr <= today.dateStr && targetStr.startsWith(currentMonthPrefix)) {
+          if (!fulfilled && budget > 0) {
             const targetDateObj = new Date(targetStr + 'T00:00:00Z');
             const diffMs = today.dateObj.getTime() - targetDateObj.getTime();
-            const daysOverdue = Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)));
+            const daysOverdue = Math.max(0, Math.round(diffMs / (1000 * 60 * 60 * 24)));
             overdueCommitments.push({
               id: cat.id,
               categoryId: cat.id,
               name: cat.name,
               amount: budget,
+              type: isIncome ? 'INCOME' : 'EXPENSE',
               dueDay: Number(targetStr.slice(8, 10)),
               dateStr: targetStr,
               daysOverdue,
               frequency: 'ONCE',
-              color: cat.color,
-              icon: cat.icon,
+              color: cat.color || (isIncome ? '#10B981' : '#00ADB5'),
+              icon: cat.icon || (isIncome ? 'ArrowUpCircle' : 'Tag'),
             });
           }
-        } else if (targetStr >= today.dateStr && targetStr <= targetEndStr) {
+        } else if (targetStr > today.dateStr && targetStr <= targetEndStr) {
           const targetDateObj = new Date(targetStr + 'T00:00:00Z');
           const diffMs = targetDateObj.getTime() - today.dateObj.getTime();
           const days = Math.max(0, Math.round(diffMs / (1000 * 60 * 60 * 24)));
@@ -544,12 +577,13 @@ export function computeCashFlow({
             categoryId: cat.id,
             name: cat.name,
             amount: budget,
+            type: isIncome ? 'INCOME' : 'EXPENSE',
             dateStr: targetStr,
             daysUntil: days,
             frequency: 'ONCE',
-            isPaid: alreadyPaid,
-            color: cat.color,
-            icon: cat.icon,
+            isPaid: fulfilled,
+            color: cat.color || (isIncome ? '#10B981' : '#00ADB5'),
+            icon: cat.icon || (isIncome ? 'ArrowUpCircle' : 'Tag'),
           });
         }
       }
@@ -561,12 +595,14 @@ export function computeCashFlow({
   overdueCommitments.sort((a, b) => b.daysOverdue - a.daysOverdue);
 
   // 4. Calculate Pending Commitments & Burn Rate
-  const pendingCommitmentsList = upcomingCommitments.filter(c => !c.isPaid);
-  const totalPendingCommitments = pendingCommitmentsList.reduce((sum, c) => sum + c.amount, 0);
+  const pendingExpensesList = upcomingCommitments.filter(c => !c.isPaid && c.type !== 'INCOME');
+  const totalPendingCommitments = pendingExpensesList.reduce((sum, c) => sum + c.amount, 0);
 
   // Total pending fixed expenses for the entire month (overdue + all upcoming for this month)
-  let totalPendingFixedExpensesMonth = overdueCommitments.reduce((sum, c) => sum + c.amount, 0);
-  for (const c of pendingCommitmentsList) {
+  let totalPendingFixedExpensesMonth = overdueCommitments
+    .filter(c => c.type !== 'INCOME')
+    .reduce((sum, c) => sum + c.amount, 0);
+  for (const c of pendingExpensesList) {
     if (c.dateStr.startsWith(currentMonthPrefix)) {
       totalPendingFixedExpensesMonth += c.amount;
     }
@@ -627,7 +663,7 @@ export function computeCashFlow({
   }
 
   // Imminent commitments (due in <= 3 days)
-  for (const c of pendingCommitmentsList) {
+  for (const c of pendingExpensesList) {
     if (c.daysUntil <= 3) {
       const timeLabel = c.daysUntil === 0 ? 'hoy' : (c.daysUntil === 1 ? 'mañana' : `en ${c.daysUntil} días`);
       alerts.push({

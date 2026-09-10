@@ -53,12 +53,14 @@ interface CashFlowData {
     daysRemaining: number;
     label: string;
     categoryName?: string;
+    categoryId?: string;
   } | null;
   upcomingCommitments?: Array<{
     id?: string;
     categoryId: string;
     name: string;
     amount: number;
+    type?: 'INCOME' | 'EXPENSE';
     dateStr: string;
     daysUntil: number;
     frequency: string;
@@ -69,6 +71,7 @@ interface CashFlowData {
     categoryId: string;
     name: string;
     amount: number;
+    type?: 'INCOME' | 'EXPENSE';
     dueDay?: number | null;
     dateStr: string;
     daysOverdue: number;
@@ -85,7 +88,7 @@ interface FinancialOverviewCardProps {
   health?: HealthData;
   cashFlow?: CashFlowData;
   onRefresh?: () => void;
-  onRegisterExpense?: (data: { categoryId?: string; amount?: number; notes?: string }) => void;
+  onRegisterExpense?: (data: { categoryId?: string; amount?: number; notes?: string; type?: 'EXPENSE' | 'INCOME' | 'TRANSFER' }) => void;
 }
 
 export function FinancialOverviewCard({ 
@@ -253,7 +256,7 @@ export function FinancialOverviewCard({
         </div>
       </div>
 
-      {/* OVERDUE COMMITMENTS BANNER: Compromisos vencidos sin movimiento registrado */}
+      {/* OVERDUE COMMITMENTS BANNER: Compromisos y cobros que vencen hoy o están vencidos sin movimiento registrado */}
       {overdueCommitments.length > 0 && (
         <div className="bg-[#102A43] border border-amber-500/50 rounded-2xl p-4 shadow-xl space-y-3 animate-in fade-in duration-200">
           <div className="flex items-center justify-between gap-2">
@@ -263,81 +266,103 @@ export function FinancialOverviewCard({
               </div>
               <div>
                 <h3 className="text-xs sm:text-sm font-black text-white flex items-center gap-2">
-                  <span>Compromisos Pendientes Vencidos</span>
+                  <span>Compromisos y Cobros por Confirmar</span>
                   <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 text-[10px] font-extrabold font-mono">
-                    {overdueCommitments.length} sin registrar
+                    {overdueCommitments.length} pendiente{overdueCommitments.length === 1 ? '' : 's'}
                   </span>
                 </h3>
                 <p className="text-[11px] text-slate-300 mt-0.5">
-                  Llegó la fecha estimada pero no encontramos movimientos en el grupo. ¿Deseas añadir días de espera o programarlos para el próximo mes?
+                  Llegó la fecha estimada de estos rubros. Confirma el registro si ya se efectuó, o aplázalos si aún estás esperando.
                 </p>
               </div>
             </div>
           </div>
 
           <div className="space-y-2.5 pt-1">
-            {overdueCommitments.map((item) => (
-              <div 
-                key={item.id}
-                className="bg-[#0B192C] border border-[#243B55] rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-black text-white truncate">{item.name}</span>
-                    <span className="text-xs font-black text-rose-400 font-mono shrink-0">
-                      {formatCOP(item.amount)}
+            {overdueCommitments.map((item) => {
+              const isIncome = item.type === 'INCOME';
+              return (
+                <div 
+                  key={item.id}
+                  className={`bg-[#0B192C] border rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                    isIncome ? 'border-emerald-500/40' : 'border-[#243B55]'
+                  }`}
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded font-extrabold uppercase shrink-0 ${
+                        isIncome ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                      }`}>
+                        {isIncome ? 'Ingreso' : 'Egreso'}
+                      </span>
+                      <span className="text-xs font-black text-white truncate">{item.name}</span>
+                      <span className={`text-xs font-black font-mono shrink-0 ${isIncome ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {isIncome ? '+' : '-'}{formatCOP(item.amount)}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 block mt-0.5">
+                      {item.daysOverdue === 0 ? (
+                        <span className="text-cyan-300 font-bold">
+                          ★ Fecha programada: HOY (Día {item.dueDay || item.dateStr}). ¿Ya se realizó este movimiento?
+                        </span>
+                      ) : (
+                        <span>
+                          Estaba previsto para el <strong className="text-slate-300">Día {item.dueDay || item.dateStr}</strong> (hace {item.daysOverdue} {item.daysOverdue === 1 ? 'día' : 'días'}).
+                        </span>
+                      )}
                     </span>
                   </div>
-                  <span className="text-[10px] text-slate-400 block mt-0.5">
-                    Estaba previsto para el <strong className="text-slate-300">Día {item.dueDay || item.dateStr}</strong> (hace {item.daysOverdue} {item.daysOverdue === 1 ? 'día' : 'días'}).
-                  </span>
-                </div>
 
-                <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-                  <button
-                    type="button"
-                    disabled={Boolean(actionLoadingId)}
-                    onClick={() => handlePostpone(item.id, 'ADD_DAYS', 3)}
-                    className="px-2.5 py-1.5 rounded-lg bg-[#102A43] hover:bg-[#1E3A5F] border border-[#243B55] text-[11px] font-bold text-cyan-300 transition-colors whitespace-nowrap"
-                  >
-                    +3 Días de espera
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={Boolean(actionLoadingId)}
-                    onClick={() => handlePostpone(item.id, 'ADD_DAYS', 5)}
-                    className="px-2.5 py-1.5 rounded-lg bg-[#102A43] hover:bg-[#1E3A5F] border border-[#243B55] text-[11px] font-bold text-cyan-300 transition-colors whitespace-nowrap"
-                  >
-                    +5 Días
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={Boolean(actionLoadingId)}
-                    onClick={() => handlePostpone(item.id, 'NEXT_MONTH')}
-                    className="px-2.5 py-1.5 rounded-lg bg-[#102A43] hover:bg-[#1E3A5F] border border-[#243B55] text-[11px] font-bold text-amber-300 transition-colors whitespace-nowrap"
-                  >
-                    Siguiente mes
-                  </button>
-
-                  {onRegisterExpense && (
+                  <div className="flex flex-wrap items-center gap-1.5 shrink-0">
                     <button
                       type="button"
-                      onClick={() => onRegisterExpense({
-                        categoryId: item.categoryId,
-                        amount: item.amount,
-                        notes: item.name,
-                      })}
-                      className="px-2.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-[11px] font-extrabold transition-colors flex items-center gap-1 whitespace-nowrap shadow-sm"
+                      disabled={Boolean(actionLoadingId)}
+                      onClick={() => handlePostpone(item.id, 'ADD_DAYS', 3)}
+                      className="px-2.5 py-1.5 rounded-lg bg-[#102A43] hover:bg-[#1E3A5F] border border-[#243B55] text-[11px] font-bold text-cyan-300 transition-colors whitespace-nowrap"
                     >
-                      <CheckCircle2 className="w-3 h-3" />
-                      <span>Registrar pago</span>
+                      +3 Días de espera
                     </button>
-                  )}
+
+                    <button
+                      type="button"
+                      disabled={Boolean(actionLoadingId)}
+                      onClick={() => handlePostpone(item.id, 'ADD_DAYS', 5)}
+                      className="px-2.5 py-1.5 rounded-lg bg-[#102A43] hover:bg-[#1E3A5F] border border-[#243B55] text-[11px] font-bold text-cyan-300 transition-colors whitespace-nowrap"
+                    >
+                      +5 Días
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={Boolean(actionLoadingId)}
+                      onClick={() => handlePostpone(item.id, 'NEXT_MONTH')}
+                      className="px-2.5 py-1.5 rounded-lg bg-[#102A43] hover:bg-[#1E3A5F] border border-[#243B55] text-[11px] font-bold text-amber-300 transition-colors whitespace-nowrap"
+                      title="Posponer para el próximo mes"
+                    >
+                      Siguiente mes
+                    </button>
+
+                    {onRegisterExpense && (
+                      <button
+                        type="button"
+                        onClick={() => onRegisterExpense({
+                          categoryId: item.categoryId,
+                          amount: item.amount,
+                          notes: item.name,
+                          type: isIncome ? 'INCOME' : 'EXPENSE',
+                        })}
+                        className={`px-2.5 py-1.5 rounded-lg text-slate-950 text-[11px] font-extrabold transition-colors flex items-center gap-1 whitespace-nowrap shadow-sm ${
+                          isIncome ? 'bg-emerald-400 hover:bg-emerald-300' : 'bg-rose-500 hover:bg-rose-400 text-white'
+                        }`}
+                      >
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>{isIncome ? 'Registrar ingreso' : 'Registrar pago'}</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -375,6 +400,24 @@ export function FinancialOverviewCard({
                 <span className="text-xs text-slate-300 mt-1 block">
                   Fecha estimada: <strong className="text-white">{nextIncome.dateStr}</strong>
                 </span>
+                {nextIncome.categoryId && onRegisterExpense && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsNextIncomeModalOpen(false);
+                      onRegisterExpense({
+                        categoryId: nextIncome.categoryId,
+                        amount: nextIncome.amount,
+                        notes: nextIncome.name,
+                        type: 'INCOME',
+                      });
+                    }}
+                    className="mt-2.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs flex items-center gap-1.5 shadow-sm transition-all whitespace-nowrap"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>⚡ Registrar ingreso anticipado</span>
+                  </button>
+                )}
               </div>
 
               <div className="text-left sm:text-right">
@@ -406,15 +449,35 @@ export function FinancialOverviewCard({
                       key={i}
                       className="p-2.5 rounded-xl bg-[#102A43]/70 border border-[#243B55] flex items-center justify-between text-xs"
                     >
-                      <div>
-                        <span className="font-bold text-white block">{c.name}</span>
+                      <div className="min-w-0 pr-2">
+                        <span className="font-bold text-white block truncate">{c.name}</span>
                         <span className="text-[10px] text-slate-400">
                           Vence el {c.dateStr} ({c.daysUntil === 0 ? 'hoy' : `en ${c.daysUntil} días`})
                         </span>
                       </div>
-                      <span className="font-bold text-rose-400 font-mono">
-                        {formatCOP(c.amount)}
-                      </span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="font-bold text-rose-400 font-mono">
+                          {formatCOP(c.amount)}
+                        </span>
+                        {!c.isPaid && onRegisterExpense && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsNextIncomeModalOpen(false);
+                              onRegisterExpense({
+                                categoryId: c.categoryId,
+                                amount: c.amount,
+                                notes: c.name,
+                                type: (c.type as any) || 'EXPENSE',
+                              });
+                            }}
+                            className="px-2 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-[10px] font-bold flex items-center gap-1 transition-colors"
+                            title="Registrar antes de la fecha"
+                          >
+                            <span>Pagar ya</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
