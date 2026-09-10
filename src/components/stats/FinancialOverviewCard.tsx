@@ -441,7 +441,7 @@ export function FinancialOverviewCard({
             {/* Income Highlight Box */}
             <div className="p-4 rounded-2xl bg-[#102A43] border border-[#243B55] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <span className="text-[10px] font-extrabold text-emerald-400 uppercase tracking-wider block">
+                <span className="text-base font-extrabold text-emerald-400 uppercase tracking-wider block text-nowrap truncate">
                   {nextIncome.categoryName || 'Fuente de Ingreso'}
                 </span>
                 <span className="text-xs text-slate-300 mt-1 block">
@@ -631,7 +631,7 @@ export function FinancialOverviewCard({
             {/* Expense Highlight Box */}
             <div className="p-4 rounded-2xl bg-[#102A43] border border-[#243B55] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <span className="text-[10px] font-extrabold text-rose-400 uppercase tracking-wider block">
+                <span className="text-base font-extrabold text-rose-400 uppercase tracking-wider block text-nowrap truncate">
                   {nextExpense.categoryName || 'Grupo de Gasto'}
                 </span>
                 <span className="text-xs text-slate-300 mt-1 block">
