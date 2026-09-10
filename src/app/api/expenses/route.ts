@@ -10,8 +10,72 @@ export async function GET(req: NextRequest) {
     const month = searchParams.get('month'); // Only filter if explicitly specified
     const categoryId = searchParams.get('categoryId');
     const type = searchParams.get('type'); // 'ALL' | 'EXPENSE' | 'INCOME'
+    const page = Math.max(1, Number(searchParams.get('page')) || 1);
+    const pageSizeParam = searchParams.get('pageSize');
     const limit = searchParams.get('limit');
+    const search = searchParams.get('search')?.trim();
 
+    let whereClause = `WHERE e.user_id = ?`;
+    const whereParams: (string | number)[] = [auth.userId];
+
+    if (month && month !== 'ALL') {
+      whereClause += ` AND strftime('%Y-%m', e.date) = ?`;
+      whereParams.push(month);
+    }
+
+    if (type && type !== 'ALL') {
+      whereClause += ` AND e.type = ?`;
+      whereParams.push(type);
+    }
+
+    if (categoryId && categoryId !== 'ALL') {
+      whereClause += ` AND e.category_id = ?`;
+      whereParams.push(categoryId);
+    }
+
+    const paymentMethod = searchParams.get('paymentMethod');
+    if (paymentMethod && paymentMethod !== 'ALL') {
+      whereClause += ` AND LOWER(e.payment_method) = LOWER(?)`;
+      whereParams.push(paymentMethod);
+    }
+
+    if (search) {
+      whereClause += ` AND (LOWER(COALESCE(e.notes, '')) LIKE ? OR LOWER(COALESCE(c.name, '')) LIKE ? OR CAST(e.amount AS TEXT) LIKE ?)`;
+      const searchPattern = `%${search.toLowerCase()}%`;
+      whereParams.push(searchPattern, searchPattern, searchPattern);
+    }
+
+    // 1. Get total count and aggregate totals for the filtered query directly in SQL
+    const countQuery = `
+      SELECT 
+        COUNT(e.id) as total_count,
+        COALESCE(SUM(CASE WHEN e.type = 'INCOME' THEN e.amount ELSE 0 END), 0) as total_income,
+        COALESCE(SUM(CASE WHEN e.type = 'EXPENSE' OR e.type IS NULL THEN e.amount ELSE 0 END), 0) as total_expense
+      FROM expenses e
+      LEFT JOIN categories c ON c.id = e.category_id
+      ${whereClause}
+    `;
+    const countRow = await db.prepare(countQuery).get(...whereParams) as any;
+    const totalCount = Number(countRow?.total_count) || 0;
+    const totalIncome = Number(countRow?.total_income) || 0;
+    const totalExpense = Number(countRow?.total_expense) || 0;
+
+    // 2. Determine pagination limit and offset
+    let pageSize = 15;
+    let isPaginated = true;
+
+    if (limit && Number(limit) > 0) {
+      pageSize = Number(limit);
+      isPaginated = false;
+    } else if (pageSizeParam && Number(pageSizeParam) > 0) {
+      pageSize = Number(pageSizeParam);
+    }
+
+    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+    const safePage = Math.min(page, totalPages);
+    const offset = isPaginated ? (safePage - 1) * pageSize : 0;
+
+    // 3. Query paginated results with SQL LIMIT and OFFSET
     let query = `
       SELECT 
         e.id,
@@ -29,39 +93,12 @@ export async function GET(req: NextRequest) {
         COALESCE(c.is_fixed, 0) as is_fixed
       FROM expenses e
       LEFT JOIN categories c ON c.id = e.category_id
-      WHERE e.user_id = ?
+      ${whereClause}
+      ORDER BY e.date DESC, e.created_at DESC
+      LIMIT ? OFFSET ?
     `;
 
-    const params: (string | number)[] = [auth.userId];
-
-    if (month && month !== 'ALL') {
-      query += ` AND strftime('%Y-%m', e.date) = ?`;
-      params.push(month);
-    }
-
-    if (type && type !== 'ALL') {
-      query += ` AND e.type = ?`;
-      params.push(type);
-    }
-
-    if (categoryId && categoryId !== 'ALL') {
-      query += ` AND e.category_id = ?`;
-      params.push(categoryId);
-    }
-
-    const paymentMethod = searchParams.get('paymentMethod');
-    if (paymentMethod && paymentMethod !== 'ALL') {
-      query += ` AND LOWER(e.payment_method) = LOWER(?)`;
-      params.push(paymentMethod);
-    }
-
-    query += ` ORDER BY e.date DESC, e.created_at DESC`;
-
-    if (limit && Number(limit) > 0) {
-      query += ` LIMIT ${Number(limit)}`;
-    }
-
-    const expenses = await db.prepare(query).all(...params) as any[];
+    const expenses = await db.prepare(query).all(...whereParams, pageSize, offset) as any[];
 
     const mapped = expenses.map(e => {
       let cleanDate = e.date;
@@ -79,7 +116,20 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    return NextResponse.json({ expenses: mapped });
+    return NextResponse.json({
+      expenses: mapped,
+      pagination: {
+        total: totalCount,
+        page: safePage,
+        pageSize,
+        totalPages,
+      },
+      summary: {
+        total_income: totalIncome,
+        total_expense: totalExpense,
+        net_balance: totalIncome - totalExpense,
+      },
+    });
   } catch (err: unknown) {
     if ((err as Error).message === 'UNAUTHORIZED') {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });

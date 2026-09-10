@@ -119,32 +119,48 @@ export function NotificationCenter() {
         )}
       </button>
 
-      {/* Popover Dropdown */}
+      {/* Popover Dropdown (Mobile-first responsive modal & desktop dropdown) */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 max-w-[92vw] bg-[#0B192C] border border-[#1E3A5F] rounded-2xl shadow-2xl shadow-black/60 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-          {/* Header */}
-          <div className="p-3.5 border-b border-[#1E3A5F] flex items-center justify-between bg-[#102A43]/50">
-            <div className="flex items-center gap-2">
-              <Bell className="w-4 h-4 text-[#00ADB5]" />
-              <span className="text-xs font-bold text-white uppercase tracking-wider">
-                Avisos y Compromisos
-              </span>
-              {activeAlerts.length > 0 && (
-                <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-[#102A43] text-[#00ADB5] border border-[#00ADB5]/30">
-                  {activeAlerts.length}
-                </span>
-              )}
-            </div>
+        <>
+          {/* Mobile Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/70 backdrop-blur-xs z-50 sm:hidden"
+            onClick={() => setIsOpen(false)}
+          />
 
-            {activeAlerts.length > 0 && (
-              <button
-                onClick={handleDismissAll}
-                className="text-[11px] text-slate-400 hover:text-white transition-colors"
-              >
-                Limpiar todo
-              </button>
-            )}
-          </div>
+          <div className="fixed inset-x-3 top-16 max-h-[82vh] flex flex-col z-50 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:w-96 sm:max-h-[500px] bg-[#0B192C] border border-[#1E3A5F] rounded-2xl shadow-2xl shadow-black/80 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="p-3.5 border-b border-[#1E3A5F] flex items-center justify-between bg-[#102A43]/70 shrink-0">
+              <div className="flex items-center gap-2">
+                <Bell className="w-4 h-4 text-[#00ADB5]" />
+                <span className="text-xs font-bold text-white uppercase tracking-wider">
+                  Avisos y Compromisos
+                </span>
+                {activeAlerts.length > 0 && (
+                  <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-[#102A43] text-[#00ADB5] border border-[#00ADB5]/30">
+                    {activeAlerts.length}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                {activeAlerts.length > 0 && (
+                  <button
+                    onClick={handleDismissAll}
+                    className="text-[11px] text-slate-400 hover:text-white transition-colors"
+                  >
+                    Limpiar todo
+                  </button>
+                )}
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors sm:hidden"
+                  title="Cerrar"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
 
           {/* Alert List */}
           <div className="max-h-[380px] overflow-y-auto divide-y divide-[#1E3A5F]/50 p-1">
@@ -236,7 +252,8 @@ export function NotificationCenter() {
             </Link>
           </div>
         </div>
-      )}
+      </>
+    )}
     </div>
   );
 }

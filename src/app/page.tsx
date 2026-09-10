@@ -27,7 +27,9 @@ import {
   ArrowUpCircle,
   ArrowRightLeft,
   ArrowDownRight,
-  ArrowUpRight
+  ArrowUpRight,
+  Layers,
+  BarChart3
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -39,7 +41,7 @@ export default function DashboardPage() {
   const { data: user, isLoading: loadingUser } = useUser();
   const { data: stats, isLoading: loadingStats } = useStats();
   const { data: categories = [] } = useCategories();
-  const { data: recentExpenses = [], isLoading: loadingExpenses } = useRecentExpenses(10);
+  const { data: recentExpenses = [], isLoading: loadingExpenses } = useRecentExpenses(5);
 
   const [isQuickExpenseOpen, setIsQuickExpenseOpen] = useState(false);
   const [selectedMovement, setSelectedMovement] = useState<any | null>(null);
@@ -98,21 +100,6 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* Urgent Critical Alert (if any, keeping dashboard clean) */}
-        {stats?.alerts && stats.alerts.filter((a: any) => a.type === 'CRITICAL').length > 0 && (
-          <div className="p-3.5 rounded-2xl border bg-rose-950/40 border-rose-600/50 text-rose-200 flex items-start gap-3 transition-all">
-            <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-rose-400" />
-            <div className="flex-1 min-w-0">
-              <h4 className="text-xs font-bold leading-tight">
-                {stats.alerts.find((a: any) => a.type === 'CRITICAL')?.title}
-              </h4>
-              <p className="text-xs opacity-90 mt-0.5 leading-relaxed">
-                {stats.alerts.find((a: any) => a.type === 'CRITICAL')?.message}
-              </p>
-            </div>
-          </div>
-        )}
-
         {/* Hero Section: Safe Daily Spend Card with Smart Date Cash Flow */}
         {stats?.health && (
           <DailyBurnCard
@@ -122,8 +109,101 @@ export default function DashboardPage() {
           />
         )}
 
-        {/* Monthly Financial Overview Cards */}
-        {stats?.summary && <FinancialOverviewCard summary={stats.summary} />}
+        {/* Executive 6-KPI Overview Grid */}
+        {stats?.summary && (
+          <FinancialOverviewCard
+            summary={stats.summary}
+            health={stats.health}
+            cashFlow={stats.cashFlow}
+          />
+        )}
+
+        {/* Presupuestos y Consumo por Categoría (Análisis Financiero Útil) */}
+        {stats?.breakdown && stats.breakdown.length > 0 && (
+          <div className="bg-[#0B192C] border border-[#1E3A5F] rounded-3xl p-5 shadow-xl space-y-4">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-7 h-7 rounded-lg bg-[#00ADB5]/20 text-[#00ADB5] flex items-center justify-center shrink-0">
+                  <BarChart3 className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold text-white leading-tight truncate">
+                    Presupuestos y Análisis de Consumo del Mes
+                  </h3>
+                  <p className="text-[11px] text-slate-400 truncate">
+                    Control de tus gastos frente a tus topes y compromisos establecidos
+                  </p>
+                </div>
+              </div>
+              <Link
+                href="/budgets"
+                className="text-xs text-[#00ADB5] hover:underline flex items-center gap-1 font-semibold whitespace-nowrap shrink-0"
+              >
+                <span>Gestionar</span>
+                <ArrowRight className="w-3 h-3" />
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {stats.breakdown
+                .filter((cat: any) => cat.monthly_budget > 0 || cat.total_spent > 0)
+                .map((cat: any) => {
+                  const percent = cat.budget_usage_percentage || 0;
+                  const isOver = percent >= 100;
+                  const isWarn = percent >= 80 && percent < 100;
+
+                  return (
+                    <div
+                      key={cat.id}
+                      className="bg-[#102A43] border border-[#243B55] hover:border-[#1E3A5F] rounded-2xl p-3.5 transition-all space-y-2"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            className="w-2.5 h-2.5 rounded-full shrink-0"
+                            style={{ backgroundColor: cat.color || '#00ADB5' }}
+                          />
+                          <span className="text-xs font-bold text-white truncate">{cat.name}</span>
+                          {cat.is_fixed === 1 && (
+                            <span className="text-[9px] font-bold text-cyan-300 px-1.5 py-0.2 rounded bg-cyan-950/60 border border-cyan-800/40 shrink-0">
+                              Fijo
+                            </span>
+                          )}
+                        </div>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0 ${
+                            isOver
+                              ? 'bg-rose-500/20 text-rose-400 border-rose-500/30'
+                              : isWarn
+                              ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                              : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                          }`}
+                        >
+                          {percent}%
+                        </span>
+                      </div>
+
+                      <div className="flex items-baseline justify-between text-xs">
+                        <span className="font-extrabold text-white">{formatCOP(cat.total_spent)}</span>
+                        <span className="text-[11px] text-slate-400">
+                          {cat.monthly_budget > 0 ? `de ${formatCOP(cat.monthly_budget)}` : 'Sin tope'}
+                        </span>
+                      </div>
+
+                      <div className="w-full h-1.5 bg-[#0B192C] rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-300 ${
+                            isOver ? 'bg-rose-500' : isWarn ? 'bg-amber-400' : 'bg-[#00ADB5]'
+                          }`}
+                          style={{ width: `${Math.min(100, percent)}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        )}
 
         {/* Top Money Leaks Section */}
         {stats?.topLeaks && stats.topLeaks.length > 0 && (
@@ -185,20 +265,23 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Recent Expenses List */}
+        {/* Recent Expenses List (Strictly last 5) */}
         <div className="bg-[#0B192C] border border-[#1E3A5F] rounded-3xl p-5 shadow-xl">
           <div className="flex items-center justify-between gap-2 mb-4">
             <div className="flex items-center gap-2 min-w-0">
               <div className="w-7 h-7 rounded-lg bg-[#00ADB5]/20 text-[#00ADB5] flex items-center justify-center shrink-0">
                 <Receipt className="w-4 h-4" />
               </div>
-              <h3 className="text-sm font-bold text-white truncate">Últimos Movimientos Registrados</h3>
+              <div>
+                <h3 className="text-sm font-bold text-white truncate">Últimos Movimientos</h3>
+                <span className="text-[10px] text-slate-400 block leading-tight">Últimos 5 registros</span>
+              </div>
             </div>
             <Link
               href="/expenses"
               className="text-xs text-[#00ADB5] hover:underline flex items-center gap-1 font-semibold whitespace-nowrap shrink-0"
             >
-              <span>Ver historial</span>
+              <span>Ver todos los movimientos</span>
               <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
@@ -216,7 +299,7 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="space-y-2.5">
-              {recentExpenses.map((exp: any) => {
+              {recentExpenses.slice(0, 5).map((exp: any) => {
                 const isIncome = exp.type === 'INCOME';
                 const isTransfer = exp.type === 'TRANSFER';
                 return (

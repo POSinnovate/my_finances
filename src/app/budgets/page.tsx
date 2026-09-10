@@ -1037,15 +1037,13 @@ export default function BudgetsPage() {
               newCatType === 'INCOME' ? 'border-emerald-500' : 'border-[#00ADB5]'
             }`}>
               <div className="flex items-center justify-between pb-3 border-b border-[#1E3A5F]">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                    {newCatType === 'INCOME' ? (
-                      <Briefcase className="w-4 h-4 text-emerald-400" />
-                    ) : (
-                      <Layers className="w-4 h-4 text-[#00ADB5]" />
-                    )}
-                    <span>Nuevo Rubro:</span>
-                  </span>
+                <div className="flex items-center gap-2 whitespace-nowrap">
+                  {newCatType === 'INCOME' ? (
+                    <Briefcase className="w-4 h-4 text-emerald-400" />
+                  ) : (
+                    <Layers className="w-4 h-4 text-[#00ADB5]" />
+                  )}
+
                   <div className="flex items-center bg-[#102A43] p-0.5 rounded-lg border border-[#243B55]">
                     <button
                       type="button"

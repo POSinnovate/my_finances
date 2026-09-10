@@ -45,15 +45,42 @@ export function useRecentExpenses(limit = 10) {
   });
 }
 
-export function useExpenses(month?: string) {
+export interface ExpenseFilters {
+  month?: string;
+  type?: string;
+  categoryId?: string;
+  paymentMethod?: string;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export function useExpenses(filters?: string | ExpenseFilters) {
+  const options: ExpenseFilters = typeof filters === 'string' ? { month: filters } : (filters || {});
+  const { month = 'ALL', type = 'ALL', categoryId = 'ALL', paymentMethod = 'ALL', search = '', page = 1, pageSize = 15 } = options;
+
   return useQuery({
-    queryKey: ['expenses', 'list', month || 'ALL'],
+    queryKey: ['expenses', 'list', month, type, categoryId, paymentMethod, search, page, pageSize],
     queryFn: async () => {
-      const url = month && month !== 'ALL' ? `/api/expenses?month=${month}` : '/api/expenses';
+      const params = new URLSearchParams();
+      if (month && month !== 'ALL') params.set('month', month);
+      if (type && type !== 'ALL') params.set('type', type);
+      if (categoryId && categoryId !== 'ALL') params.set('categoryId', categoryId);
+      if (paymentMethod && paymentMethod !== 'ALL') params.set('paymentMethod', paymentMethod);
+      if (search) params.set('search', search);
+      if (page) params.set('page', String(page));
+      if (pageSize) params.set('pageSize', String(pageSize));
+
+      const queryStr = params.toString();
+      const url = queryStr ? `/api/expenses?${queryStr}` : '/api/expenses';
       const res = await fetch(url);
       if (!res.ok) throw new Error('Error al cargar movimientos');
       const data = await res.json();
-      return data.expenses || [];
+      return {
+        expenses: data.expenses || [],
+        pagination: data.pagination || { total: (data.expenses || []).length, page: 1, pageSize: 15, totalPages: 1 },
+        summary: data.summary || { total_income: 0, total_expense: 0, net_balance: 0 },
+      };
     },
     staleTime: 1000 * 60 * 3, // 3 min cache
   });

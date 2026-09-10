@@ -51,11 +51,32 @@ export default function ExpensesPage() {
   const [isQuickExpenseOpen, setIsQuickExpenseOpen] = useState(false);
   const [selectedMovement, setSelectedMovement] = useState<Movement | null>(null);
 
-  // TanStack React Query Hooks with caching
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 15;
+
+  // Reset page to 1 whenever filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedMonth, selectedType, selectedCategory, selectedPaymentMethod, searchQuery]);
+
+  // TanStack React Query Hooks with database-level server-side pagination & caching
   const { data: user } = useUser();
-  const { data: expenses = [], isLoading: loading } = useExpenses(selectedMonth);
+  const { data, isLoading: loading } = useExpenses({
+    month: selectedMonth,
+    type: selectedType,
+    categoryId: selectedCategory,
+    paymentMethod: selectedPaymentMethod,
+    search: searchQuery,
+    page: currentPage,
+    pageSize,
+  });
   const { data: categories = [] } = useCategories();
   const { data: paymentMethods = [] } = usePaymentMethods();
+
+  const expenses = data?.expenses || [];
+  const pagination = data?.pagination || { total: 0, page: 1, pageSize: 15, totalPages: 1 };
+  const summary = data?.summary || { total_income: 0, total_expense: 0, net_balance: 0 };
 
   const handleDeleteExpense = async (id: string) => {
     if (!confirm('¿Deseas eliminar este movimiento? Tu fondo disponible se recalculará automáticamente.')) {
@@ -75,66 +96,15 @@ export default function ExpensesPage() {
     }
   };
 
-  // Filter expenses based on selected filters and search
-  const filteredExpenses = useMemo(() => {
-    return expenses.filter((e: any) => {
-      // Type filter
-      if (selectedType === 'EXPENSE' && (e.type === 'INCOME' || e.type === 'TRANSFER')) return false;
-      if (selectedType === 'INCOME' && e.type !== 'INCOME') return false;
-      if (selectedType === 'TRANSFER' && e.type !== 'TRANSFER') return false;
+  const paginatedExpenses = expenses;
+  const totalItems = pagination.total;
+  const totalPages = pagination.totalPages;
+  const safeCurrentPage = pagination.page;
 
-      // Category filter
-      if (selectedCategory !== 'ALL' && e.category_id !== selectedCategory) return false;
-
-      // Payment Method filter
-      if (selectedPaymentMethod !== 'ALL' && e.payment_method !== selectedPaymentMethod) return false;
-
-      // Search Query
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        const matchNotes = e.notes?.toLowerCase().includes(query);
-        const matchCat = e.category_name?.toLowerCase().includes(query);
-        const matchPay = e.payment_method?.toLowerCase().includes(query);
-        const matchAmount = e.amount?.toString().includes(query);
-        if (!matchNotes && !matchCat && !matchPay && !matchAmount) return false;
-      }
-
-      return true;
-    });
-  }, [expenses, selectedType, selectedCategory, selectedPaymentMethod, searchQuery]);
-
-  // Totals for filtered view
-  const totalExpensesAmount = useMemo(() => {
-    return filteredExpenses
-      .filter((e: any) => e.type === 'EXPENSE' || !e.type)
-      .reduce((acc: number, curr: any) => acc + curr.amount, 0);
-  }, [filteredExpenses]);
-
-  const totalIncomesAmount = useMemo(() => {
-    return filteredExpenses
-      .filter((e: any) => e.type === 'INCOME')
-      .reduce((acc: number, curr: any) => acc + curr.amount, 0);
-  }, [filteredExpenses]);
-
-  const netBalance = totalIncomesAmount - totalExpensesAmount;
-
-  // Pagination State
-  const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 15;
-
-  // Reset page to 1 whenever filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [selectedMonth, selectedType, selectedCategory, selectedPaymentMethod, searchQuery]);
-
-  const totalItems = filteredExpenses.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-  const safeCurrentPage = Math.min(currentPage, totalPages);
-
-  const paginatedExpenses = useMemo(() => {
-    const start = (safeCurrentPage - 1) * pageSize;
-    return filteredExpenses.slice(start, start + pageSize);
-  }, [filteredExpenses, safeCurrentPage, pageSize]);
+  // Totals for filtered view directly from database aggregates
+  const totalExpensesAmount = summary.total_expense;
+  const totalIncomesAmount = summary.total_income;
+  const netBalance = summary.net_balance;
 
   // Generate quick month pills (current and previous 2 months in Colombia)
   const currentMonthISO = getTodayColombiaDate().slice(0, 7);
@@ -389,7 +359,7 @@ export default function ExpensesPage() {
 
         {/* Movements Table / Cards */}
         <div className="bg-[#0B192C] border border-[#1E3A5F] rounded-3xl p-5 shadow-xl">
-          {filteredExpenses.length === 0 ? (
+          {totalItems === 0 ? (
             <div className="text-center py-12 text-slate-400">
               <Receipt className="w-10 h-10 mx-auto mb-2 opacity-30 text-[#00ADB5]" />
               <p className="text-xs">No hay movimientos que coincidan con estos filtros.</p>
