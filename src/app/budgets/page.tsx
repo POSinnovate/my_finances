@@ -51,6 +51,74 @@ const METHOD_TYPES = [
   { id: 'OTHER', label: 'Otro Medio', icon: Wallet },
 ];
 
+interface TabIntroCardProps {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  actionText: string;
+  onAction: () => void;
+  badgeText?: string;
+  themeColor?: 'cyan' | 'emerald';
+}
+
+function TabIntroCard({
+  icon,
+  title,
+  description,
+  actionText,
+  onAction,
+  badgeText,
+  themeColor = 'cyan',
+}: TabIntroCardProps) {
+  const isEmerald = themeColor === 'emerald';
+
+  return (
+    <div
+      className={`p-4 sm:p-5 rounded-3xl bg-[#102A43] border ${
+        isEmerald ? 'border-emerald-500/30' : 'border-[#243B55]'
+      } shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4`}
+    >
+      <div className="space-y-1 max-w-xl">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div
+            className={`p-1.5 rounded-xl ${
+              isEmerald ? 'bg-emerald-500/15 text-emerald-400' : 'bg-cyan-500/15 text-cyan-400'
+            }`}
+          >
+            {icon}
+          </div>
+          <h2 className="text-base font-black text-white tracking-tight">{title}</h2>
+          {badgeText && (
+            <span
+              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                isEmerald
+                  ? 'bg-emerald-950/60 border-emerald-500/30 text-emerald-300'
+                  : 'bg-cyan-950/60 border-cyan-500/30 text-cyan-300'
+              }`}
+            >
+              {badgeText}
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-slate-300 leading-relaxed">{description}</p>
+      </div>
+
+      <button
+        type="button"
+        onClick={onAction}
+        className={`w-full sm:w-auto py-2.5 px-4 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all whitespace-nowrap cursor-pointer shrink-0 ${
+          isEmerald
+            ? 'bg-emerald-400 hover:bg-emerald-300 text-slate-950 shadow-emerald-400/20'
+            : 'bg-cyan-400 hover:bg-cyan-300 text-slate-950 shadow-cyan-400/20'
+        }`}
+      >
+        <Plus className="w-4 h-4 stroke-[3px]" />
+        <span>{actionText}</span>
+      </button>
+    </div>
+  );
+}
+
 export default function BudgetsPage() {
   const router = useRouter();
   const invalidateFinance = useInvalidateFinance();
@@ -379,7 +447,7 @@ export default function BudgetsPage() {
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-5 space-y-5">
         {/* Top Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0B192C] border border-[#1E3A5F] rounded-3xl p-5 shadow-xl">
+        <div className="flex items-center justify-between gap-3 bg-[#0B192C] border border-[#1E3A5F] rounded-3xl p-5 shadow-xl">
           <div className="flex items-center gap-3">
             <Link
               href="/"
@@ -392,20 +460,6 @@ export default function BudgetsPage() {
               <p className="text-xs text-slate-400">Controla tus gastos fijos, entradas más fuertes y medios de pago</p>
             </div>
           </div>
-
-          <button
-            onClick={handleOpenAdd}
-            className="py-2.5 px-4 rounded-xl bg-linear-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] font-extrabold text-xs shadow-md shadow-[#00ADB5]/20 flex items-center gap-1.5 self-start sm:self-center hover:opacity-95 active:scale-95 transition-all whitespace-nowrap shrink-0"
-          >
-            <Plus className="w-4 h-4 stroke-[3px]" />
-            <span>
-              {activeTab === 'INCOME'
-                ? 'Nueva Fuente'
-                : activeTab === 'PAYMENT_METHODS'
-                ? 'Nuevo Método'
-                : 'Nuevo Grupo'}
-            </span>
-          </button>
         </div>
 
         {/* Tab Switcher: Gastos vs Ingresos vs Métodos de Pago (Responsive Horizontal Scroll) */}
@@ -459,6 +513,17 @@ export default function BudgetsPage() {
         {/* TAB 1: EXPENSE CONTENT */}
         {activeTab === 'EXPENSE' && (
           <div className="space-y-5">
+            {/* Introductory Card & Action */}
+            <TabIntroCard
+              icon={<Layers className="w-5 h-5" />}
+              title="Presupuesto y Grupos de Gasto"
+              description="Organiza tus gastos fijos y variables con fechas límite o topes mensuales para que el sistema calcule con precisión tu gasto diario seguro."
+              actionText="Crear Grupo de Gasto"
+              onAction={handleOpenAdd}
+              badgeText={`${expenseCategories.length} grupos`}
+              themeColor="cyan"
+            />
+
             {/* Total Budget vs Actual Spend Banner */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="p-2.5 rounded-xl bg-[#102A43] border border-[#1E3A5F]">
@@ -556,6 +621,17 @@ export default function BudgetsPage() {
         {/* TAB 2: INCOME SOURCES CONTENT */}
         {activeTab === 'INCOME' && (
           <div className="space-y-5">
+            {/* Introductory Card & Action */}
+            <TabIntroCard
+              icon={<Briefcase className="w-5 h-5" />}
+              title="Fuentes de Ingreso & Clientes"
+              description="Registra tus quincenas, cobros o contratos con sus fechas de pago esperadas para proyectar tu ingreso mensual real sin montos fijos."
+              actionText="Crear Fuente de Ingreso"
+              onAction={handleOpenAdd}
+              badgeText={`${incomeCategories.length} fuentes`}
+              themeColor="emerald"
+            />
+
             {/* Income Summary Banner */}
             <div className="bg-linear-to-r from-[#0B192C] to-[#102A43] border border-emerald-500/30 rounded-3xl p-5 shadow-xl grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="p-3 rounded-2xl bg-[#0B192C]/80 border border-[#243B55]">
@@ -631,26 +707,16 @@ export default function BudgetsPage() {
         {/* TAB 3: PAYMENT METHODS CONTENT */}
         {activeTab === 'PAYMENT_METHODS' && (
           <div className="space-y-5">
-            {/* Payment Methods Banner */}
-            <div className="bg-[#102A43] border border-[#243B55] rounded-3xl p-5 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-base font-black text-white flex items-center gap-2">
-                  <Wallet className="w-5 h-5 text-cyan-400" />
-                  <span>Control de Cuentas & Métodos de Pago</span>
-                </h2>
-                <p className="text-xs text-slate-300 mt-1 max-w-xl">
-                  Cada usuario tiene sus propios métodos de pago aislados. Puedes crear, editar o eliminar tus cuentas bancarias, billeteras (Nequi, Daviplata) o tarjetas para saber por dónde se mueve cada peso.
-                </p>
-              </div>
-
-              <button
-                onClick={() => setIsAddMethodOpen(true)}
-                className="py-2.5 px-4 rounded-xl bg-cyan-400 text-slate-950 font-black text-xs hover:bg-cyan-300 flex items-center gap-1.5 shadow-md shadow-cyan-400/20 shrink-0 whitespace-nowrap"
-              >
-                <Plus className="w-4 h-4 stroke-[3px]" />
-                <span>Agregar Cuenta / Medio</span>
-              </button>
-            </div>
+            {/* Introductory Card & Action */}
+            <TabIntroCard
+              icon={<Wallet className="w-5 h-5" />}
+              title="Cuentas y Métodos de Pago"
+              description="Registra tus bancos, billeteras digitales (Nequi, Daviplata) o efectivo. Así sabrás con exactitud por dónde entra y sale tu dinero en cada movimiento."
+              actionText="Agregar Cuenta / Medio"
+              onAction={() => setIsAddMethodOpen(true)}
+              badgeText={`${paymentMethods.length} medios`}
+              themeColor="cyan"
+            />
 
             {/* Payment Methods Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">

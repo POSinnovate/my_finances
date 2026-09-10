@@ -36,13 +36,14 @@ export function Header({ user, onUserUpdate }: HeaderProps) {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isLogoutModalOpen) {
-        setIsLogoutModalOpen(false);
+      if (e.key === 'Escape') {
+        if (isLogoutModalOpen) setIsLogoutModalOpen(false);
+        if (isEditingCash) setIsEditingCash(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isLogoutModalOpen]);
+  }, [isLogoutModalOpen, isEditingCash]);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -107,54 +108,31 @@ export function Header({ user, onUserUpdate }: HeaderProps) {
               {/* Intelligent Notification Bell */}
               <NotificationCenter />
 
-              {/* Live Cash Fund Pill */}
-              <div className="bg-[#102A43] border border-[#243B55] px-2.5 py-1 rounded-xl flex items-center gap-1.5 sm:gap-2 shrink-0">
-                <div className="text-right">
-                  <span className="block text-[9px] text-slate-400 font-medium leading-none">Fondo Disponible</span>
-                  {isEditingCash ? (
-                    <div className="flex items-center gap-1 mt-0.5">
-                      <input
-                        type="number"
-                        value={cashValue}
-                        onChange={(e) => setCashValue(e.target.value)}
-                        className="w-20 text-xs bg-[#0B192C] text-white border border-[#00ADB5] rounded px-1 py-0.5 focus:outline-none"
-                        autoFocus
-                      />
-                      <button
-                        onClick={handleUpdateCash}
-                        disabled={isUpdating}
-                        className="p-0.5 text-emerald-400 hover:text-emerald-300"
-                        title="Guardar"
-                      >
-                        <Check className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => setIsEditingCash(false)}
-                        className="p-0.5 text-rose-400 hover:text-rose-300"
-                        title="Cancelar"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs sm:text-sm font-black text-white">
-                        {formatCOP(user.current_cash)}
-                      </span>
-                      <button
-                        onClick={() => {
-                          setCashValue(user.current_cash?.toString() || '0');
-                          setIsEditingCash(true);
-                        }}
-                        className="text-slate-400 hover:text-[#00ADB5] transition-colors p-0.5"
-                        title="Ajustar fondo manualmente"
-                      >
-                        <Edit3 className="w-3 h-3" />
-                      </button>
-                    </div>
-                  )}
+              {/* Clean, Breathable Live Cash Fund Pill */}
+              <button
+                type="button"
+                onClick={() => {
+                  setCashValue(user.current_cash?.toString() || '0');
+                  setIsEditingCash(true);
+                }}
+                className="group bg-[#102A43] hover:bg-[#152E4D] border border-[#243B55] hover:border-[#00ADB5]/50 px-2.5 sm:px-3 py-1.5 rounded-xl flex items-center gap-2 transition-all cursor-pointer text-left shrink-0 shadow-sm"
+                title="Click para ajustar fondo disponible"
+              >
+                <div className="w-7 h-7 rounded-lg bg-[#00ADB5]/10 border border-[#00ADB5]/20 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                  <Wallet className="w-3.5 h-3.5 text-[#00ADB5]" />
                 </div>
-              </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[9px] text-slate-400 font-semibold uppercase tracking-wider leading-none">
+                    Fondo Disponible
+                  </span>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="text-xs sm:text-sm font-black text-white group-hover:text-[#00ADB5] transition-colors leading-tight">
+                      {formatCOP(user.current_cash)}
+                    </span>
+                    <Edit3 className="w-3 h-3 text-slate-500 group-hover:text-[#00ADB5] transition-colors shrink-0" />
+                  </div>
+                </div>
+              </button>
 
               {/* Logout button */}
               <button
@@ -235,6 +213,107 @@ export function Header({ user, onUserUpdate }: HeaderProps) {
                 )}
               </button>
             </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Cash Adjustment Modal rendered via Portal */}
+      {isEditingCash && mounted && typeof document !== 'undefined' && createPortal(
+        <div
+          onClick={() => !isUpdating && setIsEditingCash(false)}
+          className="fixed inset-0 z-99999 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-[#0B192C] border border-[#1E3A5F] rounded-3xl p-6 shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-150 mx-auto"
+          >
+            {/* Top Accent Glow */}
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-linear-to-r from-[#00ADB5] via-[#06B6D4] to-emerald-400" />
+
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-[#00ADB5]/15 border border-[#00ADB5]/30 flex items-center justify-center text-[#00ADB5] shadow-lg shadow-[#00ADB5]/10 shrink-0">
+                  <Wallet className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">Ajustar Fondo Disponible</h3>
+                  <p className="text-xs text-slate-400">Actualiza tu saldo real actual</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditingCash(false)}
+                disabled={isUpdating}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-[#102A43] transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed mb-4">
+              Indica el saldo real con el que cuentas hoy entre cuentas y efectivo. El sistema lo utilizará para recalcular tu gasto diario seguro y tus días de cobertura financiera.
+            </p>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleUpdateCash();
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                  Nuevo Saldo Disponible (COP)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm">$</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={cashValue}
+                    onChange={(e) => setCashValue(e.target.value)}
+                    className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] rounded-xl pl-8 pr-3.5 py-2.5 text-sm font-black text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-[#00ADB5] transition-all"
+                    placeholder="0"
+                    autoFocus
+                    required
+                  />
+                </div>
+                {/* Live Formatted COP Preview */}
+                <div className="mt-2 flex items-center justify-between text-xs px-1">
+                  <span className="text-slate-400">Monto formateado:</span>
+                  <span className="font-black text-[#00ADB5]">
+                    {formatCOP(Number(cashValue) || 0)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingCash(false)}
+                  disabled={isUpdating}
+                  className="flex-1 py-2.5 rounded-xl bg-[#102A43] hover:bg-[#152E4D] border border-[#243B55] text-xs font-bold text-slate-300 transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUpdating}
+                  className="flex-1 py-2.5 rounded-xl bg-linear-to-r from-[#00ADB5] to-[#06B6D4] hover:opacity-95 text-[#0B192C] text-xs font-black shadow-lg shadow-[#00ADB5]/20 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                >
+                  {isUpdating ? (
+                    <span>Guardando...</span>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5 stroke-[3px]" />
+                      <span>Actualizar Fondo</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>,
         document.body
