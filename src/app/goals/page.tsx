@@ -262,7 +262,7 @@ export default function GoalsPage() {
             className="py-2.5 px-4 rounded-xl bg-linear-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] font-extrabold text-xs shadow-md shadow-[#00ADB5]/20 flex items-center gap-1.5 self-start sm:self-center hover:opacity-95 active:scale-95 transition-all"
           >
             <Plus className="w-4 h-4 stroke-[3px]" />
-            <span>+ Nueva Meta</span>
+            <span>Nueva Meta</span>
           </button>
         </div>
 
