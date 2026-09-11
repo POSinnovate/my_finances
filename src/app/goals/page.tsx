@@ -267,7 +267,7 @@ export default function GoalsPage() {
         </div>
 
         {/* Global Savings & Cash Banner */}
-        <div className="bg-[#102A43] border border-[#243B55] rounded-3xl p-5 shadow-xl grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
           <div className="p-3.5 rounded-2xl bg-[#0B192C]/70 border border-[#1E3A5F]">
             <span className="text-[11px] font-semibold text-[#00ADB5] block">Dinero Libre Disponible</span>
             <p className="text-xl sm:text-2xl font-black text-white mt-0.5">{formatCOP(availableCash)}</p>
@@ -760,7 +760,7 @@ export default function GoalsPage() {
         )}
 
         {/* Reverse Engineering Income Calculator */}
-        <div className="bg-[#102A43] border border-[#243B55] rounded-3xl p-5 shadow-xl space-y-4">
+        <div className="space-y-4">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-xl bg-cyan-400/20 text-[#00ADB5]">
               <Calculator className="w-5 h-5" />
