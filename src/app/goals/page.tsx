@@ -268,19 +268,19 @@ export default function GoalsPage() {
 
         {/* Global Savings & Cash Banner */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-          <div className="p-3.5 rounded-2xl bg-[#0B192C]/70 border border-[#1E3A5F]">
+          <div className="p-3.5 rounded-2xl bg-[#102A43] border border-[#1E3A5F]">
             <span className="text-[11px] font-semibold text-[#00ADB5] block">Dinero Libre Disponible</span>
             <p className="text-xl sm:text-2xl font-black text-white mt-0.5">{formatCOP(availableCash)}</p>
             <span className="text-[10px] text-slate-400 mt-1 block">Saldo en mano para gastos diarios</span>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-[#0B192C]/70 border border-[#1E3A5F]">
+          <div className="p-3.5 rounded-2xl bg-[#102A43] border border-[#1E3A5F]">
             <span className="text-[11px] font-semibold text-emerald-400 block">Total Ahorrado en Metas</span>
             <p className="text-xl sm:text-2xl font-black text-emerald-400 mt-0.5">{formatCOP(totalSavedInGoals)}</p>
             <span className="text-[10px] text-slate-400 mt-1 block">Dinero apartado y protegido</span>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-[#0B192C]/70 border border-[#1E3A5F]">
+          <div className="p-3.5 rounded-2xl bg-[#102A43] border border-[#1E3A5F]">
             <span className="text-[11px] font-semibold text-cyan-400 block">Objetivo Total Acumulado</span>
             <p className="text-xl sm:text-2xl font-black text-white mt-0.5">{formatCOP(totalTargetInGoals)}</p>
             <span className="text-[10px] text-slate-400 mt-1 block">
