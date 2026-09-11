@@ -154,7 +154,14 @@ export function FinancialOverviewCard({
       {/* 6 Executive KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
         {/* 1. Dinero que puedo gastar al día */}
-        <div className="bg-[#102A43] border border-[#00ADB5]/40 hover:border-[#00ADB5] rounded-2xl p-3 sm:p-3.5 shadow-lg transition-all relative overflow-hidden">
+        <div 
+          className="bg-[#102A43] border border-[#00ADB5]/40 hover:border-[#00ADB5] rounded-2xl p-3 sm:p-3.5 shadow-lg transition-all relative overflow-hidden"
+          title={
+            pendingCommitments > 0
+              ? `Fondo libre: ${formatCOP(freeCash)} (descontando ${formatCOP(pendingCommitments)} en compromisos previos) dividido en ${daysRemaining} días hasta tu próximo ingreso.`
+              : `Fondo disponible: ${formatCOP(freeCash)} dividido en ${daysRemaining} días hasta tu próximo ingreso.`
+          }
+        >
           <div className="flex items-center justify-between mb-1">
             <span className="text-[10px] sm:text-[11px] font-bold text-slate-300">Gasto Diario Seguro</span>
             <Flame className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#00ADB5]" />
@@ -162,8 +169,12 @@ export function FinancialOverviewCard({
           <p className="text-sm sm:text-base font-black text-white truncate">
             {formatCOP(safeDaily)}
           </p>
-          <span className="text-[9px] sm:text-[10px] text-[#00ADB5] block mt-0.5 font-medium truncate" title="Límite máximo seguro por día hasta el próximo ingreso">
-            Límite máximo / día
+          <span className="text-[9px] sm:text-[10px] text-[#00ADB5] block mt-0.5 font-medium truncate">
+            {nextIncome && nextIncome.daysRemaining > 0
+              ? `${daysRemaining} ${daysRemaining === 1 ? 'día' : 'días'} hasta próx. ingreso`
+              : nextIncome && nextIncome.daysRemaining === 0
+              ? 'Límite para hoy (llega hoy)'
+              : `Límite por día (${daysRemaining}d restantes)`}
           </span>
         </div>
 

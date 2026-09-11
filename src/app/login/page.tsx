@@ -46,7 +46,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md relative z-10">
         {/* Brand header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#00ADB5] to-[#06B6D4] text-[#0B192C] shadow-xl shadow-[#00ADB5]/30 mb-3">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-linear-to-tr from-[#00ADB5] to-[#06B6D4] text-[#0B192C] shadow-xl shadow-[#00ADB5]/30 mb-3">
             <Wallet className="w-9 h-9" />
           </div>
           <h1 className="text-2xl font-black tracking-tight text-white">POSINNOVATE</h1>
@@ -92,7 +92,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] font-extrabold text-sm shadow-lg shadow-[#00ADB5]/20 flex items-center justify-center gap-2 hover:opacity-95 active:scale-[0.99] transition-all disabled:opacity-50 mt-2"
+              className="w-full py-3.5 px-4 rounded-xl bg-linear-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] font-extrabold text-sm shadow-lg shadow-[#00ADB5]/20 flex items-center justify-center gap-2 hover:opacity-95 active:scale-[0.99] transition-all disabled:opacity-50 mt-2"
             >
               {isLoading ? (
                 <span>Iniciando sesión...</span>

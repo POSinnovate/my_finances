@@ -646,7 +646,6 @@ export function computeCashFlow({
 
   // 4. Calculate Pending Commitments & Burn Rate
   const pendingExpensesList = upcomingCommitments.filter(c => !c.isPaid && c.type !== 'INCOME');
-  const totalPendingCommitments = pendingExpensesList.reduce((sum, c) => sum + c.amount, 0);
 
   // Total pending fixed expenses for the entire month (overdue + all upcoming for this month)
   let totalPendingFixedExpensesMonth = overdueCommitments
@@ -667,9 +666,35 @@ export function computeCashFlow({
   const totalProjectedMonthExpenses = totalSpentMonth + totalPendingFixedExpensesMonth;
   const projectedNetBalance = dynamicMonthlyIncome - totalProjectedMonthExpenses;
 
-  const daysRemaining = nextIncome && nextIncome.daysRemaining > 0
-    ? nextIncome.daysRemaining
-    : Math.max(1, daysInMonth - today.day + 1);
+  // Determine target income for daily spend calculation:
+  // Find the closest upcoming income with daysRemaining >= 0
+  const targetIncome = incomeCandidates.find(c => c.daysRemaining >= 0) || (incomeCandidates.length > 0 ? incomeCandidates[0] : null);
+
+  let daysRemaining = Math.max(1, daysInMonth - today.day + 1);
+  if (targetIncome) {
+    if (targetIncome.daysRemaining > 0) {
+      daysRemaining = targetIncome.daysRemaining;
+    } else if (targetIncome.daysRemaining === 0) {
+      daysRemaining = 1; // Hoy llega el ingreso
+    }
+  }
+
+  // Overdue expense commitments that need to be settled immediately from current cash
+  const overdueExpenseAmount = overdueCommitments
+    .filter(c => c.type !== 'INCOME')
+    .reduce((sum, c) => sum + c.amount, 0);
+
+  // CRITICAL: Commitments that must be covered by current cash BEFORE the next income arrives
+  // Any expense due AFTER the next income will be paid with that future income, NOT from currentCash!
+  let totalPendingCommitments = 0;
+  if (targetIncome && targetIncome.daysRemaining >= 0) {
+    const expensesBeforeNextIncome = pendingExpensesList.filter(c => c.daysUntil <= targetIncome.daysRemaining);
+    totalPendingCommitments = overdueExpenseAmount + expensesBeforeNextIncome.reduce((sum, c) => sum + c.amount, 0);
+  } else {
+    // If no upcoming income, all pending commitments of the current month apply
+    const expensesRestOfMonth = pendingExpensesList.filter(c => c.dateStr.startsWith(currentMonthPrefix));
+    totalPendingCommitments = overdueExpenseAmount + expensesRestOfMonth.reduce((sum, c) => sum + c.amount, 0);
+  }
 
   const freeCashForPeriod = Math.max(0, currentCash - totalPendingCommitments);
   const safeDailySpend = Math.max(0, Math.floor(freeCashForPeriod / daysRemaining));

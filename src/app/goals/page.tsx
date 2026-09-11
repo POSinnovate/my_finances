@@ -259,7 +259,7 @@ export default function GoalsPage() {
 
           <button
             onClick={() => setIsAddGoalOpen(true)}
-            className="py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] font-extrabold text-xs shadow-md shadow-[#00ADB5]/20 flex items-center gap-1.5 self-start sm:self-center hover:opacity-95 active:scale-95 transition-all"
+            className="py-2.5 px-4 rounded-xl bg-linear-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] font-extrabold text-xs shadow-md shadow-[#00ADB5]/20 flex items-center gap-1.5 self-start sm:self-center hover:opacity-95 active:scale-95 transition-all"
           >
             <Plus className="w-4 h-4 stroke-[3px]" />
             <span>+ Nueva Meta</span>
@@ -374,7 +374,7 @@ export default function GoalsPage() {
                             className={`h-full transition-all duration-500 rounded-full ${
                               isDone
                                 ? 'bg-emerald-400'
-                                : 'bg-gradient-to-r from-[#00ADB5] to-[#06B6D4]'
+                                : 'bg-linear-to-r from-[#00ADB5] to-[#06B6D4]'
                             }`}
                             style={{ width: `${progress}%` }}
                           />
@@ -709,7 +709,7 @@ export default function GoalsPage() {
 
               {/* LIVE DAILY SAVINGS SIMULATOR IN MODAL */}
               {remainingInModal > 0 && dailyInModal > 0 && (
-                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-[#0B192C] to-[#102A43] border border-[#00ADB5]/40 space-y-2 animate-in fade-in duration-150">
+                <div className="p-3.5 rounded-2xl bg-linear-to-r from-[#0B192C] to-[#102A43] border border-[#00ADB5]/40 space-y-2 animate-in fade-in duration-150">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-white flex items-center gap-1.5">
                       <Sparkles className="w-4 h-4 text-[#00ADB5]" />
