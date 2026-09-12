@@ -156,42 +156,33 @@ export function FinancialOverviewCard({
     <div className="space-y-3.5">
       {/* 6 Executive KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
-        {/* 1. Dinero que puedo gastar al día */}
+        {/* 1. Dinero que puedo gastar al día (Stat interactivo -> abre Simulador) */}
         <div 
-          className="bg-[#102A43] border border-[#00ADB5]/40 hover:border-[#00ADB5] rounded-2xl p-3 sm:p-3.5 shadow-lg transition-all relative overflow-hidden flex flex-col justify-between"
+          onClick={() => setIsSimulatorOpen(true)}
+          className="bg-[#102A43] border border-[#00ADB5]/40 hover:border-[#00ADB5] rounded-2xl p-3 sm:p-3.5 shadow-lg transition-all cursor-pointer group active:scale-[0.98] relative overflow-hidden"
           title={
             pendingCommitments > 0
-              ? `Fondo libre: ${formatCOP(freeCash)} (descontando ${formatCOP(pendingCommitments)} en compromisos previos) dividido en ${daysRemaining} días hasta tu próximo ingreso.`
-              : `Fondo disponible: ${formatCOP(freeCash)} dividido en ${daysRemaining} días hasta tu próximo ingreso.`
+              ? `Fondo libre: ${formatCOP(freeCash)} (descontando ${formatCOP(pendingCommitments)} en compromisos previos) dividido en ${daysRemaining} días hasta tu próximo ingreso. Haz clic para simular una compra.`
+              : `Fondo disponible: ${formatCOP(freeCash)} dividido en ${daysRemaining} días hasta tu próximo ingreso. Haz clic para simular una compra.`
           }
         >
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] sm:text-[11px] font-bold text-slate-300">Gasto Diario Seguro</span>
-              <Flame className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#00ADB5]" />
-            </div>
-            <p className="text-sm sm:text-base font-black text-white truncate">
-              {formatCOP(safeDaily)}
-            </p>
-            <span className="text-[9px] sm:text-[10px] text-[#00ADB5] block mt-0.5 font-medium truncate">
-              {nextIncome && nextIncome.daysRemaining > 0
-                ? `${daysRemaining} ${daysRemaining === 1 ? 'día' : 'días'} hasta próx. ingreso`
-                : nextIncome && nextIncome.daysRemaining === 0
-                ? 'Límite para hoy (llega hoy)'
-                : `Límite por día (${daysRemaining}d restantes)`}
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] sm:text-[11px] font-bold text-slate-300 flex items-center gap-1">
+              <span>Gasto Seguro</span>
+              <Sparkles className="w-3 h-3 text-[#00ADB5] opacity-70 group-hover:opacity-100 group-hover:rotate-12 transition-all" />
             </span>
+            <Flame className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#00ADB5] group-hover:scale-110 transition-transform" />
           </div>
-
-          {/* Quick Feasibility Simulator Trigger Button */}
-          <button
-            type="button"
-            onClick={() => setIsSimulatorOpen(true)}
-            className="mt-2.5 w-full py-1.5 px-2 rounded-xl bg-[#00ADB5]/15 hover:bg-[#00ADB5]/25 border border-[#00ADB5]/30 hover:border-[#00ADB5] text-[#00ADB5] hover:text-white text-[10px] sm:text-[11px] font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 group/btn"
-            title="Simular viabilidad de un gasto antes de realizarlo"
-          >
-            <Sparkles className="w-3 h-3 text-[#00ADB5] group-hover/btn:rotate-12 transition-transform shrink-0" />
-            <span className="truncate">¿Puedo gastarlo?</span>
-          </button>
+          <p className="text-sm sm:text-base font-black text-white truncate group-hover:text-[#00ADB5] transition-colors">
+            {formatCOP(safeDaily)}
+          </p>
+          <span className="text-[9px] sm:text-[10px] text-[#00ADB5] block mt-0.5 font-medium truncate group-hover:underline">
+            {nextIncome && nextIncome.daysRemaining > 0
+              ? `${daysRemaining}d hasta ingreso • Simular`
+              : nextIncome && nextIncome.daysRemaining === 0
+              ? 'Llega hoy • Simular'
+              : `${daysRemaining}d restantes • Simular`}
+          </span>
         </div>
 
         {/* 2. Próximo Egreso */}
