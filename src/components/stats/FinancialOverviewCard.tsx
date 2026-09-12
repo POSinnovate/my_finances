@@ -15,11 +15,13 @@ import {
   ArrowRight,
   CheckCircle2,
   ChevronRight,
-  Info
+  Info,
+  Sparkles
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatCOP } from '@/lib/utils';
 import { toast } from 'sonner';
+import { ExpenseSimulatorModal } from './ExpenseSimulatorModal';
 
 interface SummaryData {
   total_income: number;
@@ -107,6 +109,7 @@ export function FinancialOverviewCard({
 }: FinancialOverviewCardProps) {
   const [isNextIncomeModalOpen, setIsNextIncomeModalOpen] = useState(false);
   const [isNextExpenseModalOpen, setIsNextExpenseModalOpen] = useState(false);
+  const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   const safeDaily = health?.safeDailySpend ?? 0;
@@ -155,27 +158,40 @@ export function FinancialOverviewCard({
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
         {/* 1. Dinero que puedo gastar al día */}
         <div 
-          className="bg-[#102A43] border border-[#00ADB5]/40 hover:border-[#00ADB5] rounded-2xl p-3 sm:p-3.5 shadow-lg transition-all relative overflow-hidden"
+          className="bg-[#102A43] border border-[#00ADB5]/40 hover:border-[#00ADB5] rounded-2xl p-3 sm:p-3.5 shadow-lg transition-all relative overflow-hidden flex flex-col justify-between"
           title={
             pendingCommitments > 0
               ? `Fondo libre: ${formatCOP(freeCash)} (descontando ${formatCOP(pendingCommitments)} en compromisos previos) dividido en ${daysRemaining} días hasta tu próximo ingreso.`
               : `Fondo disponible: ${formatCOP(freeCash)} dividido en ${daysRemaining} días hasta tu próximo ingreso.`
           }
         >
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] sm:text-[11px] font-bold text-slate-300">Gasto Diario Seguro</span>
-            <Flame className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#00ADB5]" />
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px] sm:text-[11px] font-bold text-slate-300">Gasto Diario Seguro</span>
+              <Flame className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#00ADB5]" />
+            </div>
+            <p className="text-sm sm:text-base font-black text-white truncate">
+              {formatCOP(safeDaily)}
+            </p>
+            <span className="text-[9px] sm:text-[10px] text-[#00ADB5] block mt-0.5 font-medium truncate">
+              {nextIncome && nextIncome.daysRemaining > 0
+                ? `${daysRemaining} ${daysRemaining === 1 ? 'día' : 'días'} hasta próx. ingreso`
+                : nextIncome && nextIncome.daysRemaining === 0
+                ? 'Límite para hoy (llega hoy)'
+                : `Límite por día (${daysRemaining}d restantes)`}
+            </span>
           </div>
-          <p className="text-sm sm:text-base font-black text-white truncate">
-            {formatCOP(safeDaily)}
-          </p>
-          <span className="text-[9px] sm:text-[10px] text-[#00ADB5] block mt-0.5 font-medium truncate">
-            {nextIncome && nextIncome.daysRemaining > 0
-              ? `${daysRemaining} ${daysRemaining === 1 ? 'día' : 'días'} hasta próx. ingreso`
-              : nextIncome && nextIncome.daysRemaining === 0
-              ? 'Límite para hoy (llega hoy)'
-              : `Límite por día (${daysRemaining}d restantes)`}
-          </span>
+
+          {/* Quick Feasibility Simulator Trigger Button */}
+          <button
+            type="button"
+            onClick={() => setIsSimulatorOpen(true)}
+            className="mt-2.5 w-full py-1.5 px-2 rounded-xl bg-[#00ADB5]/15 hover:bg-[#00ADB5]/25 border border-[#00ADB5]/30 hover:border-[#00ADB5] text-[#00ADB5] hover:text-white text-[10px] sm:text-[11px] font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 group/btn"
+            title="Simular viabilidad de un gasto antes de realizarlo"
+          >
+            <Sparkles className="w-3 h-3 text-[#00ADB5] group-hover/btn:rotate-12 transition-transform shrink-0" />
+            <span className="truncate">¿Puedo gastarlo?</span>
+          </button>
         </div>
 
         {/* 2. Próximo Egreso */}
@@ -805,6 +821,26 @@ export function FinancialOverviewCard({
           </div>
         </div>
       )}
+
+      {/* Expense Feasibility Simulator Modal */}
+      <ExpenseSimulatorModal
+        isOpen={isSimulatorOpen}
+        onClose={() => setIsSimulatorOpen(false)}
+        currentCash={summary.current_cash}
+        daysRemaining={daysRemaining}
+        currentSafeDaily={safeDaily}
+        pendingCommitments={pendingCommitments}
+        nextIncomeLabel={nextIncome ? `${nextIncome.name} (${nextIncome.label})` : undefined}
+        onProceedToRegister={(data) => {
+          if (onRegisterExpense) {
+            onRegisterExpense({
+              amount: data.amount,
+              notes: data.notes,
+              type: 'EXPENSE',
+            });
+          }
+        }}
+      />
     </div>
   );
 }
