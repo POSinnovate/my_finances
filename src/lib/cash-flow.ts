@@ -257,6 +257,50 @@ export function computeCashFlow({
   const daysInMonth = getDaysInMonth(today.year, today.month);
   const endOfMonthStr = formatDateISO(today.year, today.month, daysInMonth);
 
+  // Track specific fulfilled items using notes match or amount match
+  const currentMonthExpenses = expenses.filter(exp => {
+    const dStr = safeFormatDate(exp.date);
+    return dStr.startsWith(currentMonthPrefix);
+  });
+
+  const usedExpenseIds = new Set<string>();
+
+  function checkItemFulfilled(item: { id: string; category_id: string; name: string; amount: number; type: 'INCOME' | 'EXPENSE' }): boolean {
+    const isIncome = item.type === 'INCOME';
+    const itemNameNorm = (item.name || '').trim().toLowerCase();
+
+    // 1. Direct match by notes in the same category
+    const matchingExpense = currentMonthExpenses.find(e => 
+      !usedExpenseIds.has(e.id) &&
+      e.category_id === item.category_id &&
+      ((isIncome && e.type === 'INCOME') || (!isIncome && (!e.type || e.type === 'EXPENSE'))) &&
+      e.notes &&
+      (e.notes.trim().toLowerCase().includes(itemNameNorm) || itemNameNorm.includes(e.notes.trim().toLowerCase()))
+    );
+
+    if (matchingExpense) {
+      usedExpenseIds.add(matchingExpense.id);
+      return true;
+    }
+
+    // 2. Direct match by exact amount in the same category
+    const exactAmountExpense = currentMonthExpenses.find(e => 
+      !usedExpenseIds.has(e.id) &&
+      e.category_id === item.category_id &&
+      ((isIncome && e.type === 'INCOME') || (!isIncome && (!e.type || e.type === 'EXPENSE'))) &&
+      Math.abs(Number(e.amount) - item.amount) <= 1
+    );
+
+    if (exactAmountExpense) {
+      usedExpenseIds.add(exactAmountExpense.id);
+      return true;
+    }
+
+    // 3. Fallback: check if category total received/paid covers it
+    const catPool = isIncome ? (receivedByCategory.get(item.category_id) || 0) : (paidByCategory.get(item.category_id) || 0);
+    return catPool >= item.amount && item.amount > 0;
+  }
+
   // A) Process scheduled sub-items
   for (const item of activeItems) {
     const amt = Number(item.amount) || 0;
@@ -265,9 +309,7 @@ export function computeCashFlow({
     const catName = cat?.name || (item.type === 'INCOME' ? 'Ingreso' : 'Egreso');
     const isDeferred = Boolean(item.notes && item.notes.includes(deferTagCurrentMonth));
     const isIncome = item.type === 'INCOME';
-    const fulfilled = isIncome
-      ? (receivedByCategory.get(item.category_id) || 0) >= amt
-      : (paidByCategory.get(item.category_id) || 0) >= amt;
+    const fulfilled = checkItemFulfilled(item);
 
     if (freq === 'MONTHLY' && item.due_day) {
       const clampedThisMonth = clampDay(today.year, today.month, item.due_day);
@@ -337,38 +379,79 @@ export function computeCashFlow({
           else expenseCandidates.push(candidate);
         }
       } else {
-        // Due later this month (daysRemaining > 0)
-        const days = clampedThisMonth - today.day;
-        const candidate: NextPaymentInfo = {
-          id: item.id,
-          name: item.name,
-          amount: amt,
-          dateStr: dateStrThisMonth,
-          daysRemaining: days,
-          isOverdue: false,
-          daysOverdue: 0,
-          label: `${item.name} (Día ${clampedThisMonth})`,
-          categoryName: catName,
-          categoryId: item.category_id,
-          type: isIncome ? 'INCOME' : 'EXPENSE',
-        };
+        // Due later this month
+        if (fulfilled) {
+          // Already paid or received early this month! Project to next month
+          const nextMonth = today.month === 12 ? 1 : today.month + 1;
+          const nextYear = today.month === 12 ? today.year + 1 : today.year;
+          const clampedNext = clampDay(nextYear, nextMonth, item.due_day);
+          const dateStrNext = formatDateISO(nextYear, nextMonth, clampedNext);
+          const daysLeftThisMonth = daysInMonth - today.day;
+          const days = Math.max(1, daysLeftThisMonth + clampedNext);
 
-        if (isIncome) incomeCandidates.push(candidate);
-        else expenseCandidates.push(candidate);
+          const candidate: NextPaymentInfo = {
+            id: item.id,
+            name: item.name,
+            amount: amt,
+            dateStr: dateStrNext,
+            daysRemaining: days,
+            isOverdue: false,
+            daysOverdue: 0,
+            label: `${item.name} (Próx. Día ${clampedNext})`,
+            categoryName: catName,
+            categoryId: item.category_id,
+            type: isIncome ? 'INCOME' : 'EXPENSE',
+          };
+          if (isIncome) incomeCandidates.push(candidate);
+          else expenseCandidates.push(candidate);
 
-        upcomingCommitments.push({
-          id: item.id,
-          categoryId: item.category_id,
-          name: item.name,
-          amount: amt,
-          type: isIncome ? 'INCOME' : 'EXPENSE',
-          dateStr: dateStrThisMonth,
-          daysUntil: days,
-          frequency: 'MONTHLY',
-          isPaid: fulfilled,
-          color: cat?.color || (isIncome ? '#10B981' : '#00ADB5'),
-          icon: cat?.icon || (isIncome ? 'ArrowUpCircle' : 'Tag'),
-        });
+          upcomingCommitments.push({
+            id: item.id,
+            categoryId: item.category_id,
+            name: item.name,
+            amount: amt,
+            type: isIncome ? 'INCOME' : 'EXPENSE',
+            dateStr: dateStrThisMonth,
+            daysUntil: clampedThisMonth - today.day,
+            frequency: 'MONTHLY',
+            isPaid: true,
+            color: cat?.color || (isIncome ? '#10B981' : '#00ADB5'),
+            icon: cat?.icon || (isIncome ? 'ArrowUpCircle' : 'Tag'),
+          });
+        } else {
+          // Not fulfilled yet: truly pending for this month
+          const days = clampedThisMonth - today.day;
+          const candidate: NextPaymentInfo = {
+            id: item.id,
+            name: item.name,
+            amount: amt,
+            dateStr: dateStrThisMonth,
+            daysRemaining: days,
+            isOverdue: false,
+            daysOverdue: 0,
+            label: `${item.name} (Día ${clampedThisMonth})`,
+            categoryName: catName,
+            categoryId: item.category_id,
+            type: isIncome ? 'INCOME' : 'EXPENSE',
+          };
+
+          if (isIncome) incomeCandidates.push(candidate);
+          else expenseCandidates.push(candidate);
+
+          upcomingCommitments.push({
+            id: item.id,
+            categoryId: item.category_id,
+            name: item.name,
+            amount: amt,
+            type: isIncome ? 'INCOME' : 'EXPENSE',
+            dateStr: dateStrThisMonth,
+            daysUntil: days,
+            frequency: 'MONTHLY',
+            isPaid: false,
+            color: cat?.color || (isIncome ? '#10B981' : '#00ADB5'),
+            icon: cat?.icon || (isIncome ? 'ArrowUpCircle' : 'Tag'),
+          });
+        }
       }
     } else if (freq === 'ONCE' && item.specific_date) {
       const targetStr = safeFormatDate(item.specific_date);
@@ -411,36 +494,53 @@ export function computeCashFlow({
           });
         }
       } else if (targetStr > today.dateStr) {
-        const days = Math.max(1, diffDays);
-        const candidate: NextPaymentInfo = {
-          id: item.id,
-          name: item.name,
-          amount: amt,
-          dateStr: targetStr,
-          daysRemaining: days,
-          isOverdue: false,
-          daysOverdue: 0,
-          label: `${item.name} (${targetStr})`,
-          categoryName: catName,
-          categoryId: item.category_id,
-          type: isIncome ? 'INCOME' : 'EXPENSE',
-        };
-        if (isIncome) incomeCandidates.push(candidate);
-        else expenseCandidates.push(candidate);
+        if (fulfilled) {
+          // Already fulfilled! Mark isPaid: true, but do not push as upcoming candidate
+          upcomingCommitments.push({
+            id: item.id,
+            categoryId: item.category_id,
+            name: item.name,
+            amount: amt,
+            type: isIncome ? 'INCOME' : 'EXPENSE',
+            dateStr: targetStr,
+            daysUntil: Math.max(1, diffDays),
+            frequency: 'ONCE',
+            isPaid: true,
+            color: cat?.color || (isIncome ? '#10B981' : '#00ADB5'),
+            icon: cat?.icon || (isIncome ? 'ArrowUpCircle' : 'Tag'),
+          });
+        } else {
+          const days = Math.max(1, diffDays);
+          const candidate: NextPaymentInfo = {
+            id: item.id,
+            name: item.name,
+            amount: amt,
+            dateStr: targetStr,
+            daysRemaining: days,
+            isOverdue: false,
+            daysOverdue: 0,
+            label: `${item.name} (${targetStr})`,
+            categoryName: catName,
+            categoryId: item.category_id,
+            type: isIncome ? 'INCOME' : 'EXPENSE',
+          };
+          if (isIncome) incomeCandidates.push(candidate);
+          else expenseCandidates.push(candidate);
 
-        upcomingCommitments.push({
-          id: item.id,
-          categoryId: item.category_id,
-          name: item.name,
-          amount: amt,
-          type: isIncome ? 'INCOME' : 'EXPENSE',
-          dateStr: targetStr,
-          daysUntil: days,
-          frequency: 'ONCE',
-          isPaid: fulfilled,
-          color: cat?.color || (isIncome ? '#10B981' : '#00ADB5'),
-          icon: cat?.icon || (isIncome ? 'ArrowUpCircle' : 'Tag'),
-        });
+          upcomingCommitments.push({
+            id: item.id,
+            categoryId: item.category_id,
+            name: item.name,
+            amount: amt,
+            type: isIncome ? 'INCOME' : 'EXPENSE',
+            dateStr: targetStr,
+            daysUntil: days,
+            frequency: 'ONCE',
+            isPaid: false,
+            color: cat?.color || (isIncome ? '#10B981' : '#00ADB5'),
+            icon: cat?.icon || (isIncome ? 'ArrowUpCircle' : 'Tag'),
+          });
+        }
       }
     }
   }
@@ -451,9 +551,8 @@ export function computeCashFlow({
       const budget = Number(cat.monthly_budget) || 0;
       const freq = cat.frequency || (cat.specific_date ? 'ONCE' : (cat.due_day ? 'MONTHLY' : 'NONE'));
       const isIncome = cat.type === 'INCOME';
-      const fulfilled = isIncome
-        ? (receivedByCategory.get(cat.id) || 0) >= budget
-        : (paidByCategory.get(cat.id) || 0) >= budget;
+      const catPool = isIncome ? (receivedByCategory.get(cat.id) || 0) : (paidByCategory.get(cat.id) || 0);
+      const fulfilled = catPool >= budget && budget > 0;
 
       if (freq === 'MONTHLY' && cat.due_day && budget > 0) {
         const clampedThisMonth = clampDay(today.year, today.month, cat.due_day);
@@ -517,35 +616,74 @@ export function computeCashFlow({
             else expenseCandidates.push(candidate);
           }
         } else {
-          const days = clampedThisMonth - today.day;
-          const candidate: NextPaymentInfo = {
-            id: cat.id,
-            name: cat.name,
-            amount: budget,
-            dateStr: dateStrThisMonth,
-            daysRemaining: days,
-            isOverdue: false,
-            daysOverdue: 0,
-            label: `${cat.name} (Día ${clampedThisMonth})`,
-            categoryName: cat.name,
-            categoryId: cat.id,
-            type: isIncome ? 'INCOME' : 'EXPENSE',
-          };
-          if (isIncome) incomeCandidates.push(candidate);
-          else expenseCandidates.push(candidate);
+          if (fulfilled) {
+            // Already paid or received early this month! Project to next month
+            const nextMonth = today.month === 12 ? 1 : today.month + 1;
+            const nextYear = today.month === 12 ? today.year + 1 : today.year;
+            const clampedNext = clampDay(nextYear, nextMonth, cat.due_day);
+            const dateStrNext = formatDateISO(nextYear, nextMonth, clampedNext);
+            const daysLeftThisMonth = daysInMonth - today.day;
+            const days = Math.max(1, daysLeftThisMonth + clampedNext);
 
-          upcomingCommitments.push({
-            categoryId: cat.id,
-            name: cat.name,
-            amount: budget,
-            type: isIncome ? 'INCOME' : 'EXPENSE',
-            dateStr: dateStrThisMonth,
-            daysUntil: days,
-            frequency: 'MONTHLY',
-            isPaid: fulfilled,
-            color: cat.color || (isIncome ? '#10B981' : '#00ADB5'),
-            icon: cat.icon || (isIncome ? 'ArrowUpCircle' : 'Tag'),
-          });
+            const candidate: NextPaymentInfo = {
+              id: cat.id,
+              name: cat.name,
+              amount: budget,
+              dateStr: dateStrNext,
+              daysRemaining: days,
+              isOverdue: false,
+              daysOverdue: 0,
+              label: `${cat.name} (Próx. Día ${clampedNext})`,
+              categoryName: cat.name,
+              categoryId: cat.id,
+              type: isIncome ? 'INCOME' : 'EXPENSE',
+            };
+            if (isIncome) incomeCandidates.push(candidate);
+            else expenseCandidates.push(candidate);
+
+            upcomingCommitments.push({
+              categoryId: cat.id,
+              name: cat.name,
+              amount: budget,
+              type: isIncome ? 'INCOME' : 'EXPENSE',
+              dateStr: dateStrThisMonth,
+              daysUntil: clampedThisMonth - today.day,
+              frequency: 'MONTHLY',
+              isPaid: true,
+              color: cat.color || (isIncome ? '#10B981' : '#00ADB5'),
+              icon: cat.icon || (isIncome ? 'ArrowUpCircle' : 'Tag'),
+            });
+          } else {
+            const days = clampedThisMonth - today.day;
+            const candidate: NextPaymentInfo = {
+              id: cat.id,
+              name: cat.name,
+              amount: budget,
+              dateStr: dateStrThisMonth,
+              daysRemaining: days,
+              isOverdue: false,
+              daysOverdue: 0,
+              label: `${cat.name} (Día ${clampedThisMonth})`,
+              categoryName: cat.name,
+              categoryId: cat.id,
+              type: isIncome ? 'INCOME' : 'EXPENSE',
+            };
+            if (isIncome) incomeCandidates.push(candidate);
+            else expenseCandidates.push(candidate);
+
+            upcomingCommitments.push({
+              categoryId: cat.id,
+              name: cat.name,
+              amount: budget,
+              type: isIncome ? 'INCOME' : 'EXPENSE',
+              dateStr: dateStrThisMonth,
+              daysUntil: days,
+              frequency: 'MONTHLY',
+              isPaid: false,
+              color: cat.color || (isIncome ? '#10B981' : '#00ADB5'),
+              icon: cat.icon || (isIncome ? 'ArrowUpCircle' : 'Tag'),
+            });
+          }
         }
       } else if (freq === 'ONCE' && cat.specific_date && budget > 0) {
         const targetStr = safeFormatDate(cat.specific_date);
@@ -588,35 +726,50 @@ export function computeCashFlow({
             });
           }
         } else if (targetStr > today.dateStr) {
-          const days = Math.max(1, diffDays);
-          const candidate: NextPaymentInfo = {
-            id: cat.id,
-            name: cat.name,
-            amount: budget,
-            dateStr: targetStr,
-            daysRemaining: days,
-            isOverdue: false,
-            daysOverdue: 0,
-            label: `${cat.name} (${targetStr})`,
-            categoryName: cat.name,
-            categoryId: cat.id,
-            type: isIncome ? 'INCOME' : 'EXPENSE',
-          };
-          if (isIncome) incomeCandidates.push(candidate);
-          else expenseCandidates.push(candidate);
+          if (fulfilled) {
+            upcomingCommitments.push({
+              categoryId: cat.id,
+              name: cat.name,
+              amount: budget,
+              type: isIncome ? 'INCOME' : 'EXPENSE',
+              dateStr: targetStr,
+              daysUntil: Math.max(1, diffDays),
+              frequency: 'ONCE',
+              isPaid: true,
+              color: cat.color || (isIncome ? '#10B981' : '#00ADB5'),
+              icon: cat.icon || (isIncome ? 'ArrowUpCircle' : 'Tag'),
+            });
+          } else {
+            const days = Math.max(1, diffDays);
+            const candidate: NextPaymentInfo = {
+              id: cat.id,
+              name: cat.name,
+              amount: budget,
+              dateStr: targetStr,
+              daysRemaining: days,
+              isOverdue: false,
+              daysOverdue: 0,
+              label: `${cat.name} (${targetStr})`,
+              categoryName: cat.name,
+              categoryId: cat.id,
+              type: isIncome ? 'INCOME' : 'EXPENSE',
+            };
+            if (isIncome) incomeCandidates.push(candidate);
+            else expenseCandidates.push(candidate);
 
-          upcomingCommitments.push({
-            categoryId: cat.id,
-            name: cat.name,
-            amount: budget,
-            type: isIncome ? 'INCOME' : 'EXPENSE',
-            dateStr: targetStr,
-            daysUntil: days,
-            frequency: 'ONCE',
-            isPaid: fulfilled,
-            color: cat.color || (isIncome ? '#10B981' : '#00ADB5'),
-            icon: cat.icon || (isIncome ? 'ArrowUpCircle' : 'Tag'),
-          });
+            upcomingCommitments.push({
+              categoryId: cat.id,
+              name: cat.name,
+              amount: budget,
+              type: isIncome ? 'INCOME' : 'EXPENSE',
+              dateStr: targetStr,
+              daysUntil: days,
+              frequency: 'ONCE',
+              isPaid: false,
+              color: cat.color || (isIncome ? '#10B981' : '#00ADB5'),
+              icon: cat.icon || (isIncome ? 'ArrowUpCircle' : 'Tag'),
+            });
+          }
         }
       }
     }
