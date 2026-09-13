@@ -146,9 +146,39 @@ export function useScheduledItems(categoryId?: string, type?: string) {
   });
 }
 
+export function useLoans(search?: string, status?: string, type?: string) {
+  return useQuery({
+    queryKey: ['loans', search || '', status || 'ACTIVE', type || 'LENT'],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (search) params.set('search', search);
+      if (status) params.set('status', status);
+      if (type) params.set('type', type);
+      const url = params.toString() ? `/api/loans?${params.toString()}` : '/api/loans';
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Error al cargar préstamos');
+      const data = await res.json();
+      return {
+        loans: data.loans || [],
+        summary: data.summary || {
+          active_loans_count: 0,
+          total_active_capital_lent: 0,
+          total_initial_capital_lent: 0,
+          total_interest_collected: 0,
+          total_expected_interest: 0,
+          total_balance_due: 0,
+          active_lent_count: 0,
+          active_borrowed_count: 0,
+        },
+      };
+    },
+    staleTime: 1000 * 60 * 3,
+  });
+}
+
 /**
  * Invalidate all finance data across the app after a mutation
- * (creating/editing/deleting expenses, categories, payment methods, goals or scheduled items)
+ * (creating/editing/deleting expenses, categories, payment methods, goals, loans or scheduled items)
  */
 export function useInvalidateFinance() {
   const queryClient = useQueryClient();
@@ -159,6 +189,7 @@ export function useInvalidateFinance() {
     queryClient.invalidateQueries({ queryKey: ['categories'] });
     queryClient.invalidateQueries({ queryKey: ['payment-methods'] });
     queryClient.invalidateQueries({ queryKey: ['goals'] });
+    queryClient.invalidateQueries({ queryKey: ['loans'] });
     queryClient.invalidateQueries({ queryKey: ['scheduled-items'] });
     queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
   };

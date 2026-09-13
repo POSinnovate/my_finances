@@ -139,7 +139,7 @@ export default function AdminUsersPage() {
             </Link>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-black text-white">Gestión de Usuarios & Amigos</h1>
+                <h1 className="text-xl font-black text-white">Gestión de Usuarios</h1>
                 <span className="text-[10px] bg-[#00ADB5]/20 text-[#00ADB5] font-extrabold px-2 py-0.5 rounded-full">
                   ADMIN
                 </span>

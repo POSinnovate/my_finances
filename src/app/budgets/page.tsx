@@ -21,104 +21,23 @@ import {
   Check, 
   X, 
   Briefcase, 
-  Wallet, 
-  Award,
   Layers,
-  CreditCard,
-  Building2,
-  Smartphone,
-  Banknote,
-  Trash2,
-  ArrowDownRight,
-  ArrowUpRight,
-  Edit3,
-  Calendar,
-  Clock,
-  SlidersHorizontal
+  Award,
+  Trash2, 
+  ArrowDownRight, 
+  ArrowUpRight, 
+  Edit3, 
+  Calendar, 
+  Clock 
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { PageBanner } from '@/components/ui';
 
 const COLOR_OPTIONS = [
   '#00ADB5', '#06B6D4', '#3B82F6', '#8B5CF6', 
   '#EC4899', '#EF4444', '#F59E0B', '#10B981'
 ];
-
-const METHOD_TYPES = [
-  { id: 'WALLET', label: 'Billetera Digital (Nequi, Daviplata, etc.)', icon: Smartphone },
-  { id: 'BANK', label: 'Cuenta Bancaria (Bancolombia, etc.)', icon: Building2 },
-  { id: 'CASH', label: 'Efectivo en Mano', icon: Banknote },
-  { id: 'CARD', label: 'Tarjeta de Crédito', icon: CreditCard },
-  { id: 'OTHER', label: 'Otro Medio', icon: Wallet },
-];
-
-interface TabIntroCardProps {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  actionText: string;
-  onAction: () => void;
-  badgeText?: string;
-  themeColor?: 'cyan' | 'emerald';
-}
-
-function TabIntroCard({
-  icon,
-  title,
-  description,
-  actionText,
-  onAction,
-  badgeText,
-  themeColor = 'cyan',
-}: TabIntroCardProps) {
-  const isEmerald = themeColor === 'emerald';
-
-  return (
-    <div
-      className={`p-4 sm:p-5 rounded-3xl bg-[#102A43] border ${
-        isEmerald ? 'border-emerald-500/30' : 'border-[#243B55]'
-      } shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4`}
-    >
-      <div className="space-y-1 max-w-xl">
-        <div className="flex items-center gap-2 flex-wrap">
-          <div
-            className={`p-1.5 rounded-xl ${
-              isEmerald ? 'bg-emerald-500/15 text-emerald-400' : 'bg-cyan-500/15 text-cyan-400'
-            }`}
-          >
-            {icon}
-          </div>
-          <h2 className="text-base font-black text-white tracking-tight">{title}</h2>
-          {badgeText && (
-            <span
-              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                isEmerald
-                  ? 'bg-emerald-950/60 border-emerald-500/30 text-emerald-300'
-                  : 'bg-cyan-950/60 border-cyan-500/30 text-cyan-300'
-              }`}
-            >
-              {badgeText}
-            </span>
-          )}
-        </div>
-        <p className="text-xs text-slate-300 leading-relaxed">{description}</p>
-      </div>
-
-      <button
-        type="button"
-        onClick={onAction}
-        className={`w-full sm:w-auto py-2.5 px-4 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all whitespace-nowrap cursor-pointer shrink-0 ${
-          isEmerald
-            ? 'bg-emerald-400 hover:bg-emerald-300 text-slate-950 shadow-emerald-400/20'
-            : 'bg-cyan-400 hover:bg-cyan-300 text-slate-950 shadow-cyan-400/20'
-        }`}
-      >
-        <Plus className="w-4 h-4 stroke-[3px]" />
-        <span>{actionText}</span>
-      </button>
-    </div>
-  );
-}
 
 export default function BudgetsPage() {
   const router = useRouter();
@@ -129,19 +48,32 @@ export default function BudgetsPage() {
   const { data: categories = [], refetch: refetchCategories } = useCategories();
   const { data: paymentMethods = [], refetch: refetchPaymentMethods } = usePaymentMethods();
 
-  const [activeTab, setActiveTab] = useState<'EXPENSE' | 'INCOME' | 'PAYMENT_METHODS'>('EXPENSE');
+  const [activeTab, setActiveTab] = useState<'EXPENSE' | 'INCOME'>('EXPENSE');
   const [isQuickExpenseOpen, setIsQuickExpenseOpen] = useState(false);
 
-  // Sync tab with URL query parameter if present
+  // Sync tab with URL query parameter dynamically
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const tab = params.get('tab');
-      if (tab === 'PAYMENT_METHODS') setActiveTab('PAYMENT_METHODS');
-      else if (tab === 'INCOME') setActiveTab('INCOME');
-      else if (tab === 'EXPENSE') setActiveTab('EXPENSE');
-    }
+    const syncTab = () => {
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        const tab = params.get('tab');
+        if (tab === 'INCOME') setActiveTab('INCOME');
+        else setActiveTab('EXPENSE');
+      }
+    };
+    syncTab();
+    window.addEventListener('popstate', syncTab);
+    return () => window.removeEventListener('popstate', syncTab);
   }, []);
+
+  const handleTabChange = (tab: 'EXPENSE' | 'INCOME') => {
+    setActiveTab(tab);
+    if (typeof window !== 'undefined') {
+      const url = tab === 'EXPENSE' ? '/budgets' : `/budgets?tab=${tab}`;
+      window.history.replaceState(null, '', url);
+      window.dispatchEvent(new Event('popstate'));
+    }
+  };
 
   // Unified Category Modal (Crear / Editar Grupos de Gasto y Fuentes de Ingreso)
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -158,44 +90,22 @@ export default function BudgetsPage() {
   const [catItems, setCatItems] = useState<Array<{ id?: string; amount: string; due_day: string; specific_date?: string; frequency: 'MONTHLY' | 'ONCE' }>>([]);
   const [isSavingCategory, setIsSavingCategory] = useState(false);
 
-  // New Payment Method Form Modal
-  const [isAddMethodOpen, setIsAddMethodOpen] = useState(false);
-  const [newMethodName, setNewMethodName] = useState('');
-  const [newMethodType, setNewMethodType] = useState('BANK');
-  const [newMethodColor, setNewMethodColor] = useState(COLOR_OPTIONS[0]);
-  const [newMethodInitialBalance, setNewMethodInitialBalance] = useState('');
-  const [isSubmittingMethod, setIsSubmittingMethod] = useState(false);
-
-  // Edit Payment Method Modal
-  const [editingMethod, setEditingMethod] = useState<any | null>(null);
-  const [editMethodName, setEditMethodName] = useState('');
-  const [editMethodType, setEditMethodType] = useState('BANK');
-  const [editMethodColor, setEditMethodColor] = useState(COLOR_OPTIONS[0]);
-  const [editMethodTargetBalance, setEditMethodTargetBalance] = useState('');
-  const [isSavingEditMethod, setIsSavingEditMethod] = useState(false);
-
   const handleOpenAdd = () => {
-    if (activeTab === 'PAYMENT_METHODS') {
-      setNewMethodName('');
-      setNewMethodInitialBalance('');
-      setIsAddMethodOpen(true);
-    } else {
-      setEditingCategory(null);
-      setCatType(activeTab);
-      setCatName('');
-      setCatBudget('');
-      setCatColor(activeTab === 'INCOME' ? '#10B981' : '#00ADB5');
-      setCatIsFixed(false);
-      setCatFrequency('MONTHLY');
-      setCatDueDay(activeTab === 'INCOME' ? '15' : '');
-      setCatSpecificDate('');
-      setCatHasMultiple(false);
-      setCatItems([
-        { amount: '', due_day: '15', frequency: 'MONTHLY' },
-        { amount: '', due_day: '30', frequency: 'MONTHLY' },
-      ]);
-      setIsCategoryModalOpen(true);
-    }
+    setEditingCategory(null);
+    setCatType(activeTab);
+    setCatName('');
+    setCatBudget('');
+    setCatColor(activeTab === 'INCOME' ? '#10B981' : '#00ADB5');
+    setCatIsFixed(false);
+    setCatFrequency('MONTHLY');
+    setCatDueDay(activeTab === 'INCOME' ? '15' : '');
+    setCatSpecificDate('');
+    setCatHasMultiple(false);
+    setCatItems([
+      { amount: '', due_day: '15', frequency: 'MONTHLY' },
+      { amount: '', due_day: '30', frequency: 'MONTHLY' },
+    ]);
+    setIsCategoryModalOpen(true);
   };
 
   const handleAddCatItem = () => {
@@ -211,109 +121,6 @@ export default function BudgetsPage() {
 
   const handleRemoveCatItem = (index: number) => {
     setCatItems(prev => prev.filter((_, idx) => idx !== index));
-  };
-
-  const handleCreatePaymentMethod = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMethodName.trim()) {
-      toast.error('El nombre del método es obligatorio');
-      return;
-    }
-
-    setIsSubmittingMethod(true);
-    try {
-      const res = await fetch('/api/payment-methods', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newMethodName.trim(),
-          type: newMethodType,
-          color: newMethodColor,
-          icon: newMethodType === 'WALLET' ? 'Smartphone' : newMethodType === 'CASH' ? 'Banknote' : newMethodType === 'CARD' ? 'CreditCard' : 'Building2',
-          initial_balance: Number(newMethodInitialBalance) || 0,
-        }),
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        toast.success(`Cuenta "${newMethodName.trim()}" creada exitosamente`);
-        setNewMethodName('');
-        setNewMethodInitialBalance('');
-        setIsAddMethodOpen(false);
-        invalidateFinance();
-      } else {
-        toast.error(data.error || 'Error al crear método');
-      }
-    } catch {
-      toast.error('Error de conexión');
-    } finally {
-      setIsSubmittingMethod(false);
-    }
-  };
-
-  const handleOpenEditMethod = (pm: any) => {
-    setEditingMethod(pm);
-    setEditMethodName(pm.name);
-    setEditMethodType(pm.type || 'BANK');
-    setEditMethodColor(pm.color || '#00ADB5');
-    setEditMethodTargetBalance(pm.net_balance !== undefined ? String(pm.net_balance) : (pm.initial_balance !== undefined ? String(pm.initial_balance) : '0'));
-  };
-
-  const handleSaveEditMethod = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingMethod) return;
-    if (!editMethodName.trim()) {
-      toast.error('El nombre del método es obligatorio');
-      return;
-    }
-
-    setIsSavingEditMethod(true);
-    try {
-      const res = await fetch('/api/payment-methods', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: editingMethod.id,
-          name: editMethodName.trim(),
-          type: editMethodType,
-          color: editMethodColor,
-          icon: editMethodType === 'WALLET' ? 'Smartphone' : editMethodType === 'CASH' ? 'Banknote' : editMethodType === 'CARD' ? 'CreditCard' : 'Building2',
-          target_balance: editMethodTargetBalance !== '' ? Number(editMethodTargetBalance) : undefined,
-        }),
-      });
-
-      if (res.ok) {
-        toast.success(`Cuenta "${editMethodName.trim()}" actualizada y balance equilibrado`);
-        setEditingMethod(null);
-        invalidateFinance();
-      } else {
-        const data = await res.json();
-        toast.error(data.error || 'Error al actualizar método');
-      }
-    } catch {
-      toast.error('Error de conexión');
-    } finally {
-      setIsSavingEditMethod(false);
-    }
-  };
-
-  const handleDeleteMethod = async (id: string, name: string) => {
-    if (!confirm(`¿Eliminar el método de pago "${name}"? Los movimientos asociados pasarán a Efectivo.`)) {
-      return;
-    }
-
-    try {
-      const res = await fetch(`/api/payment-methods?id=${id}`, { method: 'DELETE' });
-      const data = await res.json();
-      if (res.ok) {
-        toast.success(`Método "${name}" eliminado`);
-        invalidateFinance();
-      } else {
-        toast.error(data.error || 'No se pudo eliminar el método');
-      }
-    } catch {
-      toast.error('Error de conexión');
-    }
   };
 
   const handleOpenEditCategory = (cat: any) => {
@@ -466,27 +273,11 @@ export default function BudgetsPage() {
       <Header user={user} onUserUpdate={invalidateFinance} />
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-5 space-y-5">
-        {/* Top Header */}
-        <div className="flex items-center justify-between gap-3 bg-[#0B192C] border border-[#1E3A5F] rounded-3xl p-5 shadow-xl">
-          <div className="flex items-center gap-3">
-            <Link
-              href="/"
-              className="p-2 rounded-xl bg-[#102A43] border border-[#243B55] text-slate-400 hover:text-white transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </Link>
-            <div>
-              <h1 className="text-xl font-black text-white">Grupos, Fuentes & Métodos</h1>
-              <p className="text-xs text-slate-400">Controla tus gastos fijos, entradas más fuertes y medios de pago</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Tab Switcher: Gastos vs Ingresos vs Métodos de Pago (Responsive Horizontal Scroll) */}
+        {/* Tab Switcher: Gastos vs Ingresos */}
         <div className="flex items-center gap-2 bg-[#0B192C] border border-[#1E3A5F] p-1.5 rounded-2xl overflow-x-auto scrollbar-none whitespace-nowrap">
           <button
-            onClick={() => setActiveTab('EXPENSE')}
-            className={`shrink-0 py-2.5 px-4 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all whitespace-nowrap ${
+            onClick={() => handleTabChange('EXPENSE')}
+            className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition-all whitespace-nowrap ${
               activeTab === 'EXPENSE'
                 ? 'bg-[#102A43] border border-[#00ADB5] text-[#00ADB5] shadow-md'
                 : 'text-slate-400 hover:text-white'
@@ -500,8 +291,8 @@ export default function BudgetsPage() {
           </button>
 
           <button
-            onClick={() => setActiveTab('INCOME')}
-            className={`shrink-0 py-2.5 px-4 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all whitespace-nowrap ${
+            onClick={() => handleTabChange('INCOME')}
+            className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition-all whitespace-nowrap ${
               activeTab === 'INCOME'
                 ? 'bg-[#102A43] border border-emerald-400 text-emerald-400 shadow-md'
                 : 'text-slate-400 hover:text-emerald-400'
@@ -513,35 +304,20 @@ export default function BudgetsPage() {
               {incomeCategories.length}
             </span>
           </button>
-
-          <button
-            onClick={() => setActiveTab('PAYMENT_METHODS')}
-            className={`shrink-0 py-2.5 px-4 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all whitespace-nowrap ${
-              activeTab === 'PAYMENT_METHODS'
-                ? 'bg-[#102A43] border border-cyan-400 text-cyan-400 shadow-md'
-                : 'text-slate-400 hover:text-cyan-400'
-            }`}
-          >
-            <Wallet className="w-4 h-4 shrink-0" />
-            <span className="whitespace-nowrap">Métodos de Pago</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-[#0B192C] border border-cyan-900/40 text-cyan-400 shrink-0 font-mono">
-              {paymentMethods.length}
-            </span>
-          </button>
         </div>
 
         {/* TAB 1: EXPENSE CONTENT */}
         {activeTab === 'EXPENSE' && (
           <div className="space-y-5">
             {/* Introductory Card & Action */}
-            <TabIntroCard
+            <PageBanner
               icon={<Layers className="w-5 h-5" />}
               title="Presupuesto y Grupos de Gasto"
               description="Organiza tus gastos fijos y variables con fechas límite o topes mensuales para que el sistema calcule con precisión tu gasto diario seguro."
               actionText="Crear Grupo de Gasto"
               onAction={handleOpenAdd}
               badgeText={`${expenseCategories.length} grupos`}
-              themeColor="cyan"
+              theme="cyan"
             />
 
             {/* Total Budget vs Actual Spend Banner */}
@@ -642,14 +418,14 @@ export default function BudgetsPage() {
         {activeTab === 'INCOME' && (
           <div className="space-y-5">
             {/* Introductory Card & Action */}
-            <TabIntroCard
+            <PageBanner
               icon={<Briefcase className="w-5 h-5" />}
               title="Fuentes de Ingreso & Clientes"
               description="Registra tus quincenas, cobros o contratos con sus fechas de pago esperadas para proyectar tu ingreso mensual real sin montos fijos."
               actionText="Crear Fuente de Ingreso"
               onAction={handleOpenAdd}
               badgeText={`${incomeCategories.length} fuentes`}
-              themeColor="emerald"
+              theme="emerald"
             />
 
             {/* Income Summary Banner */}
@@ -720,277 +496,6 @@ export default function BudgetsPage() {
                   ))}
                 </div>
               )}
-            </div>
-          </div>
-        )}
-
-        {/* TAB 3: PAYMENT METHODS CONTENT */}
-        {activeTab === 'PAYMENT_METHODS' && (
-          <div className="space-y-5">
-            {/* Introductory Card & Action */}
-            <TabIntroCard
-              icon={<Wallet className="w-5 h-5" />}
-              title="Cuentas y Métodos de Pago"
-              description="Registra tus bancos, billeteras digitales (Nequi, Daviplata) o efectivo. El saldo de cada cuenta alimenta automáticamente tu Fondo Disponible global."
-              actionText="Agregar Cuenta / Medio"
-              onAction={() => handleOpenAdd()}
-              badgeText={`${paymentMethods.length} medios`}
-              themeColor="cyan"
-            />
-
-            {/* Resumen Total Consolidado en Cuentas */}
-            <div className="p-4 sm:p-5 rounded-3xl bg-linear-to-r from-[#0B192C] via-[#102A43] to-[#070F1E] border border-cyan-500/40 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3.5">
-                <div className="w-11 h-11 rounded-2xl bg-cyan-400/15 border border-cyan-400/30 flex items-center justify-center text-cyan-400 shadow-md shadow-cyan-400/10 shrink-0">
-                  <Wallet className="w-5 h-5" />
-                </div>
-                <div>
-                  <span className="text-[10px] sm:text-[11px] text-cyan-400 uppercase font-black tracking-wider block">
-                    Fondo Disponible Total (Suma de Cuentas)
-                  </span>
-                  <span className="text-xl sm:text-2xl font-black text-white font-mono tracking-tight">
-                    {formatCOP(paymentMethods.reduce((acc: number, pm: any) => acc + (Number(pm.net_balance) || 0), 0))}
-                  </span>
-                </div>
-              </div>
-              <div className="text-left sm:text-right">
-                <span className="text-[11px] text-slate-300 font-medium block">
-                  {paymentMethods.length} cuentas activas
-                </span>
-                <span className="text-[10px] text-slate-400 block mt-0.5">
-                  Puedes ajustar o equilibrar el saldo de cualquier cuenta cuando quieras
-                </span>
-              </div>
-            </div>
-
-            {/* Payment Methods Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-              {paymentMethods.map((pm: any) => {
-                const IconComponent =
-                  pm.type === 'WALLET'
-                    ? Smartphone
-                    : pm.type === 'CASH'
-                    ? Banknote
-                    : pm.type === 'CARD'
-                    ? CreditCard
-                    : Building2;
-
-                return (
-                  <div
-                    key={pm.id}
-                    className="p-4 rounded-2xl bg-[#0B192C] border border-[#1E3A5F] hover:border-[#243B55] transition-all space-y-3 shadow-lg"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div
-                          className="w-8 h-8 rounded-xl flex items-center justify-center text-white shrink-0"
-                          style={{ backgroundColor: pm.color || '#00ADB5' }}
-                        >
-                          <IconComponent className="w-4 h-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <h4 className="text-sm font-black text-white truncate">{pm.name}</h4>
-                          <span className="text-[10px] text-slate-400 uppercase font-semibold whitespace-nowrap">
-                            {pm.type === 'WALLET'
-                              ? 'Billetera'
-                              : pm.type === 'CASH'
-                              ? 'Efectivo'
-                              : pm.type === 'CARD'
-                              ? 'Tarjeta'
-                              : 'Banco / PSE'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          onClick={() => handleOpenEditMethod(pm)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-cyan-500/10 transition-all"
-                          title="Editar método de pago"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </button>
-                        {paymentMethods.length > 1 && (
-                          <button
-                            onClick={() => handleDeleteMethod(pm.id, pm.name)}
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
-                            title="Eliminar método"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 pt-1 border-t border-[#1E3A5F]/60">
-                      <div className="p-2 rounded-xl bg-[#102A43]/60">
-                        <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1 whitespace-nowrap">
-                          <ArrowDownRight className="w-3 h-3 shrink-0" />
-                          <span>Ingresó</span>
-                        </span>
-                        <p className="text-xs font-black text-white mt-0.5 whitespace-nowrap">
-                          {formatCOP(pm.income_this_month || 0)}
-                        </p>
-                        {pm.transfers_in > 0 && (
-                          <span className="text-[9px] text-cyan-300 font-medium block mt-0.5 truncate">
-                            +{formatCOP(pm.transfers_in)} recibidos
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="p-2 rounded-xl bg-[#102A43]/60">
-                        <span className="text-[10px] text-rose-400 font-bold flex items-center gap-1 whitespace-nowrap">
-                          <ArrowUpRight className="w-3 h-3 shrink-0" />
-                          <span>Salió</span>
-                        </span>
-                        <p className="text-xs font-black text-white mt-0.5 whitespace-nowrap">
-                          {formatCOP(pm.expense_this_month || 0)}
-                        </p>
-                        {pm.transfers_out > 0 && (
-                          <span className="text-[9px] text-cyan-300 font-medium block mt-0.5 truncate">
-                            -{formatCOP(pm.transfers_out)} enviados
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Account Net Balance */}
-                    <div className="p-2.5 rounded-xl bg-[#070F1E] border border-[#1E3A5F] flex items-center justify-between">
-                      <div>
-                        <span className="text-[10px] text-slate-400 font-medium block">Balance en cuenta:</span>
-                        <span className={`text-xs sm:text-sm font-black font-mono ${
-                          (pm.net_balance ?? 0) >= 0 ? 'text-cyan-400' : 'text-rose-400'
-                        }`}>
-                          {formatCOP(pm.net_balance ?? 0)}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenEditMethod(pm)}
-                        className="px-2.5 py-1 rounded-lg bg-cyan-400/10 hover:bg-cyan-400/20 text-cyan-300 hover:text-cyan-200 border border-cyan-500/30 text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
-                        title="Ajustar o calibrar saldo de esta cuenta"
-                      >
-                        <SlidersHorizontal className="w-3 h-3" />
-                        <span>Ajustar</span>
-                      </button>
-                    </div>
-
-                    <div className="flex items-center justify-between text-[11px] text-slate-400 pt-0.5">
-                      <span className="whitespace-nowrap">Movimientos registrados:</span>
-                      <span className="font-extrabold text-white whitespace-nowrap font-mono">{pm.movement_count || 0}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Modal: Edit Payment Method */}
-        {editingMethod && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-            <div className="w-full max-w-md bg-[#0B192C] border border-cyan-400 rounded-3xl p-6 shadow-2xl relative">
-              <div className="flex items-center justify-between pb-3 border-b border-[#1E3A5F]">
-                <span className="text-sm font-bold text-white flex items-center gap-2">
-                  <Edit3 className="w-4 h-4 text-cyan-400" />
-                  <span>Editar Método de Pago</span>
-                </span>
-                <button
-                  onClick={() => setEditingMethod(null)}
-                  className="text-slate-400 hover:text-white"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <form onSubmit={handleSaveEditMethod} className="mt-4 space-y-3.5">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Nombre del Método</label>
-                  <input
-                    type="text"
-                    value={editMethodName}
-                    onChange={(e) => setEditMethodName(e.target.value)}
-                    className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2.5 rounded-xl focus:border-cyan-400 focus:outline-none"
-                    required
-                    autoFocus
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Tipo de Medio</label>
-                  <select
-                    value={editMethodType}
-                    onChange={(e) => setEditMethodType(e.target.value)}
-                    className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2.5 rounded-xl focus:border-cyan-400 focus:outline-none"
-                  >
-                    {METHOD_TYPES.map((mt) => (
-                      <option key={mt.id} value={mt.id}>
-                        {mt.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Balance / Saldo de la cuenta para equilibrar */}
-                <div className="p-3 rounded-2xl bg-[#102A43]/80 border border-cyan-500/30 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-xs font-bold text-cyan-300 flex items-center gap-1.5">
-                      <SlidersHorizontal className="w-3.5 h-3.5" />
-                      <span>Saldo / Balance Actual ($ COP)</span>
-                    </label>
-                    {editMethodTargetBalance !== '' && !isNaN(Number(editMethodTargetBalance)) && (
-                      <span className="text-[11px] text-cyan-400 font-black font-mono">
-                        {formatCOP(Number(editMethodTargetBalance))}
-                      </span>
-                    )}
-                  </div>
-                  <input
-                    type="number"
-                    value={editMethodTargetBalance}
-                    onChange={(e) => setEditMethodTargetBalance(e.target.value)}
-                    placeholder="Ej: 500000"
-                    className="w-full bg-[#0B192C] border border-[#243B55] text-white text-xs px-3 py-2 rounded-xl focus:border-cyan-400 focus:outline-none font-mono font-bold"
-                  />
-                  <span className="text-[10px] text-slate-400 leading-tight block">
-                    Modifica este valor si tu saldo real en el banco o billetera cambió. El sistema equilibrará la cuenta y actualizará tu Fondo Disponible.
-                  </span>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Color Distintivo</label>
-                  <div className="flex items-center gap-2 pt-1">
-                    {COLOR_OPTIONS.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => setEditMethodColor(c)}
-                        className={`w-7 h-7 rounded-full border-2 transition-transform ${
-                          editMethodColor === c ? 'scale-110 border-white' : 'border-transparent'
-                        }`}
-                        style={{ backgroundColor: c }}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-2 pt-3 border-t border-[#1E3A5F]">
-                  <button
-                    type="button"
-                    onClick={() => setEditingMethod(null)}
-                    className="px-3 py-1.5 rounded-xl text-xs text-slate-400 hover:text-white"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSavingEditMethod}
-                    className="px-4 py-2 rounded-xl bg-cyan-400 text-slate-950 font-extrabold text-xs shadow-md hover:bg-cyan-300 flex items-center gap-1.5"
-                  >
-                    <Check className="w-3.5 h-3.5 stroke-[3px]" />
-                    <span>Guardar Cambios</span>
-                  </button>
-                </div>
-              </form>
             </div>
           </div>
         )}
@@ -1361,122 +866,6 @@ export default function BudgetsPage() {
                           ? 'Guardar Cambios' 
                           : (catType === 'INCOME' ? 'Crear Fuente' : 'Crear Grupo')}
                     </span>
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Modal: Crear Nuevo Método de Pago / Cuenta */}
-        {isAddMethodOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-            <div className="w-full max-w-md bg-[#0B192C] border border-cyan-400 rounded-3xl p-6 shadow-2xl relative">
-              <div className="flex items-center justify-between pb-3 border-b border-[#1E3A5F]">
-                <span className="text-sm font-bold text-white flex items-center gap-2">
-                  <Wallet className="w-4 h-4 text-cyan-400" />
-                  <span>Agregar Nuevo Método / Cuenta</span>
-                </span>
-
-                <button
-                  onClick={() => setIsAddMethodOpen(false)}
-                  className="text-slate-400 hover:text-white"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <form onSubmit={handleCreatePaymentMethod} className="mt-4 space-y-3.5">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Nombre del Medio o Cuenta
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Ej: Nu Colombia, Dale, Davivienda, Caja Oficina"
-                    value={newMethodName}
-                    onChange={(e) => setNewMethodName(e.target.value)}
-                    className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2.5 rounded-xl focus:border-cyan-400 focus:outline-none"
-                    required
-                    autoFocus
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Tipo de Cuenta / Medio
-                  </label>
-                  <select
-                    value={newMethodType}
-                    onChange={(e) => setNewMethodType(e.target.value)}
-                    className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2.5 rounded-xl focus:border-cyan-400 focus:outline-none"
-                  >
-                    {METHOD_TYPES.map((mt) => (
-                      <option key={mt.id} value={mt.id}>
-                        {mt.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Saldo Inicial */}
-                <div className="p-3 rounded-2xl bg-[#102A43]/80 border border-cyan-500/30 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-xs font-bold text-cyan-300 flex items-center gap-1.5">
-                      <Wallet className="w-3.5 h-3.5" />
-                      <span>Saldo Inicial en esta Cuenta ($ COP)</span>
-                    </label>
-                    {newMethodInitialBalance !== '' && !isNaN(Number(newMethodInitialBalance)) && (
-                      <span className="text-[11px] text-cyan-400 font-black font-mono">
-                        {formatCOP(Number(newMethodInitialBalance))}
-                      </span>
-                    )}
-                  </div>
-                  <input
-                    type="number"
-                    placeholder="Ej: 850000"
-                    value={newMethodInitialBalance}
-                    onChange={(e) => setNewMethodInitialBalance(e.target.value)}
-                    className="w-full bg-[#0B192C] border border-[#243B55] text-white text-xs px-3 py-2 rounded-xl focus:border-cyan-400 focus:outline-none font-mono font-bold"
-                  />
-                  <span className="text-[10px] text-slate-400 leading-tight block">
-                    ¿Con cuánto dinero comienzas en esta cuenta? Se sumará automáticamente a tu Fondo Disponible.
-                  </span>
-                </div>
-
-                {/* Color selector */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Color Distintivo</label>
-                  <div className="flex items-center gap-2 pt-1">
-                    {COLOR_OPTIONS.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => setNewMethodColor(c)}
-                        className={`w-7 h-7 rounded-full border-2 transition-transform ${
-                          newMethodColor === c ? 'scale-110 border-white' : 'border-transparent'
-                        }`}
-                        style={{ backgroundColor: c }}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-2 pt-3 border-t border-[#1E3A5F]">
-                  <button
-                    type="button"
-                    onClick={() => setIsAddMethodOpen(false)}
-                    className="px-3 py-1.5 rounded-xl text-xs text-slate-400 hover:text-white"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmittingMethod}
-                    className="px-4 py-2 rounded-xl bg-cyan-400 text-slate-950 font-extrabold text-xs shadow-md hover:bg-cyan-300 flex items-center gap-1.5"
-                  >
-                    <Check className="w-3.5 h-3.5 stroke-[3px]" />
-                    <span>{isSubmittingMethod ? 'Guardando...' : 'Guardar Método'}</span>
                   </button>
                 </div>
               </form>

@@ -515,14 +515,6 @@ export function QuickExpenseModal({
                     <Tag className="w-3.5 h-3.5 text-[#00ADB5]" />
                     <span>{isIncome ? 'Fuente / Grupo de Ingreso' : 'Grupo de Gasto'}</span>
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => setShowAddCat(!showAddCat)}
-                    className="text-[11px] text-[#00ADB5] hover:underline font-bold flex items-center gap-0.5"
-                  >
-                    <Plus className="w-3 h-3" />
-                    <span>{showAddCat ? 'Cerrar' : '+ Crear Grupo'}</span>
-                  </button>
                 </div>
 
                 {/* Inline Quick Category Form */}
@@ -580,14 +572,6 @@ export function QuickExpenseModal({
                     <Wallet className="w-3.5 h-3.5 text-cyan-400" />
                     <span>{isIncome ? '¿A qué cuenta o medio ingresó?' : 'Método de Pago'}</span>
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => setShowAddMethod(!showAddMethod)}
-                    className="text-[11px] text-cyan-400 hover:underline font-bold flex items-center gap-0.5"
-                  >
-                    <Plus className="w-3 h-3" />
-                    <span>{showAddMethod ? 'Cerrar' : '+ Otro Medio'}</span>
-                  </button>
                 </div>
 
                 {/* Inline Quick Method Form */}
@@ -643,10 +627,10 @@ export function QuickExpenseModal({
             <div>
               <label className="block text-xs font-semibold text-slate-400 mb-1">
                 {isIncome
-                  ? 'Concepto (Ej: Pago Nómina, Suscripción Cliente X)'
+                  ? 'Concepto'
                   : isTransfer
-                  ? 'Concepto / Nota (Ej: Retiro en cajero, Traspaso a ahorros)'
-                  : 'Descripción (Ej: Taxi, Almuerzo)'}
+                  ? 'Concepto / Nota'
+                  : 'Descripción'}
               </label>
               <input
                 type="text"

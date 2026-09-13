@@ -116,21 +116,11 @@ export default function ExpensesPage() {
       <Header user={user} onUserUpdate={invalidateFinance} />
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-5 space-y-4">
-        {/* Header Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0B192C] border border-[#1E3A5F] rounded-3xl p-5 shadow-xl">
-          <div className="flex items-center gap-3">
-            <Link
-              href="/"
-              className="p-2 rounded-xl bg-[#102A43] border border-[#243B55] text-slate-400 hover:text-white transition-colors shrink-0"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </Link>
-            <div>
-              <h1 className="text-xl font-black text-white">Libro de Movimientos</h1>
-              <p className="text-xs text-slate-400">Historial completo de entradas y salidas de dinero</p>
-            </div>
-          </div>
+        <div>
+          <h1 className="text-xl font-black text-white">Libro de Movimientos</h1>
+          <p className="text-xs text-slate-400">Historial completo de entradas y salidas de dinero</p>
         </div>
+    
 
         {/* 1. HORIZONTAL MONTH FILTER BAR (Never breaks downwards) */}
         <div className="bg-[#0B192C] border border-[#1E3A5F] p-2 rounded-2xl">

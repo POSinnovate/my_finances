@@ -139,6 +139,56 @@ export async function initDatabaseSchema() {
     );
   `;
 
+  // 7. Loans table
+  await sql`
+    CREATE TABLE IF NOT EXISTS loans (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      borrower_name TEXT NOT NULL,
+      borrower_phone TEXT,
+      initial_amount NUMERIC NOT NULL,
+      interest_rate NUMERIC NOT NULL DEFAULT 0,
+      expected_interest NUMERIC NOT NULL DEFAULT 0,
+      total_expected NUMERIC NOT NULL,
+      paid_capital NUMERIC NOT NULL DEFAULT 0,
+      paid_interest NUMERIC NOT NULL DEFAULT 0,
+      current_balance NUMERIC NOT NULL,
+      start_date DATE NOT NULL,
+      due_date DATE,
+      payment_method TEXT NOT NULL DEFAULT 'Efectivo',
+      status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+      loan_type VARCHAR(20) NOT NULL DEFAULT 'LENT',
+      notes TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `;
+
+  // Ensure loan_type and duration_months exist for existing databases
+  await sql`
+    ALTER TABLE loans 
+    ADD COLUMN IF NOT EXISTS loan_type VARCHAR(20) NOT NULL DEFAULT 'LENT';
+  `;
+  await sql`
+    ALTER TABLE loans 
+    ADD COLUMN IF NOT EXISTS duration_months NUMERIC DEFAULT 1;
+  `;
+
+  // 8. Loan payments (audit table)
+  await sql`
+    CREATE TABLE IF NOT EXISTS loan_payments (
+      id TEXT PRIMARY KEY,
+      loan_id TEXT NOT NULL REFERENCES loans(id) ON DELETE CASCADE,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      payment_date DATE NOT NULL DEFAULT CURRENT_DATE,
+      capital_amount NUMERIC NOT NULL DEFAULT 0,
+      interest_amount NUMERIC NOT NULL DEFAULT 0,
+      total_amount NUMERIC NOT NULL,
+      payment_method TEXT NOT NULL DEFAULT 'Nequi',
+      notes TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `;
+
   // Indexes
   await sql`CREATE INDEX IF NOT EXISTS idx_expenses_user_date ON expenses(user_id, date);`;
   await sql`CREATE INDEX IF NOT EXISTS idx_categories_user ON categories(user_id);`;
@@ -146,6 +196,11 @@ export async function initDatabaseSchema() {
   await sql`CREATE INDEX IF NOT EXISTS idx_payment_methods_user ON payment_methods(user_id);`;
   await sql`CREATE INDEX IF NOT EXISTS idx_scheduled_items_user ON scheduled_items(user_id);`;
   await sql`CREATE INDEX IF NOT EXISTS idx_scheduled_items_cat ON scheduled_items(category_id);`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_loans_user ON loans(user_id);`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_loans_borrower ON loans(user_id, borrower_name);`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_loans_type ON loans(user_id, loan_type);`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_loan_payments_loan ON loan_payments(loan_id);`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_loan_payments_user ON loan_payments(user_id);`;
 
   console.log('✅ Tablas creadas exitosamente.');
 

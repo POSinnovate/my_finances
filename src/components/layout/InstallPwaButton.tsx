@@ -1,14 +1,20 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Smartphone, Download, Share2, PlusSquare, Check, X, Sparkles } from 'lucide-react';
+import { Smartphone, Download, Share2, PlusSquare, Check, X, Sparkles, ArrowRight } from 'lucide-react';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
 }
 
-export function InstallPwaButton() {
+export interface InstallPwaButtonProps {
+  className?: string;
+  variant?: 'compact' | 'full';
+  onClicked?: () => void;
+}
+
+export function InstallPwaButton({ className, variant = 'compact', onClicked }: InstallPwaButtonProps = {}) {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
@@ -70,15 +76,38 @@ export function InstallPwaButton() {
 
   return (
     <>
-      <button
-        onClick={handleInstallClick}
-        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-[#00ADB5]/20 to-[#06B6D4]/20 border border-[#00ADB5]/40 text-[#00ADB5] hover:text-white hover:border-[#00ADB5] text-xs font-bold transition-all shadow-sm shadow-[#00ADB5]/10 shrink-0"
-        title="Instalar como App de acceso directo en tu móvil"
-      >
-        <Smartphone className="w-3.5 h-3.5 text-[#00ADB5]" />
-        <span className="hidden sm:inline">Instalar App</span>
-        <span className="sm:hidden">App</span>
-      </button>
+      {variant === 'full' ? (
+        <button
+          type="button"
+          onClick={() => {
+            handleInstallClick();
+            if (onClicked) onClicked();
+          }}
+          className={className || "w-full flex items-center justify-between p-3 rounded-2xl bg-[#102A43] hover:bg-[#152E4D] border border-[#243B55] hover:border-cyan-500/40 text-white text-xs font-bold transition-all group cursor-pointer"}
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+              <Smartphone className="w-4 h-4" />
+            </div>
+            <div className="text-left">
+              <span className="block font-black text-white text-xs">Descargar App Móvil</span>
+              <span className="block text-[10px] text-slate-400">Acceso rápido en tu pantalla de inicio</span>
+            </div>
+          </div>
+          <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-cyan-400 transition-colors" />
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={handleInstallClick}
+          className={className || "flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-linear-to-r from-[#00ADB5]/20 to-[#06B6D4]/20 border border-[#00ADB5]/40 text-[#00ADB5] hover:text-white hover:border-[#00ADB5] text-xs font-bold transition-all shadow-sm shadow-[#00ADB5]/10 shrink-0"}
+          title="Instalar como App de acceso directo en tu móvil"
+        >
+          <Smartphone className="w-3.5 h-3.5 text-[#00ADB5]" />
+          <span className="hidden sm:inline">Instalar App</span>
+          <span className="sm:hidden">App</span>
+        </button>
+      )}
 
       {/* Modal de instrucciones de instalación / acceso directo */}
       {isModalOpen && (

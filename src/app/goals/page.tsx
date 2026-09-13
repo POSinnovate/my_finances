@@ -291,13 +291,10 @@ export default function GoalsPage() {
 
         {/* Active Goals List */}
         <div className="space-y-3.5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <PiggyBank className="w-4 h-4 text-[#00ADB5]" />
-              <span>Tus Metas Activas ({goals.length})</span>
-            </h3>
-            <span className="text-xs text-slate-400">Progreso y ahorro diario requerido</span>
-          </div>
+          <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            <PiggyBank className="w-4 h-4 text-[#00ADB5]" />
+            <span>Activas ({goals.length})</span>
+          </h3>
 
           {goals.length === 0 ? (
             <div className="p-8 rounded-3xl bg-[#0B192C] border border-[#1E3A5F] text-center text-xs text-slate-400">

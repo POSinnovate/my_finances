@@ -15,7 +15,9 @@ import {
   CreditCard, 
   Banknote, 
   ArrowRight,
-  Plus
+  Plus,
+  Users,
+  Menu
 } from 'lucide-react';
 import { formatCOP } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -37,6 +39,7 @@ interface HeaderProps {
 }
 
 export function Header({ user, onUserUpdate }: HeaderProps) {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isEditingCash, setIsEditingCash] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -58,6 +61,7 @@ export function Header({ user, onUserUpdate }: HeaderProps) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        if (isMobileMenuOpen) setIsMobileMenuOpen(false);
         if (isLogoutModalOpen) setIsLogoutModalOpen(false);
         if (isEditingCash) {
           setIsEditingCash(false);
@@ -67,7 +71,7 @@ export function Header({ user, onUserUpdate }: HeaderProps) {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isLogoutModalOpen, isEditingCash]);
+  }, [isMobileMenuOpen, isLogoutModalOpen, isEditingCash]);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -148,7 +152,9 @@ export function Header({ user, onUserUpdate }: HeaderProps) {
 
         {/* Right Section: Mobile App Install, Available Fund Pill & Logout */}
         <div className="flex items-center gap-1.5 sm:gap-2.5">
-          <InstallPwaButton />
+          <div className="hidden sm:block">
+            <InstallPwaButton />
+          </div>
 
           {user ? (
             <>
@@ -162,29 +168,50 @@ export function Header({ user, onUserUpdate }: HeaderProps) {
                   setCalibratingMethodId(null);
                   setIsEditingCash(true);
                 }}
-                className="group bg-[#102A43] hover:bg-[#152E4D] border border-[#243B55] hover:border-[#00ADB5]/50 px-2.5 sm:px-3 py-1.5 rounded-xl flex items-center gap-2 transition-all cursor-pointer text-left shrink-0 shadow-sm"
+                className="group bg-[#102A43] hover:bg-[#152E4D] border border-[#243B55] hover:border-[#00ADB5]/50 px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl flex items-center gap-1.5 sm:gap-2 transition-all cursor-pointer text-left shrink-0 shadow-sm"
                 title="Click para ver el desglose de cuentas y equilibrar saldos"
               >
-                <Wallet className="w-4 h-4 text-[#00ADB5]" />
+                <Wallet className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#00ADB5]" />
                 <div className="flex flex-col min-w-0">
-                  <span className="text-[9px] text-slate-400 font-semibold uppercase tracking-wider leading-none">
-                    Fondo Disponible
+                  <span className="text-[8px] sm:text-[9px] text-slate-400 font-semibold uppercase tracking-wider leading-none">
+                    Fondo
                   </span>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="text-xs sm:text-sm font-black text-white group-hover:text-[#00ADB5] transition-colors leading-tight font-mono">
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <span className="text-xs sm:text-sm font-black text-white group-hover:text-[#00ADB5] transition-colors leading-tight font-mono whitespace-nowrap">
                       {formatCOP(totalCalculatedCash)}
                     </span>
                   </div>
                 </div>
               </button>
 
-              {/* Logout button */}
+              {/* Admin Users Link (Desktop) */}
+              {user.role === 'ADMIN' && (
+                <Link
+                  href="/admin/users"
+                  className="hidden sm:flex p-1.5 sm:p-2 rounded-xl text-slate-400 hover:text-purple-400 hover:bg-purple-500/10 border border-transparent hover:border-purple-500/20 transition-all shrink-0 cursor-pointer"
+                  title="Administrar Usuarios / Amigos"
+                >
+                  <Users className="w-4 h-4" />
+                </Link>
+              )}
+
+              {/* Logout button (Desktop) */}
               <button
                 onClick={() => setIsLogoutModalOpen(true)}
-                className="p-1.5 sm:p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all shrink-0 cursor-pointer"
+                className="hidden sm:flex p-1.5 sm:p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all shrink-0 cursor-pointer"
                 title="Cerrar sesión"
               >
                 <LogOut className="w-4 h-4" />
+              </button>
+
+              {/* Mobile Menu Button (Shows Drawer) */}
+              <button
+                type="button"
+                onClick={() => setIsMobileMenuOpen(true)}
+                className="sm:hidden p-2 rounded-xl text-slate-300 hover:text-white bg-[#102A43] hover:bg-[#152E4D] border border-[#243B55] hover:border-[#00ADB5]/50 transition-all shrink-0 cursor-pointer shadow-sm"
+                aria-label="Abrir menú"
+              >
+                <Menu className="w-4 h-4 text-[#00ADB5]" />
               </button>
             </>
           ) : (
@@ -456,6 +483,127 @@ export function Header({ user, onUserUpdate }: HeaderProps) {
                 className="px-4 py-2 rounded-xl bg-[#102A43] hover:bg-[#152E4D] border border-[#243B55] text-xs font-bold text-slate-300 hover:text-white transition-colors cursor-pointer"
               >
                 Cerrar
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Mobile Drawer Menu (Slide over from right to left) */}
+      {isMobileMenuOpen && mounted && typeof document !== 'undefined' && user && createPortal(
+        <div className="fixed inset-0 z-99998 flex justify-end animate-in fade-in duration-200 sm:hidden">
+          {/* Backdrop */}
+          <div 
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm"
+          />
+
+          {/* Drawer Container */}
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-[82%] max-w-xs h-full bg-[#0B192C] border-l border-[#1E3A5F] shadow-2xl flex flex-col p-5 overflow-y-auto animate-in slide-in-from-right duration-300 z-10"
+          >
+            {/* Top Accent Line */}
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-linear-to-r from-[#00ADB5] via-[#06B6D4] to-purple-500" />
+
+            {/* Header: User Profile & Close */}
+            <div className="flex items-start justify-between gap-3 pt-2 pb-4 border-b border-[#1E3A5F]">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-2xl bg-linear-to-tr from-[#00ADB5] to-[#06B6D4] flex items-center justify-center font-black text-[#0B192C] text-sm shrink-0 shadow-md shadow-[#00ADB5]/20">
+                  {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <h3 className="text-sm font-black text-white truncate max-w-[130px]">{user.name}</h3>
+                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full border ${
+                      user.role === 'ADMIN'
+                        ? 'bg-purple-950/60 border-purple-500/40 text-purple-300'
+                        : 'bg-cyan-950/60 border-cyan-500/40 text-cyan-300'
+                    }`}>
+                      {user.role}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 truncate max-w-[150px]">{user.email}</p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-[#102A43] border border-transparent hover:border-[#243B55] transition-colors cursor-pointer shrink-0"
+                aria-label="Cerrar menú"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Action Items */}
+            <div className="py-4 space-y-2.5 flex-1">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block px-1">
+                Opciones
+              </span>
+
+              {/* Botón de Descargar App Móvil */}
+              <InstallPwaButton 
+                variant="full" 
+                onClicked={() => setIsMobileMenuOpen(false)} 
+              />
+
+              {/* Botón de Usuarios (Exclusivo Administrador) */}
+              {user.role === 'ADMIN' && (
+                <Link
+                  href="/admin/users"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="w-full flex items-center justify-between p-3 rounded-2xl bg-[#102A43] hover:bg-purple-950/30 border border-[#243B55] hover:border-purple-500/40 text-white text-xs font-bold transition-all group cursor-pointer"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400">
+                      <Users className="w-4 h-4" />
+                    </div>
+                    <div className="text-left">
+                      <span className="block font-black text-white text-xs">Gestión de Usuarios</span>
+                      <span className="block text-[10px] text-purple-300">Amigos, accesos y roles</span>
+                    </div>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-purple-400 transition-colors" />
+                </Link>
+              )}
+
+              {/* Desglose de Fondos y Cuentas */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  setIsEditingCash(true);
+                }}
+                className="w-full flex items-center justify-between p-3 rounded-2xl bg-[#102A43] hover:bg-cyan-950/30 border border-[#243B55] hover:border-[#00ADB5]/40 text-white text-xs font-bold transition-all group cursor-pointer"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                    <Wallet className="w-4 h-4" />
+                  </div>
+                  <div className="text-left">
+                    <span className="block font-black text-white text-xs">Desglose de Fondo</span>
+                    <span className="block text-[10px] text-cyan-300 font-mono font-bold">{formatCOP(totalCalculatedCash)}</span>
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-cyan-400 transition-colors" />
+              </button>
+            </div>
+
+            {/* Bottom: Cerrar Sesión */}
+            <div className="pt-4 border-t border-[#1E3A5F] mt-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  setIsLogoutModalOpen(true);
+                }}
+                className="w-full py-3 px-4 rounded-2xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 hover:text-rose-200 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-98"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Cerrar Sesión</span>
               </button>
             </div>
           </div>
