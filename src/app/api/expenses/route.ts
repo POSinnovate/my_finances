@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db/client';
 import { randomUUID } from 'crypto';
+import { syncUserCurrentCash } from '@/lib/finance-balance';
 
 export async function GET(req: NextRequest) {
   try {
@@ -192,25 +193,8 @@ export async function POST(req: NextRequest) {
       expenseDate
     );
 
-    // Update user's available cash fund:
-    // If INCOME -> add to fund!
-    // If EXPENSE -> subtract from fund!
-    // If TRANSFER -> internal money movement, fund remains identical!
-    if (txType === 'INCOME') {
-      await db.prepare(`
-        UPDATE users
-        SET current_cash = current_cash + ?,
-            updated_at = NOW()
-        WHERE id = ?
-      `).run(parsedAmount, auth.userId);
-    } else if (txType === 'EXPENSE') {
-      await db.prepare(`
-        UPDATE users
-        SET current_cash = GREATEST(0, current_cash - ?),
-            updated_at = NOW()
-        WHERE id = ?
-      `).run(parsedAmount, auth.userId);
-    }
+    // Keep users available cash synchronized with accounts balances
+    await syncUserCurrentCash(auth.userId);
 
     return NextResponse.json({ success: true, id, type: txType });
   } catch (err: unknown) {

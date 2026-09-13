@@ -112,8 +112,13 @@ export async function initDatabaseSchema() {
       type TEXT NOT NULL DEFAULT 'BANK', -- 'WALLET' | 'BANK' | 'CASH' | 'CARD' | 'OTHER'
       color TEXT NOT NULL DEFAULT '#00ADB5',
       icon TEXT NOT NULL DEFAULT 'Wallet',
+      initial_balance NUMERIC NOT NULL DEFAULT 0,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+  `;
+
+  await sql`
+    ALTER TABLE payment_methods ADD COLUMN IF NOT EXISTS initial_balance NUMERIC NOT NULL DEFAULT 0;
   `;
 
   // 6. Scheduled items table (Multiple dates & commitments per group/category)

@@ -3,11 +3,25 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { LogOut, Wallet, Edit3, X, Check } from 'lucide-react';
+import { 
+  LogOut, 
+  Wallet, 
+  Edit3, 
+  X, 
+  Check, 
+  SlidersHorizontal, 
+  Smartphone, 
+  Building2, 
+  CreditCard, 
+  Banknote, 
+  ArrowRight,
+  Plus
+} from 'lucide-react';
 import { formatCOP } from '@/lib/utils';
 import { toast } from 'sonner';
 import { InstallPwaButton } from './InstallPwaButton';
 import { NotificationCenter } from './NotificationCenter';
+import { usePaymentMethods, useInvalidateFinance } from '@/lib/api-hooks';
 
 interface UserData {
   id: string;
@@ -24,11 +38,18 @@ interface HeaderProps {
 
 export function Header({ user, onUserUpdate }: HeaderProps) {
   const [isEditingCash, setIsEditingCash] = useState(false);
-  const [cashValue, setCashValue] = useState(user?.current_cash?.toString() || '0');
-  const [isUpdating, setIsUpdating] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [mounted, setMounted] = useState(false);
+
+  // TanStack Query hooks for real-time payment methods and invalidation
+  const { data: paymentMethods = [], refetch: refetchPaymentMethods } = usePaymentMethods();
+  const invalidateFinance = useInvalidateFinance();
+
+  // Inline Calibration / Rebalance state for individual accounts
+  const [calibratingMethodId, setCalibratingMethodId] = useState<string | null>(null);
+  const [calibratingValue, setCalibratingValue] = useState<string>('');
+  const [isSavingRebalance, setIsSavingRebalance] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -38,7 +59,10 @@ export function Header({ user, onUserUpdate }: HeaderProps) {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (isLogoutModalOpen) setIsLogoutModalOpen(false);
-        if (isEditingCash) setIsEditingCash(false);
+        if (isEditingCash) {
+          setIsEditingCash(false);
+          setCalibratingMethodId(null);
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -56,32 +80,55 @@ export function Header({ user, onUserUpdate }: HeaderProps) {
     }
   };
 
-  const handleUpdateCash = async () => {
-    const parsed = Number(cashValue);
-    if (isNaN(parsed) || parsed < 0) {
-      toast.error('Ingresa un monto válido');
+  // Start inline calibration for a method
+  const handleStartCalibrate = (pm: any) => {
+    setCalibratingMethodId(pm.id);
+    setCalibratingValue(
+      pm.net_balance !== undefined ? String(pm.net_balance) : (pm.initial_balance ? String(pm.initial_balance) : '0')
+    );
+  };
+
+  // Save the new calibrated balance of a payment method
+  const handleSaveRebalance = async (pmId: string, pmName: string) => {
+    const parsed = Number(calibratingValue);
+    if (isNaN(parsed)) {
+      toast.error('Ingresa un monto numérico válido');
       return;
     }
-    setIsUpdating(true);
+
+    setIsSavingRebalance(true);
     try {
-      const res = await fetch('/api/user/profile', {
+      const res = await fetch('/api/payment-methods', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ current_cash: parsed }),
+        body: JSON.stringify({
+          id: pmId,
+          target_balance: parsed,
+        }),
       });
+
       if (res.ok) {
-        toast.success('Fondo disponible actualizado');
-        setIsEditingCash(false);
+        toast.success(`Saldo de "${pmName}" equilibrado a ${formatCOP(parsed)}`);
+        setCalibratingMethodId(null);
+        await refetchPaymentMethods();
+        invalidateFinance();
         if (onUserUpdate) onUserUpdate();
       } else {
-        toast.error('Error actualizando saldo');
+        const data = await res.json();
+        toast.error(data.error || 'Error al calibrar saldo');
       }
     } catch {
-      toast.error('Error de red');
+      toast.error('Error de red al calibrar saldo');
     } finally {
-      setIsUpdating(false);
+      setIsSavingRebalance(false);
     }
   };
+
+  // Consolidated total cash across all methods (or fallback to user.current_cash)
+  const totalCalculatedCash =
+    paymentMethods.length > 0
+      ? paymentMethods.reduce((acc: number, pm: any) => acc + (Number(pm.net_balance) || 0), 0)
+      : (user?.current_cash || 0);
 
   return (
     <header className="sticky top-0 z-40 bg-[#0B192C]/95 backdrop-blur-md border-b border-[#1E3A5F] px-3 sm:px-4 py-2.5">
@@ -108,25 +155,24 @@ export function Header({ user, onUserUpdate }: HeaderProps) {
               {/* Intelligent Notification Bell */}
               <NotificationCenter />
 
-              {/* Clean, Breathable Live Cash Fund Pill */}
+              {/* Dynamic Cash Fund Pill (Calculated from accounts) */}
               <button
                 type="button"
                 onClick={() => {
-                  setCashValue(user.current_cash?.toString() || '0');
+                  setCalibratingMethodId(null);
                   setIsEditingCash(true);
                 }}
                 className="group bg-[#102A43] hover:bg-[#152E4D] border border-[#243B55] hover:border-[#00ADB5]/50 px-2.5 sm:px-3 py-1.5 rounded-xl flex items-center gap-2 transition-all cursor-pointer text-left shrink-0 shadow-sm"
-                title="Click para ajustar fondo disponible"
+                title="Click para ver el desglose de cuentas y equilibrar saldos"
               >
-
                 <Wallet className="w-4 h-4 text-[#00ADB5]" />
                 <div className="flex flex-col min-w-0">
                   <span className="text-[9px] text-slate-400 font-semibold uppercase tracking-wider leading-none">
                     Fondo Disponible
                   </span>
                   <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="text-xs sm:text-sm font-black text-white group-hover:text-[#00ADB5] transition-colors leading-tight">
-                      {formatCOP(user.current_cash)}
+                    <span className="text-xs sm:text-sm font-black text-white group-hover:text-[#00ADB5] transition-colors leading-tight font-mono">
+                      {formatCOP(totalCalculatedCash)}
                     </span>
                   </div>
                 </div>
@@ -135,7 +181,7 @@ export function Header({ user, onUserUpdate }: HeaderProps) {
               {/* Logout button */}
               <button
                 onClick={() => setIsLogoutModalOpen(true)}
-                className="p-1.5 sm:p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all shrink-0"
+                className="p-1.5 sm:p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all shrink-0 cursor-pointer"
                 title="Cerrar sesión"
               >
                 <LogOut className="w-4 h-4" />
@@ -216,102 +262,202 @@ export function Header({ user, onUserUpdate }: HeaderProps) {
         document.body
       )}
 
-      {/* Cash Adjustment Modal rendered via Portal */}
+      {/* Account Breakdown & Rebalancing Modal rendered via Portal */}
       {isEditingCash && mounted && typeof document !== 'undefined' && createPortal(
         <div
-          onClick={() => !isUpdating && setIsEditingCash(false)}
-          className="fixed inset-0 z-99999 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150"
+          onClick={() => {
+            if (!isSavingRebalance) {
+              setIsEditingCash(false);
+              setCalibratingMethodId(null);
+            }
+          }}
+          className="fixed inset-0 z-99999 flex items-center justify-center bg-black/80 backdrop-blur-sm p-3 sm:p-4 animate-in fade-in duration-150"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md bg-[#0B192C] border border-[#1E3A5F] rounded-3xl p-6 shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-150 mx-auto"
+            className="w-full max-w-lg bg-[#0B192C] border border-[#1E3A5F] rounded-3xl p-5 sm:p-6 shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-150 mx-auto flex flex-col max-h-[90vh]"
           >
             {/* Top Accent Glow */}
             <div className="absolute top-0 left-0 right-0 h-1.5 bg-linear-to-r from-[#00ADB5] via-[#06B6D4] to-emerald-400" />
 
-            <div className="flex items-start justify-between gap-3 mb-3">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#1E3A5F]">
               <div className="flex items-center gap-3">
                 <div className="w-11 h-11 rounded-2xl bg-[#00ADB5]/15 border border-[#00ADB5]/30 flex items-center justify-center text-[#00ADB5] shadow-lg shadow-[#00ADB5]/10 shrink-0">
                   <Wallet className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-white">Ajustar Fondo Disponible</h3>
-                  <p className="text-xs text-slate-400">Actualiza tu saldo real actual</p>
+                  <h3 className="text-base sm:text-lg font-black text-white">Desglose de Fondo Disponible</h3>
+                  <p className="text-xs text-slate-400">Calculado dinámicamente según tus cuentas reales</p>
                 </div>
               </div>
               <button
                 type="button"
-                onClick={() => setIsEditingCash(false)}
-                disabled={isUpdating}
+                onClick={() => {
+                  setIsEditingCash(false);
+                  setCalibratingMethodId(null);
+                }}
+                disabled={isSavingRebalance}
                 className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-[#102A43] transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <p className="text-xs text-slate-300 leading-relaxed mb-4">
-              Indica el saldo real con el que cuentas hoy entre cuentas y efectivo. El sistema lo utilizará para recalcular tu gasto diario seguro y tus días de cobertura financiera.
+            {/* Total Balance Hero Card */}
+            <div className="my-4 p-4 rounded-2xl bg-linear-to-r from-[#102A43] to-[#0B192C] border border-cyan-500/30 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider block">
+                  Fondo Disponible Total
+                </span>
+                <span className="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight">
+                  {formatCOP(totalCalculatedCash)}
+                </span>
+              </div>
+              <div className="text-right text-xs text-slate-300">
+                <span className="block font-semibold">{paymentMethods.length} cuentas sumadas</span>
+                <span className="text-[10px] text-slate-400">100% sincronizado</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed mb-3">
+              Tu saldo disponible ya no es un valor manual; es la <strong>suma viva de los balances</strong> de tus cuentas. Puedes calibrar o equilibrar cualquier cuenta aquí:
             </p>
 
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleUpdateCash();
-              }}
-              className="space-y-4"
-            >
-              <div>
-                <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                  Nuevo Saldo Disponible (COP)
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm">$</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    value={cashValue}
-                    onChange={(e) => setCashValue(e.target.value)}
-                    className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] rounded-xl pl-8 pr-3.5 py-2.5 text-sm font-black text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-[#00ADB5] transition-all"
-                    placeholder="0"
-                    autoFocus
-                    required
-                  />
-                </div>
-                {/* Live Formatted COP Preview */}
-                <div className="mt-2 flex items-center justify-between text-xs px-1">
-                  <span className="text-slate-400">Monto formateado:</span>
-                  <span className="font-black text-[#00ADB5]">
-                    {formatCOP(Number(cashValue) || 0)}
-                  </span>
-                </div>
-              </div>
+            {/* Accounts List (Scrollable) */}
+            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 min-h-[140px] max-h-[300px]">
+              {paymentMethods.map((pm: any) => {
+                const isCalibrating = calibratingMethodId === pm.id;
+                const IconComponent =
+                  pm.type === 'WALLET'
+                    ? Smartphone
+                    : pm.type === 'CASH'
+                    ? Banknote
+                    : pm.type === 'CARD'
+                    ? CreditCard
+                    : Building2;
 
-              <div className="flex items-center gap-2.5 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsEditingCash(false)}
-                  disabled={isUpdating}
-                  className="flex-1 py-2.5 rounded-xl bg-[#102A43] hover:bg-[#152E4D] border border-[#243B55] text-xs font-bold text-slate-300 transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={isUpdating}
-                  className="flex-1 py-2.5 rounded-xl bg-linear-to-r from-[#00ADB5] to-[#06B6D4] hover:opacity-95 text-[#0B192C] text-xs font-black shadow-lg shadow-[#00ADB5]/20 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
-                >
-                  {isUpdating ? (
-                    <span>Guardando...</span>
-                  ) : (
-                    <>
-                      <Check className="w-3.5 h-3.5 stroke-[3px]" />
-                      <span>Actualizar Fondo</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
+                return (
+                  <div
+                    key={pm.id}
+                    className="p-3 rounded-2xl bg-[#102A43]/50 border border-[#1E3A5F] hover:border-cyan-500/40 transition-all space-y-2"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div
+                          className="w-8 h-8 rounded-xl flex items-center justify-center text-white shrink-0"
+                          style={{ backgroundColor: pm.color || '#00ADB5' }}
+                        >
+                          <IconComponent className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="text-xs font-black text-white truncate">{pm.name}</h4>
+                          <span className="text-[9px] text-slate-400 uppercase font-semibold">
+                            {pm.type === 'WALLET'
+                              ? 'Billetera'
+                              : pm.type === 'CASH'
+                              ? 'Efectivo'
+                              : pm.type === 'CARD'
+                              ? 'Tarjeta'
+                              : 'Banco'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2.5">
+                        <span
+                          className={`text-xs sm:text-sm font-black font-mono ${
+                            (pm.net_balance ?? 0) >= 0 ? 'text-cyan-400' : 'text-rose-400'
+                          }`}
+                        >
+                          {formatCOP(pm.net_balance ?? 0)}
+                        </span>
+
+                        {!isCalibrating && (
+                          <button
+                            type="button"
+                            onClick={() => handleStartCalibrate(pm)}
+                            className="p-1.5 rounded-lg bg-[#0B192C] hover:bg-cyan-500/20 text-slate-300 hover:text-cyan-300 border border-[#243B55] hover:border-cyan-500/40 text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                            title="Equilibrar o calibrar saldo"
+                          >
+                            <SlidersHorizontal className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Calibrar</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Inline Calibration Form */}
+                    {isCalibrating && (
+                      <div className="pt-2 border-t border-[#1E3A5F] space-y-2 animate-in fade-in duration-150">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] font-bold text-cyan-300">
+                            ¿Cuál es tu saldo real en {pm.name} hoy?
+                          </label>
+                          {calibratingValue !== '' && !isNaN(Number(calibratingValue)) && (
+                            <span className="text-[10px] text-cyan-400 font-mono font-bold">
+                              {formatCOP(Number(calibratingValue))}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            value={calibratingValue}
+                            onChange={(e) => setCalibratingValue(e.target.value)}
+                            placeholder="0"
+                            autoFocus
+                            className="flex-1 bg-[#0B192C] border border-cyan-500/50 text-white text-xs px-3 py-1.5 rounded-xl focus:outline-none font-mono font-bold"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleSaveRebalance(pm.id, pm.name)}
+                            disabled={isSavingRebalance}
+                            className="px-3 py-1.5 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-xs flex items-center gap-1 transition-all disabled:opacity-50 cursor-pointer"
+                          >
+                            <Check className="w-3.5 h-3.5 stroke-[3px]" />
+                            <span>{isSavingRebalance ? 'Guardando...' : 'Aplicar'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCalibratingMethodId(null)}
+                            disabled={isSavingRebalance}
+                            className="px-2.5 py-1.5 rounded-xl bg-[#0B192C] hover:bg-[#1E3A5F] text-slate-400 hover:text-white text-xs transition-colors cursor-pointer"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Footer Navigation to Detailed Accounts Management */}
+            <div className="pt-4 border-t border-[#1E3A5F] flex items-center justify-between gap-2 mt-auto">
+              <Link
+                href="/budgets?tab=PAYMENT_METHODS"
+                onClick={() => {
+                  setIsEditingCash(false);
+                  setCalibratingMethodId(null);
+                }}
+                className="text-xs font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1.5 transition-colors"
+              >
+                <span>Administrar todas las cuentas</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEditingCash(false);
+                  setCalibratingMethodId(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-[#102A43] hover:bg-[#152E4D] border border-[#243B55] text-xs font-bold text-slate-300 hover:text-white transition-colors cursor-pointer"
+              >
+                Cerrar
+              </button>
+            </div>
           </div>
         </div>,
         document.body

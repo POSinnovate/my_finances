@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db/client';
 import { randomUUID } from 'crypto';
+import { syncUserCurrentCash } from '@/lib/finance-balance';
 
 export async function GET() {
   try {
@@ -146,14 +147,7 @@ export async function PUT(req: NextRequest) {
         WHERE id = ? AND user_id = ?
       `).run(fundAmount, id, auth.userId);
 
-      // 2. Deduct from user's global cash available
-      await db.prepare(`
-        UPDATE users
-        SET current_cash = current_cash - ?, updated_at = NOW()
-        WHERE id = ?
-      `).run(fundAmount, auth.userId);
-
-      // 3. Record expense movement in history
+      // 2. Record expense movement in history
       await db.prepare(`
         INSERT INTO expenses (id, user_id, category_id, type, amount, payment_method, notes, date)
         VALUES (?, ?, ?, 'EXPENSE', ?, ?, ?, CURRENT_DATE)
@@ -165,6 +159,9 @@ export async function PUT(req: NextRequest) {
         method,
         `Aporte a meta: ${goal.title}`
       );
+
+      // 3. Keep user's available cash fund synchronized with accounts
+      await syncUserCurrentCash(auth.userId);
 
       return NextResponse.json({ 
         success: true, 
@@ -192,14 +189,7 @@ export async function PUT(req: NextRequest) {
         WHERE id = ? AND user_id = ?
       `).run(withdrawAmount, id, auth.userId);
 
-      // 2. Return funds to user's global cash available
-      await db.prepare(`
-        UPDATE users
-        SET current_cash = current_cash + ?, updated_at = NOW()
-        WHERE id = ?
-      `).run(withdrawAmount, auth.userId);
-
-      // 3. Record income movement in history
+      // 2. Record income movement in history
       await db.prepare(`
         INSERT INTO expenses (id, user_id, category_id, type, amount, payment_method, notes, date)
         VALUES (?, ?, ?, 'INCOME', ?, ?, ?, CURRENT_DATE)
@@ -211,6 +201,9 @@ export async function PUT(req: NextRequest) {
         method,
         `Retiro de meta: ${goal.title}`
       );
+
+      // 3. Keep user's available cash fund synchronized with accounts
+      await syncUserCurrentCash(auth.userId);
 
       return NextResponse.json({ 
         success: true, 
@@ -263,20 +256,16 @@ export async function DELETE(req: NextRequest) {
     if (goal && Number(goal.current_amount) > 0) {
       const refund = Number(goal.current_amount);
       await db.prepare(`
-        UPDATE users
-        SET current_cash = current_cash + ?, updated_at = NOW()
-        WHERE id = ?
-      `).run(refund, auth.userId);
-
-      await db.prepare(`
         INSERT INTO expenses (id, user_id, type, amount, payment_method, notes, date)
-        VALUES (?, ?, 'INCOME', ?, 'Transferencia / Ahorro', ?, CURRENT_DATE)
+        VALUES (?, ?, 'INCOME', ?, 'Transferencia PSE', ?, CURRENT_DATE)
       `).run(
         randomUUID(),
         auth.userId,
         refund,
         `Saldo devuelto al fondo por eliminación de meta: ${goal.title}`
       );
+
+      await syncUserCurrentCash(auth.userId);
     }
 
     await db.prepare(`DELETE FROM goals WHERE id = ? AND user_id = ?`).run(id, auth.userId);

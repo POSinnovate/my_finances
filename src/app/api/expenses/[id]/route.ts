@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db/client';
+import { syncUserCurrentCash } from '@/lib/finance-balance';
 
 export async function DELETE(
   req: NextRequest,
@@ -18,28 +19,10 @@ export async function DELETE(
       return NextResponse.json({ error: 'Movimiento no encontrado' }, { status: 404 });
     }
 
-    const txType = expense.type || 'EXPENSE';
-    const numAmount = Number(expense.amount);
-
     await db.prepare(`DELETE FROM expenses WHERE id = ? AND user_id = ?`).run(id, auth.userId);
     
-    if (txType === 'INCOME') {
-      // Removing an income reduces the fund
-      await db.prepare(`
-        UPDATE users
-        SET current_cash = GREATEST(0, current_cash - ?),
-            updated_at = NOW()
-        WHERE id = ?
-      `).run(numAmount, auth.userId);
-    } else if (txType === 'EXPENSE') {
-      // Removing an expense restores the cash back to the fund
-      await db.prepare(`
-        UPDATE users
-        SET current_cash = current_cash + ?,
-            updated_at = NOW()
-        WHERE id = ?
-      `).run(numAmount, auth.userId);
-    }
+    // Recalculate and synchronize user's current cash with payment accounts
+    await syncUserCurrentCash(auth.userId);
 
     return NextResponse.json({ success: true });
   } catch (err: unknown) {

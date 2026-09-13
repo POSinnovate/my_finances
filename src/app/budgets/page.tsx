@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
@@ -33,7 +33,8 @@ import {
   ArrowUpRight,
   Edit3,
   Calendar,
-  Clock
+  Clock,
+  SlidersHorizontal
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -131,6 +132,17 @@ export default function BudgetsPage() {
   const [activeTab, setActiveTab] = useState<'EXPENSE' | 'INCOME' | 'PAYMENT_METHODS'>('EXPENSE');
   const [isQuickExpenseOpen, setIsQuickExpenseOpen] = useState(false);
 
+  // Sync tab with URL query parameter if present
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get('tab');
+      if (tab === 'PAYMENT_METHODS') setActiveTab('PAYMENT_METHODS');
+      else if (tab === 'INCOME') setActiveTab('INCOME');
+      else if (tab === 'EXPENSE') setActiveTab('EXPENSE');
+    }
+  }, []);
+
   // Unified Category Modal (Crear / Editar Grupos de Gasto y Fuentes de Ingreso)
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<any | null>(null);
@@ -151,6 +163,7 @@ export default function BudgetsPage() {
   const [newMethodName, setNewMethodName] = useState('');
   const [newMethodType, setNewMethodType] = useState('BANK');
   const [newMethodColor, setNewMethodColor] = useState(COLOR_OPTIONS[0]);
+  const [newMethodInitialBalance, setNewMethodInitialBalance] = useState('');
   const [isSubmittingMethod, setIsSubmittingMethod] = useState(false);
 
   // Edit Payment Method Modal
@@ -158,10 +171,13 @@ export default function BudgetsPage() {
   const [editMethodName, setEditMethodName] = useState('');
   const [editMethodType, setEditMethodType] = useState('BANK');
   const [editMethodColor, setEditMethodColor] = useState(COLOR_OPTIONS[0]);
+  const [editMethodTargetBalance, setEditMethodTargetBalance] = useState('');
   const [isSavingEditMethod, setIsSavingEditMethod] = useState(false);
 
   const handleOpenAdd = () => {
     if (activeTab === 'PAYMENT_METHODS') {
+      setNewMethodName('');
+      setNewMethodInitialBalance('');
       setIsAddMethodOpen(true);
     } else {
       setEditingCategory(null);
@@ -214,13 +230,15 @@ export default function BudgetsPage() {
           type: newMethodType,
           color: newMethodColor,
           icon: newMethodType === 'WALLET' ? 'Smartphone' : newMethodType === 'CASH' ? 'Banknote' : newMethodType === 'CARD' ? 'CreditCard' : 'Building2',
+          initial_balance: Number(newMethodInitialBalance) || 0,
         }),
       });
 
       const data = await res.json();
       if (res.ok) {
-        toast.success(`Método "${newMethodName.trim()}" creado`);
+        toast.success(`Cuenta "${newMethodName.trim()}" creada exitosamente`);
         setNewMethodName('');
+        setNewMethodInitialBalance('');
         setIsAddMethodOpen(false);
         invalidateFinance();
       } else {
@@ -238,6 +256,7 @@ export default function BudgetsPage() {
     setEditMethodName(pm.name);
     setEditMethodType(pm.type || 'BANK');
     setEditMethodColor(pm.color || '#00ADB5');
+    setEditMethodTargetBalance(pm.net_balance !== undefined ? String(pm.net_balance) : (pm.initial_balance !== undefined ? String(pm.initial_balance) : '0'));
   };
 
   const handleSaveEditMethod = async (e: React.FormEvent) => {
@@ -259,11 +278,12 @@ export default function BudgetsPage() {
           type: editMethodType,
           color: editMethodColor,
           icon: editMethodType === 'WALLET' ? 'Smartphone' : editMethodType === 'CASH' ? 'Banknote' : editMethodType === 'CARD' ? 'CreditCard' : 'Building2',
+          target_balance: editMethodTargetBalance !== '' ? Number(editMethodTargetBalance) : undefined,
         }),
       });
 
       if (res.ok) {
-        toast.success(`Método "${editMethodName.trim()}" actualizado`);
+        toast.success(`Cuenta "${editMethodName.trim()}" actualizada y balance equilibrado`);
         setEditingMethod(null);
         invalidateFinance();
       } else {
@@ -711,12 +731,37 @@ export default function BudgetsPage() {
             <TabIntroCard
               icon={<Wallet className="w-5 h-5" />}
               title="Cuentas y Métodos de Pago"
-              description="Registra tus bancos, billeteras digitales (Nequi, Daviplata) o efectivo. Así sabrás con exactitud por dónde entra y sale tu dinero en cada movimiento."
+              description="Registra tus bancos, billeteras digitales (Nequi, Daviplata) o efectivo. El saldo de cada cuenta alimenta automáticamente tu Fondo Disponible global."
               actionText="Agregar Cuenta / Medio"
-              onAction={() => setIsAddMethodOpen(true)}
+              onAction={() => handleOpenAdd()}
               badgeText={`${paymentMethods.length} medios`}
               themeColor="cyan"
             />
+
+            {/* Resumen Total Consolidado en Cuentas */}
+            <div className="p-4 sm:p-5 rounded-3xl bg-linear-to-r from-[#0B192C] via-[#102A43] to-[#070F1E] border border-cyan-500/40 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-2xl bg-cyan-400/15 border border-cyan-400/30 flex items-center justify-center text-cyan-400 shadow-md shadow-cyan-400/10 shrink-0">
+                  <Wallet className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-[10px] sm:text-[11px] text-cyan-400 uppercase font-black tracking-wider block">
+                    Fondo Disponible Total (Suma de Cuentas)
+                  </span>
+                  <span className="text-xl sm:text-2xl font-black text-white font-mono tracking-tight">
+                    {formatCOP(paymentMethods.reduce((acc: number, pm: any) => acc + (Number(pm.net_balance) || 0), 0))}
+                  </span>
+                </div>
+              </div>
+              <div className="text-left sm:text-right">
+                <span className="text-[11px] text-slate-300 font-medium block">
+                  {paymentMethods.length} cuentas activas
+                </span>
+                <span className="text-[10px] text-slate-400 block mt-0.5">
+                  Puedes ajustar o equilibrar el saldo de cualquier cuenta cuando quieras
+                </span>
+              </div>
+            </div>
 
             {/* Payment Methods Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
@@ -810,13 +855,24 @@ export default function BudgetsPage() {
                     </div>
 
                     {/* Account Net Balance */}
-                    <div className="p-2 rounded-xl bg-[#070F1E] border border-[#1E3A5F] flex items-center justify-between">
-                      <span className="text-[10px] text-slate-400 font-medium">Balance en cuenta:</span>
-                      <span className={`text-xs font-extrabold font-mono ${
-                        (pm.net_balance ?? 0) >= 0 ? 'text-cyan-400' : 'text-rose-400'
-                      }`}>
-                        {formatCOP(pm.net_balance ?? 0)}
-                      </span>
+                    <div className="p-2.5 rounded-xl bg-[#070F1E] border border-[#1E3A5F] flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] text-slate-400 font-medium block">Balance en cuenta:</span>
+                        <span className={`text-xs sm:text-sm font-black font-mono ${
+                          (pm.net_balance ?? 0) >= 0 ? 'text-cyan-400' : 'text-rose-400'
+                        }`}>
+                          {formatCOP(pm.net_balance ?? 0)}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditMethod(pm)}
+                        className="px-2.5 py-1 rounded-lg bg-cyan-400/10 hover:bg-cyan-400/20 text-cyan-300 hover:text-cyan-200 border border-cyan-500/30 text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                        title="Ajustar o calibrar saldo de esta cuenta"
+                      >
+                        <SlidersHorizontal className="w-3 h-3" />
+                        <span>Ajustar</span>
+                      </button>
                     </div>
 
                     <div className="flex items-center justify-between text-[11px] text-slate-400 pt-0.5">
@@ -873,6 +929,31 @@ export default function BudgetsPage() {
                       </option>
                     ))}
                   </select>
+                </div>
+
+                {/* Balance / Saldo de la cuenta para equilibrar */}
+                <div className="p-3 rounded-2xl bg-[#102A43]/80 border border-cyan-500/30 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-cyan-300 flex items-center gap-1.5">
+                      <SlidersHorizontal className="w-3.5 h-3.5" />
+                      <span>Saldo / Balance Actual ($ COP)</span>
+                    </label>
+                    {editMethodTargetBalance !== '' && !isNaN(Number(editMethodTargetBalance)) && (
+                      <span className="text-[11px] text-cyan-400 font-black font-mono">
+                        {formatCOP(Number(editMethodTargetBalance))}
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type="number"
+                    value={editMethodTargetBalance}
+                    onChange={(e) => setEditMethodTargetBalance(e.target.value)}
+                    placeholder="Ej: 500000"
+                    className="w-full bg-[#0B192C] border border-[#243B55] text-white text-xs px-3 py-2 rounded-xl focus:border-cyan-400 focus:outline-none font-mono font-bold"
+                  />
+                  <span className="text-[10px] text-slate-400 leading-tight block">
+                    Modifica este valor si tu saldo real en el banco o billetera cambió. El sistema equilibrará la cuenta y actualizará tu Fondo Disponible.
+                  </span>
                 </div>
 
                 <div>
@@ -1336,6 +1417,31 @@ export default function BudgetsPage() {
                       </option>
                     ))}
                   </select>
+                </div>
+
+                {/* Saldo Inicial */}
+                <div className="p-3 rounded-2xl bg-[#102A43]/80 border border-cyan-500/30 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-cyan-300 flex items-center gap-1.5">
+                      <Wallet className="w-3.5 h-3.5" />
+                      <span>Saldo Inicial en esta Cuenta ($ COP)</span>
+                    </label>
+                    {newMethodInitialBalance !== '' && !isNaN(Number(newMethodInitialBalance)) && (
+                      <span className="text-[11px] text-cyan-400 font-black font-mono">
+                        {formatCOP(Number(newMethodInitialBalance))}
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type="number"
+                    placeholder="Ej: 850000"
+                    value={newMethodInitialBalance}
+                    onChange={(e) => setNewMethodInitialBalance(e.target.value)}
+                    className="w-full bg-[#0B192C] border border-[#243B55] text-white text-xs px-3 py-2 rounded-xl focus:border-cyan-400 focus:outline-none font-mono font-bold"
+                  />
+                  <span className="text-[10px] text-slate-400 leading-tight block">
+                    ¿Con cuánto dinero comienzas en esta cuenta? Se sumará automáticamente a tu Fondo Disponible.
+                  </span>
                 </div>
 
                 {/* Color selector */}

@@ -50,8 +50,8 @@ export async function createDefaultPaymentMethodsForUser(userId: string) {
 
   for (const pm of defaultPaymentMethods) {
     await db.prepare(`
-      INSERT INTO payment_methods (id, user_id, name, type, color, icon)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO payment_methods (id, user_id, name, type, color, icon, initial_balance)
+      VALUES (?, ?, ?, ?, ?, ?, 0)
     `).run(randomUUID(), userId, pm.name, pm.type, pm.color, pm.icon);
   }
 }
