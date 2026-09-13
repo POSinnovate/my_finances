@@ -39,7 +39,8 @@ import {
   Receipt,
   Percent,
   ArrowDownLeft,
-  ArrowUpRight
+  ArrowUpRight,
+  Check
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageBanner, Pagination } from '@/components/ui';
@@ -678,7 +679,7 @@ export default function LoansPage() {
                 {formatCOP(summary.total_expected_return || summary.total_balance_due)}
               </div>
               <p className="text-[10px] text-amber-400/80 mt-0.5">
-                Capital + Ganancia • Resta: {formatCOP(summary.total_balance_due)}
+                Capital + Ganancia {formatCOP(summary.total_balance_due)}
               </p>
             </div>
           </div>
@@ -1223,310 +1224,340 @@ export default function LoansPage() {
 
       {/* MODAL 1: REGISTRAR PRÉSTAMO O DEUDA */}
       {isNewLoanOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="w-full max-w-md bg-[#0B192C] border border-[#1E3A5F] rounded-3xl p-5 shadow-2xl relative my-auto animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-3 border-b border-[#1E3A5F] mb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-[#00ADB5]/20 text-[#00ADB5] flex items-center justify-center">
-                  <HandCoins className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-white">
-                    {newLoanType === 'LENT' ? 'Nuevo Préstamo por Cobrar' : 'Nueva Deuda por Pagar'}
-                  </h3>
-                  <span className="text-[11px] text-slate-400">
-                    {newLoanType === 'LENT' ? 'Dinero que tú prestas' : 'Dinero que te prestan a ti'}
-                  </span>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsNewLoanOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Type selector toggle inside modal */}
-            <div className="grid grid-cols-2 gap-1 bg-[#102A43] p-1 rounded-xl border border-[#243B55] mb-3">
-              <button
-                type="button"
-                onClick={() => setNewLoanType('LENT')}
-                className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  newLoanType === 'LENT'
-                    ? 'bg-[#00ADB5] text-[#0B192C]'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Por Cobrar
-              </button>
-              <button
-                type="button"
-                onClick={() => setNewLoanType('BORROWED')}
-                className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  newLoanType === 'BORROWED'
-                    ? 'bg-amber-500 text-[#0B192C]'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Por Pagar
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateLoan} className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  {newLoanType === 'LENT' ? 'Nombre del Deudor *' : 'Nombre del Acreedor / Prestamista *'}
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newBorrowerName}
-                  onChange={(e) => setNewBorrowerName(e.target.value)}
-                  placeholder={newLoanType === 'LENT' ? 'Ej: Carlos Gómez' : 'Ej: Banco, Prestamista Don Pedro'}
-                  className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] rounded-xl px-3 py-2 text-sm text-white placeholder-slate-400 outline-none"
-                />
-                {existingContacts.length > 0 && !newBorrowerName && (
-                  <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
-                    <span className="text-[10px] text-slate-400">Existentes:</span>
-                    {existingContacts.slice(0, 5).map((c) => (
-                      <button
-                        key={c.name}
-                        type="button"
-                        onClick={() => {
-                          setNewBorrowerName(c.name);
-                          if (c.phone) setNewBorrowerPhone(c.phone);
-                        }}
-                        className="text-[10px] px-2 py-0.5 rounded-md bg-[#0B192C] hover:bg-[#152E4D] border border-[#243B55] text-cyan-300 transition-colors cursor-pointer"
-                      >
-                        {c.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Teléfono / WhatsApp (Opcional)
-                </label>
-                <input
-                  type="tel"
-                  value={newBorrowerPhone}
-                  onChange={(e) => setNewBorrowerPhone(e.target.value)}
-                  placeholder="Ej: 3101234567"
-                  className="w-full bg-[#102A43] border border-[#243B55] rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-400 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Capital Prestado ($ COP) *
-                </label>
-                <input
-                  type="number"
-                  required
-                  min="1000"
-                  step="500"
-                  value={newInitialAmount}
-                  onChange={(e) => setNewInitialAmount(e.target.value)}
-                  placeholder="Ej: 500000"
-                  className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] rounded-xl px-3 py-2 text-sm font-mono font-bold text-white outline-none"
-                />
-              </div>
-
-              {/* Interest calculation */}
-              <div className="bg-[#102A43] border border-[#243B55] rounded-xl p-2.5 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-xs font-semibold text-slate-300 block">
-                      Interés Mensual
-                    </span>
-                    <span className="text-[10px] text-slate-400">
-                      Se aplica cada mes sobre el capital adeudado
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setInterestType('PERCENT')}
-                      className={`px-2 py-0.5 rounded text-[11px] font-bold cursor-pointer ${
-                        interestType === 'PERCENT' ? 'bg-[#00ADB5] text-[#0B192C]' : 'text-slate-400'
-                      }`}
-                    >
-                      %
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setInterestType('FIXED')}
-                      className={`px-2 py-0.5 rounded text-[11px] font-bold cursor-pointer ${
-                        interestType === 'FIXED' ? 'bg-[#00ADB5] text-[#0B192C]' : 'text-slate-400'
-                      }`}
-                    >
-                      $ Fijo
-                    </button>
-                  </div>
+        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
+          <div className="w-full max-w-lg bg-[#0B192C] border-t sm:border border-[#1E3A5F] rounded-t-3xl sm:rounded-3xl shadow-2xl animate-in slide-in-from-bottom duration-200 max-h-[92vh] sm:max-h-[90vh] flex flex-col overflow-hidden">
+            <form onSubmit={handleCreateLoan} className="flex flex-col h-full max-h-[92vh] sm:max-h-[90vh]">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-4 sm:p-5 pb-3 border-b border-[#1E3A5F] shrink-0">
+                {/* Toggle Type Tabs */}
+                <div className="flex items-center bg-[#102A43] p-1 rounded-2xl border border-[#243B55] gap-1 overflow-x-auto scrollbar-none">
+                  <button
+                    type="button"
+                    onClick={() => setNewLoanType('LENT')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 cursor-pointer ${
+                      newLoanType === 'LENT'
+                        ? 'bg-[#00ADB5]/20 text-[#00ADB5] border border-[#00ADB5]/40 shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <ArrowUpRight className="w-3.5 h-3.5 text-[#00ADB5]" />
+                    <span>Por Cobrar (Prestar)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewLoanType('BORROWED')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 cursor-pointer ${
+                      newLoanType === 'BORROWED'
+                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <ArrowDownLeft className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Por Pagar (Deuda)</span>
+                  </button>
                 </div>
 
-                {interestType === 'PERCENT' ? (
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.5"
-                      value={newInterestRate}
-                      onChange={(e) => setNewInterestRate(e.target.value)}
-                      placeholder="10"
-                      className="w-full bg-[#0B192C] border border-[#243B55] rounded-lg px-2.5 py-1 text-xs font-mono text-white outline-none"
-                    />
-                    <span className="text-xs text-slate-300 font-bold whitespace-nowrap">% mensual</span>
-                  </div>
-                ) : (
-                  <input
-                    type="number"
-                    min="0"
-                    step="500"
-                    value={newFixedInterest}
-                    onChange={(e) => setNewFixedInterest(e.target.value)}
-                    placeholder="Monto fijo mensual en COP"
-                    className="w-full bg-[#0B192C] border border-[#243B55] rounded-lg px-2.5 py-1 text-xs font-mono text-white outline-none"
-                  />
-                )}
-
-                <div className="pt-2 border-t border-[#243B55] space-y-1.5 text-xs">
-                  <div className="flex items-center justify-between text-slate-300">
-                    <span>Cuota mensual de interés:</span>
-                    <span className="text-cyan-300 font-mono font-bold">
-                      +{formatCOP(calculatedNewInterest)}/mes
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between font-bold">
-                    <span className="text-slate-300">Ganancia proyectada ({newDurationMonths || 1} {Number(newDurationMonths) === 1 ? 'mes' : 'meses'}):</span>
-                    <span className="text-emerald-300 font-mono">
-                      +{formatCOP(calculatedProjectedInterest)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between font-bold pt-1 border-t border-[#243B55]/60">
-                    <span className="text-amber-400">Total a recoger (Cap + Int):</span>
-                    <span className="text-amber-300 font-mono text-sm">
-                      {formatCOP(calculatedNewTotal)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-[11px] text-slate-400">
-                    <span>Capital base a liquidar:</span>
-                    <span className="text-white font-mono font-bold">
-                      {formatCOP(Number(newInitialAmount) || 0)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Plazo & Dates */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Plazo Estimado (Meses)
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={newDurationMonths}
-                    onChange={(e) => {
-                      const m = e.target.value;
-                      setNewDurationMonths(m);
-                      if (newStartDate && Number(m) > 0) {
-                        const d = new Date(newStartDate);
-                        d.setMonth(d.getMonth() + Number(m));
-                        setNewDueDate(d.toISOString().split('T')[0]);
-                      }
-                    }}
-                    placeholder="1"
-                    className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-white outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Fecha Límite / Vence
-                  </label>
-                  <input
-                    type="date"
-                    value={newDueDate}
-                    onChange={(e) => setNewDueDate(e.target.value)}
-                    className="w-full bg-[#102A43] border border-[#243B55] rounded-xl px-2.5 py-1.5 text-xs text-white outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Fecha Inicio *
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={newStartDate}
-                  onChange={(e) => {
-                    const start = e.target.value;
-                    setNewStartDate(start);
-                    if (start && Number(newDurationMonths) > 0) {
-                      const d = new Date(start);
-                      d.setMonth(d.getMonth() + Number(newDurationMonths));
-                      setNewDueDate(d.toISOString().split('T')[0]);
-                    }
-                  }}
-                  className="w-full bg-[#102A43] border border-[#243B55] rounded-xl px-2.5 py-1.5 text-xs text-white outline-none"
-                />
-              </div>
-
-              {/* Account */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  {newLoanType === 'LENT' ? 'Cuenta de Desembolso (-saldo)' : 'Cuenta Receptora (+saldo)'}
-                </label>
-                <select
-                  value={newPaymentMethod}
-                  onChange={(e) => setNewPaymentMethod(e.target.value)}
-                  className="w-full bg-[#102A43] border border-[#243B55] rounded-xl px-2.5 py-1.5 text-xs text-white outline-none"
-                >
-                  {paymentMethods.map((pm: any) => (
-                    <option key={pm.id} value={pm.name}>
-                      {pm.name}
-                    </option>
-                  ))}
-                  {paymentMethods.length === 0 && <option value="Efectivo">Efectivo</option>}
-                </select>
-              </div>
-
-              {/* Notes */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Notas / Condiciones
-                </label>
-                <input
-                  type="text"
-                  value={newNotes}
-                  onChange={(e) => setNewNotes(e.target.value)}
-                  placeholder="Ej: 4 cuotas mensuales, sin interés, etc."
-                  className="w-full bg-[#102A43] border border-[#243B55] rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-400 outline-none"
-                />
-              </div>
-
-              {/* Buttons */}
-              <div className="flex items-center justify-end gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setIsNewLoanOpen(false)}
-                  className="px-3 py-2 rounded-xl bg-[#102A43] hover:bg-[#152E4D] text-xs font-bold text-slate-300"
+                  className="p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
                 >
-                  Cancelar
+                  <X className="w-5 h-5" />
                 </button>
+              </div>
+
+              {/* Scrollable Form Body */}
+              <div className="p-4 sm:p-5 overflow-y-auto flex-1 space-y-4">
+                {/* Big Amount Input with Live Conversion Preview */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-slate-400">
+                      {newLoanType === 'LENT' ? 'Capital a Prestar ($ COP) *' : 'Monto de la Deuda ($ COP) *'}
+                    </label>
+                    {Number(newInitialAmount) > 0 && (
+                      <span
+                        className={`text-xs font-extrabold px-2.5 py-0.5 rounded-lg border transition-all ${
+                          newLoanType === 'LENT'
+                            ? 'bg-[#00ADB5]/10 text-[#00ADB5] border-[#00ADB5]/30'
+                            : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                        }`}
+                      >
+                        {formatCOP(Number(newInitialAmount) || 0)}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="relative">
+                    <span
+                      className={`absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-black ${
+                        newLoanType === 'LENT' ? 'text-[#00ADB5]' : 'text-amber-400'
+                      }`}
+                    >
+                      $
+                    </span>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      required
+                      min="1000"
+                      step="500"
+                      placeholder="0"
+                      value={newInitialAmount}
+                      onChange={(e) => setNewInitialAmount(e.target.value)}
+                      className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] text-white text-2xl sm:text-3xl font-extrabold pl-10 pr-4 py-2.5 sm:py-3 rounded-2xl focus:outline-none transition-all placeholder:text-slate-600"
+                    />
+                  </div>
+                </div>
+
+                {/* Person details: Name & Phone */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">
+                      {newLoanType === 'LENT' ? 'Nombre del Deudor *' : 'Acreedor / Prestamista *'}
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={newBorrowerName}
+                      onChange={(e) => setNewBorrowerName(e.target.value)}
+                      placeholder={newLoanType === 'LENT' ? 'Ej: Carlos Gómez' : 'Ej: Banco, Prestamista'}
+                      className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] text-white text-sm px-3 py-2 sm:py-2.5 rounded-xl focus:outline-none"
+                    />
+                    {existingContacts.length > 0 && !newBorrowerName && (
+                      <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                        <span className="text-[10px] text-slate-400">Existentes:</span>
+                        {existingContacts.slice(0, 4).map((c) => (
+                          <button
+                            key={c.name}
+                            type="button"
+                            onClick={() => {
+                              setNewBorrowerName(c.name);
+                              if (c.phone) setNewBorrowerPhone(c.phone);
+                            }}
+                            className="text-[10px] px-2 py-0.5 rounded-md bg-[#102A43] hover:bg-[#152E4D] border border-[#243B55] text-cyan-300 transition-colors cursor-pointer"
+                          >
+                            {c.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">
+                      Teléfono / WhatsApp (Opcional)
+                    </label>
+                    <input
+                      type="tel"
+                      value={newBorrowerPhone}
+                      onChange={(e) => setNewBorrowerPhone(e.target.value)}
+                      placeholder="Ej: 3101234567"
+                      className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] text-white text-sm px-3 py-2 sm:py-2.5 rounded-xl focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Interest calculation */}
+                <div className="bg-[#102A43]/70 border border-[#243B55] rounded-2xl p-3 sm:p-3.5 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <BadgePercent className="w-4 h-4 text-[#00ADB5]" />
+                      <span className="text-xs font-bold text-slate-300">
+                        Interés Mensual
+                      </span>
+                    </div>
+                    <div className="flex items-center bg-[#0B192C] p-0.5 rounded-xl border border-[#243B55]">
+                      <button
+                        type="button"
+                        onClick={() => setInterestType('PERCENT')}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold cursor-pointer transition-all ${
+                          interestType === 'PERCENT'
+                            ? 'bg-[#00ADB5] text-[#0B192C] shadow-sm'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        % Mensual
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setInterestType('FIXED')}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold cursor-pointer transition-all ${
+                          interestType === 'FIXED'
+                            ? 'bg-[#00ADB5] text-[#0B192C] shadow-sm'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        $ Fijo
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 items-center">
+                    {interestType === 'PERCENT' ? (
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.5"
+                          value={newInterestRate}
+                          onChange={(e) => setNewInterestRate(e.target.value)}
+                          placeholder="10"
+                          className="w-full bg-[#0B192C] border border-[#243B55] focus:border-[#00ADB5] rounded-xl px-3 py-2 text-sm font-mono font-bold text-white outline-none pr-16"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-cyan-300 font-bold">% mes</span>
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="0"
+                          step="500"
+                          value={newFixedInterest}
+                          onChange={(e) => setNewFixedInterest(e.target.value)}
+                          placeholder="Ej: 50000"
+                          className="w-full bg-[#0B192C] border border-[#243B55] focus:border-[#00ADB5] rounded-xl px-3 py-2 text-sm font-mono font-bold text-white outline-none pr-12"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-bold">COP</span>
+                      </div>
+                    )}
+
+                    <div className="bg-[#0B192C]/80 border border-[#243B55]/60 rounded-xl px-3 py-1.5 flex items-center justify-between text-xs">
+                      <span className="text-slate-400">Interés:</span>
+                      <span className="text-cyan-300 font-mono font-bold">+{formatCOP(calculatedNewInterest)}/mes</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-[#243B55]/70 grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-[#0B192C]/50 p-2 rounded-xl border border-[#243B55]/40">
+                      <span className="text-[10px] text-slate-400 block">
+                        {newLoanType === 'LENT' ? 'Ganancia Proyectada:' : 'Costo en Intereses:'}
+                      </span>
+                      <span className="text-emerald-400 font-mono font-bold text-xs sm:text-sm">
+                        {formatCOP(calculatedProjectedInterest)}
+                      </span>
+                    </div>
+                    <div className="bg-[#0B192C]/50 p-2 rounded-xl border border-[#243B55]/40">
+                      <span className="text-[10px] text-amber-400 block">
+                        {newLoanType === 'LENT' ? 'Total a Recoger:' : 'Total a Pagar:'}
+                      </span>
+                      <span className="text-amber-300 font-mono font-bold text-xs sm:text-sm">
+                        {formatCOP(calculatedNewTotal)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Plazo & Dates */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">
+                      Plazo (Meses)
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={newDurationMonths}
+                      onChange={(e) => {
+                        const m = e.target.value;
+                        setNewDurationMonths(m);
+                        if (newStartDate && Number(m) > 0) {
+                          const d = new Date(newStartDate);
+                          d.setMonth(d.getMonth() + Number(m));
+                          setNewDueDate(d.toISOString().split('T')[0]);
+                        }
+                      }}
+                      placeholder="1"
+                      className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] rounded-xl px-3 py-2 text-xs sm:text-sm font-mono font-bold text-white outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">
+                      Fecha Inicio *
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={newStartDate}
+                      onChange={(e) => {
+                        const start = e.target.value;
+                        setNewStartDate(start);
+                        if (start && Number(newDurationMonths) > 0) {
+                          const d = new Date(start);
+                          d.setMonth(d.getMonth() + Number(newDurationMonths));
+                          setNewDueDate(d.toISOString().split('T')[0]);
+                        }
+                      }}
+                      className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] rounded-xl px-2.5 py-2 text-xs sm:text-sm text-white outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">
+                      Fecha Vencimiento
+                    </label>
+                    <input
+                      type="date"
+                      value={newDueDate}
+                      onChange={(e) => setNewDueDate(e.target.value)}
+                      className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] rounded-xl px-2.5 py-2 text-xs sm:text-sm text-white outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Account & Notes */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">
+                      {newLoanType === 'LENT' ? 'Cuenta de Desembolso (-saldo)' : 'Cuenta Receptora (+saldo)'}
+                    </label>
+                    <select
+                      value={newPaymentMethod}
+                      onChange={(e) => setNewPaymentMethod(e.target.value)}
+                      className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] rounded-xl px-3 py-2.5 text-xs sm:text-sm text-white outline-none"
+                    >
+                      {paymentMethods.map((pm: any) => (
+                        <option key={pm.id} value={pm.name}>
+                          {pm.name}
+                        </option>
+                      ))}
+                      {paymentMethods.length === 0 && <option value="Efectivo">Efectivo</option>}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">
+                      Notas / Condiciones
+                    </label>
+                    <input
+                      type="text"
+                      value={newNotes}
+                      onChange={(e) => setNewNotes(e.target.value)}
+                      placeholder="Ej: Cuotas mensuales, garantía, etc."
+                      className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] text-white text-xs sm:text-sm px-3 py-2.5 rounded-xl focus:outline-none placeholder-slate-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer - Always visible action button */}
+              <div className="p-4 sm:p-5 pt-3 pb-8 sm:pb-4 border-t border-[#1E3A5F] bg-[#0B192C] shrink-0">
                 <button
                   type="submit"
                   disabled={isCreatingLoan}
-                  className="px-4 py-2 rounded-xl bg-[#00ADB5] hover:bg-[#06B6D4] text-[#0B192C] font-black text-xs disabled:opacity-50 cursor-pointer"
+                  className={`w-full py-3.5 px-4 rounded-2xl font-black text-sm shadow-xl flex items-center justify-center gap-2 hover:opacity-95 active:scale-[0.99] transition-all disabled:opacity-50 cursor-pointer ${
+                    newLoanType === 'LENT'
+                      ? 'bg-linear-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] shadow-[#00ADB5]/25'
+                      : 'bg-linear-to-r from-amber-500 to-orange-400 text-slate-950 shadow-amber-500/25'
+                  }`}
                 >
-                  {isCreatingLoan ? 'Guardando...' : 'Guardar'}
+                  {isCreatingLoan ? (
+                    <span>Guardando...</span>
+                  ) : (
+                    <>
+                      <Check className="w-5 h-5 stroke-[3px]" />
+                      <span>{newLoanType === 'LENT' ? 'Guardar Préstamo por Cobrar' : 'Guardar Deuda por Pagar'}</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>
@@ -1536,8 +1567,8 @@ export default function LoansPage() {
 
       {/* MODAL 2: REGISTRAR ABONO */}
       {selectedLoanForPayment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="w-full max-w-md bg-[#0B192C] border border-[#1E3A5F] rounded-3xl p-5 shadow-2xl relative my-auto animate-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
+          <div className="w-full max-w-md bg-[#0B192C] border-t sm:border border-[#1E3A5F] rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl animate-in slide-in-from-bottom duration-200 max-h-[92vh] sm:max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-[#1E3A5F] mb-3">
               <div>
                 <h3 className="text-base font-black text-white">
@@ -1548,10 +1579,11 @@ export default function LoansPage() {
                 </span>
               </div>
               <button
+                type="button"
                 onClick={() => setSelectedLoanForPayment(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white"
+                className="p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-[#102A43] transition-colors cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
@@ -1704,20 +1736,14 @@ export default function LoansPage() {
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedLoanForPayment(null)}
-                  className="px-3 py-1.5 rounded-xl bg-[#102A43] text-xs font-bold text-slate-300"
-                >
-                  Cancelar
-                </button>
+              <div className="pt-2">
                 <button
                   type="submit"
                   disabled={isSubmittingPayment || calculatedTotalPayment <= 0}
-                  className="px-4 py-2 rounded-xl bg-linear-to-r from-emerald-500 to-teal-500 text-[#0B192C] font-black text-xs disabled:opacity-50 cursor-pointer"
+                  className="w-full py-3 px-4 rounded-2xl bg-linear-to-r from-emerald-500 to-teal-500 text-slate-950 font-black text-sm shadow-xl hover:opacity-95 active:scale-[0.99] transition-all disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
                 >
-                  {isSubmittingPayment ? 'Registrando...' : `Abonar ${formatCOP(calculatedTotalPayment)}`}
+                  <Check className="w-5 h-5 stroke-[3px]" />
+                  <span>{isSubmittingPayment ? 'Registrando...' : `Abonar ${formatCOP(calculatedTotalPayment)}`}</span>
                 </button>
               </div>
             </form>
@@ -1727,15 +1753,16 @@ export default function LoansPage() {
 
       {/* MODAL 3: EDITAR REGISTRO */}
       {selectedLoanForEdit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="w-full max-w-md bg-[#0B192C] border border-[#1E3A5F] rounded-3xl p-5 shadow-2xl relative my-auto animate-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
+          <div className="w-full max-w-md bg-[#0B192C] border-t sm:border border-[#1E3A5F] rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl animate-in slide-in-from-bottom duration-200 max-h-[92vh] sm:max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-[#1E3A5F] mb-3">
               <h3 className="text-base font-black text-white">Editar Información</h3>
               <button
+                type="button"
                 onClick={() => setSelectedLoanForEdit(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white"
+                className="p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-[#102A43] transition-colors cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
@@ -1794,20 +1821,14 @@ export default function LoansPage() {
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedLoanForEdit(null)}
-                  className="px-3 py-1.5 rounded-xl bg-[#102A43] text-xs font-bold text-slate-300"
-                >
-                  Cancelar
-                </button>
+              <div className="pt-2">
                 <button
                   type="submit"
                   disabled={isUpdatingLoan}
-                  className="px-4 py-2 rounded-xl bg-[#00ADB5] text-[#0B192C] font-black text-xs"
+                  className="w-full py-3 px-4 rounded-2xl bg-linear-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] font-black text-sm shadow-xl hover:opacity-95 active:scale-[0.99] transition-all disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
                 >
-                  {isUpdatingLoan ? 'Guardando...' : 'Guardar'}
+                  <Check className="w-5 h-5 stroke-[3px]" />
+                  <span>{isUpdatingLoan ? 'Guardando...' : 'Guardar Cambios'}</span>
                 </button>
               </div>
             </form>
