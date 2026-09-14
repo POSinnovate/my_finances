@@ -15,9 +15,7 @@ import {
 import { 
   Wallet, 
   Plus, 
-  ArrowLeft, 
   Trash2, 
-  Edit3, 
   SlidersHorizontal, 
   Smartphone, 
   Building2, 
@@ -25,11 +23,9 @@ import {
   Banknote, 
   ArrowDownRight, 
   ArrowUpRight, 
-  X,
   Layers,
-  PiggyBank,
   ArrowRightLeft,
-  DollarSign
+  Edit
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { 
@@ -480,7 +476,7 @@ export default function AccountsPage() {
                       onClick={() => handleOpenEditMethod(pm)}
                       title="Editar cuenta"
                     >
-                      <Edit3 className="w-3.5 h-3.5" />
+                      <Edit className="w-3.5 h-3.5" />
                     </Button>
                     {paymentMethods.length > 1 && (
                       <Button
@@ -605,7 +601,7 @@ export default function AccountsPage() {
                           />
                           <div>
                             <div className="flex items-center gap-1">
-                              <span className="text-xs font-bold text-foreground truncate max-w-[110px]">
+                              <span className="text-xs font-bold text-foreground truncate max-w-27.5">
                                 {pkt.name}
                               </span>
                             </div>
@@ -767,15 +763,13 @@ export default function AccountsPage() {
         isOpen={!!editingMethod}
         onClose={() => setEditingMethod(null)}
         title="Editar Cuenta"
-        icon={<Edit3 className="w-5 h-5" />}
+        icon={<Edit className="w-5 h-5" />}
       >
         {editingMethod && (
           <form onSubmit={handleSaveEditMethod} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-foreground/80 mb-1">
-                Nombre de la Cuenta *
-              </label>
               <Input
+                label="Nombre de la cuenta"
                 type="text"
                 required
                 value={editMethodName}
@@ -785,10 +779,8 @@ export default function AccountsPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-foreground/80 mb-1">
-                Tipo de Cuenta
-              </label>
               <Select
+                label="Tipo de Cuenta"
                 value={editMethodType}
                 onChange={(e) => setEditMethodType(e.target.value)}
               >
@@ -819,24 +811,14 @@ export default function AccountsPage() {
               </div>
             </div>
 
-            <div className="flex gap-2 pt-2">
-              <Button
-                type="button"
-                variant="secondary"
-                fullWidth
-                onClick={() => setEditingMethod(null)}
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                variant="primary"
-                fullWidth
-                disabled={isSavingEditMethod}
-              >
-                {isSavingEditMethod ? 'Guardando...' : 'Guardar Cambios'}
-              </Button>
-            </div>
+            <Button
+              type="submit"
+              variant="primary"
+              fullWidth
+              disabled={isSavingEditMethod}
+            >
+              {isSavingEditMethod ? 'Guardando...' : 'Guardar Cambios'}
+            </Button>
           </form>
         )}
       </Modal>
@@ -882,10 +864,8 @@ export default function AccountsPage() {
 
             {/* Adjust Input */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-foreground/80">
-                Nuevo Saldo Real Exacto *
-              </label>
               <Input
+                label="Nuevo Saldo Real Exacto"
                 type="number"
                 step="100"
                 required
@@ -899,24 +879,15 @@ export default function AccountsPage() {
               </p>
             </div>
 
-            <div className="flex gap-2 pt-2">
-              <Button
-                type="button"
-                variant="secondary"
-                fullWidth
-                onClick={() => setAdjustingMethod(null)}
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                variant="primary"
-                fullWidth
-                disabled={isSavingAdjustment}
-              >
-                {isSavingAdjustment ? 'Calibrando...' : 'Aplicar Ajuste'}
-              </Button>
-            </div>
+
+            <Button
+              type="submit"
+              variant="primary"
+              fullWidth
+              disabled={isSavingAdjustment}
+            >
+              {isSavingAdjustment ? 'Calibrando...' : 'Aplicar Ajuste'}
+            </Button>
           </form>
         )}
       </Modal>
@@ -931,10 +902,8 @@ export default function AccountsPage() {
         {pocketTargetMethod && (
           <form onSubmit={handleCreatePocket} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-foreground/80 mb-1">
-                Nombre del Bolsillo *
-              </label>
               <Input
+                label={"Nombre del Bolsillo"}
                 type="text"
                 required
                 value={newPocketName}
@@ -965,10 +934,8 @@ export default function AccountsPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-foreground/80 mb-1">
-                Meta Opcional ($ COP)
-              </label>
               <Input
+                label="Meta Opcional"
                 type="number"
                 step="1000"
                 value={newPocketTargetAmount}
@@ -995,25 +962,14 @@ export default function AccountsPage() {
                 ))}
               </div>
             </div>
-
-            <div className="flex gap-2 pt-2">
-              <Button
-                type="button"
-                variant="secondary"
-                fullWidth
-                onClick={() => setIsAddPocketOpen(false)}
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                variant="primary"
-                fullWidth
-                disabled={isCreatingPocket}
-              >
-                {isCreatingPocket ? 'Creando...' : 'Crear Bolsillo'}
-              </Button>
-            </div>
+            <Button
+              type="submit"
+              variant="primary"
+              fullWidth
+              disabled={isCreatingPocket}
+            >
+              {isCreatingPocket ? 'Creando...' : 'Crear Bolsillo'}
+            </Button>
           </form>
         )}
       </Modal>
