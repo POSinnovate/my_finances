@@ -32,6 +32,8 @@ export async function GET(
         status,
         COALESCE(loan_type, 'LENT') as loan_type,
         COALESCE(duration_months, 1) as duration_months,
+        tag,
+        pocket_id,
         notes,
         created_at
       FROM loans
@@ -116,6 +118,7 @@ export async function PUT(
       due_date,
       payment_method,
       loan_type,
+      tag,
       status,
       notes,
     } = body;
@@ -141,6 +144,7 @@ export async function PUT(
     const cleanLoanType = (loan_type || existing.loan_type || 'LENT') === 'BORROWED' ? 'BORROWED' : 'LENT';
     const isBorrowed = cleanLoanType === 'BORROWED';
     const borrowerName = borrower_name ? borrower_name.trim() : existing.borrower_name;
+    const cleanTag = tag !== undefined ? (tag ? tag.trim() : null) : existing.tag;
     const cleanNotes = notes !== undefined ? (notes?.trim() || null) : existing.notes;
 
     // 1. Update loan record
@@ -160,6 +164,7 @@ export async function PUT(
         duration_months = ?,
         payment_method = ?,
         loan_type = ?,
+        tag = ?,
         notes = ?,
         status = ?
       WHERE id = ? AND user_id = ?
@@ -177,6 +182,7 @@ export async function PUT(
         durationMonths,
         method,
         cleanLoanType,
+        cleanTag,
         cleanNotes,
         calculatedStatus,
         id,
@@ -241,7 +247,7 @@ export async function DELETE(
     const { id } = await params;
 
     const existing = (await db
-      .prepare(`SELECT id, borrower_name FROM loans WHERE id = ? AND user_id = ?`)
+      .prepare(`SELECT id, borrower_name, initial_amount, loan_type, pocket_id FROM loans WHERE id = ? AND user_id = ?`)
       .get(id, auth.userId)) as any;
 
     if (!existing) {
@@ -259,17 +265,25 @@ export async function DELETE(
         .run(auth.userId, `%[Abono #${p.id}]%`);
     }
 
-    // 2. Delete disbursement movement in expenses (returns the capital to user's account)
+    // 2. If loan was disbursed from a pocket, refund the pocket balance
+    if (existing.pocket_id && existing.loan_type !== 'BORROWED') {
+      const initAmt = Number(existing.initial_amount) || 0;
+      await db
+        .prepare('UPDATE account_pockets SET current_balance = current_balance + ?, updated_at = NOW() WHERE id = ?')
+        .run(initAmt, existing.pocket_id);
+    }
+
+    // 3. Delete disbursement movement in expenses (returns the capital to user's account)
     await db
       .prepare(`DELETE FROM expenses WHERE user_id = ? AND notes LIKE ?`)
       .run(auth.userId, `%[ID:${id}]%`);
 
-    // 3. Delete loan payments
+    // 4. Delete loan payments
     await db
       .prepare(`DELETE FROM loan_payments WHERE loan_id = ? AND user_id = ?`)
       .run(id, auth.userId);
 
-    // 4. Delete loan
+    // 5. Delete loan
     await db
       .prepare(`DELETE FROM loans WHERE id = ? AND user_id = ?`)
       .run(id, auth.userId);

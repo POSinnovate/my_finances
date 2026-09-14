@@ -113,6 +113,19 @@ export function usePaymentMethods() {
   });
 }
 
+export function usePockets() {
+  return useQuery({
+    queryKey: ['pockets'],
+    queryFn: async () => {
+      const res = await fetch('/api/pockets');
+      if (!res.ok) throw new Error('Error al cargar bolsillos');
+      const data = await res.json();
+      return data.pockets || [];
+    },
+    staleTime: 1000 * 60 * 3,
+  });
+}
+
 export function useGoals() {
   return useQuery({
     queryKey: ['goals'],
@@ -188,6 +201,7 @@ export function useInvalidateFinance() {
     queryClient.invalidateQueries({ queryKey: ['expenses'] });
     queryClient.invalidateQueries({ queryKey: ['categories'] });
     queryClient.invalidateQueries({ queryKey: ['payment-methods'] });
+    queryClient.invalidateQueries({ queryKey: ['pockets'] });
     queryClient.invalidateQueries({ queryKey: ['goals'] });
     queryClient.invalidateQueries({ queryKey: ['loans'] });
     queryClient.invalidateQueries({ queryKey: ['scheduled-items'] });

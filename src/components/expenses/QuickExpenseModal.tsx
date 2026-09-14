@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, Check, ArrowDownCircle, ArrowUpCircle, ArrowRightLeft, Plus, Wallet, Tag, Info } from 'lucide-react';
+import { X, Check, ArrowDownCircle, ArrowUpCircle, ArrowRightLeft, Plus, Wallet, Tag, Info, ChevronDown } from 'lucide-react';
 import { formatCOP } from '@/lib/utils';
 import { toast } from 'sonner';
 import { getTodayColombiaDate } from '@/lib/dayjs';
@@ -16,6 +16,14 @@ interface Category {
   type?: 'EXPENSE' | 'INCOME';
 }
 
+export interface Pocket {
+  id: string;
+  name: string;
+  color: string;
+  icon: string;
+  current_balance: number;
+}
+
 interface PaymentMethod {
   id: string;
   name: string;
@@ -23,6 +31,10 @@ interface PaymentMethod {
   color: string;
   icon: string;
   movement_count?: number;
+  net_balance?: number;
+  free_balance?: number;
+  pockets_balance?: number;
+  pockets?: Pocket[];
 }
 
 interface QuickExpenseModalProps {
@@ -61,6 +73,8 @@ export function QuickExpenseModal({
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<string>('Nequi');
   const [destinationMethod, setDestinationMethod] = useState<string>('Efectivo');
+  const [selectedPocketId, setSelectedPocketId] = useState<string | null>(null);
+  const [showPockets, setShowPockets] = useState(false);
   const [notes, setNotes] = useState<string>('');
   const [date, setDate] = useState<string>(getTodayColombiaDate());
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -177,6 +191,8 @@ export function QuickExpenseModal({
   const handleSwitchType = (newType: 'EXPENSE' | 'INCOME' | 'TRANSFER') => {
     setTxType(newType);
     setShowAddCat(false);
+    setSelectedPocketId(null);
+    setShowPockets(false);
     if (newType === 'EXPENSE') {
       setSelectedCategory(expenseCategories[0]?.id || '');
     } else if (newType === 'INCOME') {
@@ -196,7 +212,7 @@ export function QuickExpenseModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: newCatName.trim(),
-          type: txType,
+          type: txType === 'INCOME' ? 'INCOME' : 'EXPENSE',
           color: txType === 'INCOME' ? '#10B981' : '#00ADB5',
           icon: txType === 'INCOME' ? 'Briefcase' : 'Tag',
           monthly_budget: 0,
@@ -243,7 +259,7 @@ export function QuickExpenseModal({
 
       if (res.ok) {
         const trimmed = newMethodName.trim();
-        toast.success(`Método "${trimmed}" agregado`);
+        toast.success(`Cuenta "${trimmed}" creada`);
         setNewMethodName('');
         setShowAddMethod(false);
         await refreshPaymentMethods();
@@ -282,6 +298,9 @@ export function QuickExpenseModal({
       }
     }
 
+    const currentMethod = paymentMethods.find((m) => m.name.toLowerCase() === paymentMethod.toLowerCase());
+    const selectedPocket = currentMethod?.pockets?.find((p) => p.id === selectedPocketId);
+
     setIsSubmitting(true);
     try {
       const res = await fetch('/api/expenses', {
@@ -293,6 +312,7 @@ export function QuickExpenseModal({
           category_id: txType === 'TRANSFER' ? null : (selectedCategory || null),
           payment_method: paymentMethod,
           destination_method: txType === 'TRANSFER' ? destinationMethod : null,
+          pocket_id: selectedPocketId || null,
           notes: notes?.trim() || (txType === 'TRANSFER' ? `Transferencia de ${paymentMethod} a ${destinationMethod}` : (txType === 'INCOME' ? 'Ingreso registrado' : 'Gasto')),
           date,
         }),
@@ -301,14 +321,24 @@ export function QuickExpenseModal({
       const data = await res.json();
       if (res.ok) {
         if (txType === 'INCOME') {
-          toast.success(`+${formatCOP(numAmount)} sumados a tu fondo disponible`);
+          toast.success(
+            selectedPocket
+              ? `+${formatCOP(numAmount)} sumados al bolsillo "${selectedPocket.name}"`
+              : `+${formatCOP(numAmount)} sumados a tu fondo disponible`
+          );
         } else if (txType === 'TRANSFER') {
           toast.success(`${formatCOP(numAmount)} transferidos de ${paymentMethod} a ${destinationMethod}`);
         } else {
-          toast.success(`-${formatCOP(numAmount)} descontados de tu fondo`);
+          toast.success(
+            selectedPocket
+              ? `-${formatCOP(numAmount)} descontados del bolsillo "${selectedPocket.name}"`
+              : `-${formatCOP(numAmount)} descontados de tu fondo libre`
+          );
         }
         setAmount('');
         setNotes('');
+        setSelectedPocketId(null);
+        setShowPockets(false);
         onExpenseAdded();
         onClose();
       } else {
@@ -325,6 +355,7 @@ export function QuickExpenseModal({
   const isTransfer = txType === 'TRANSFER';
   const numericAmount = Number(amount) || 0;
   const currentCategoryList = isIncome ? incomeCategories : expenseCategories;
+  const selectedMethod = paymentMethods.find((m) => m.name.toLowerCase() === paymentMethod.toLowerCase());
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
@@ -448,22 +479,26 @@ export function QuickExpenseModal({
                   <Wallet className="w-3.5 h-3.5 text-rose-400" />
                   <span>Desde (Medio / Cuenta Origen):</span>
                 </label>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 whitespace-nowrap">
                   {paymentMethods.map((pm) => {
                     const isSelected = paymentMethod === pm.name;
+                    const freeBal = pm.free_balance !== undefined ? pm.free_balance : (pm.net_balance ?? 0);
                     return (
                       <button
                         key={pm.id}
                         type="button"
-                        onClick={() => setPaymentMethod(pm.name)}
-                        className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-all flex items-center gap-1.5 ${
+                        onClick={() => {
+                          setPaymentMethod(pm.name);
+                          setSelectedPocketId(null);
+                        }}
+                        className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-all flex items-center gap-1.5 shrink-0 ${
                           isSelected
                             ? 'bg-rose-500/20 border-rose-400 text-white ring-2 ring-rose-500/40 shadow-md'
                             : 'bg-[#0B192C] border-[#243B55] text-slate-400 hover:text-white'
                         }`}
                       >
                         <span className="w-2 h-2 rounded-full" style={{ backgroundColor: pm.color || '#00ADB5' }} />
-                        <span>{pm.name}</span>
+                        <span>{pm.name} • {formatCOP(freeBal)}</span>
                       </button>
                     );
                   })}
@@ -476,22 +511,23 @@ export function QuickExpenseModal({
                   <ArrowRightLeft className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Hacia (Medio / Cuenta Destino):</span>
                 </label>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 whitespace-nowrap">
                   {paymentMethods.map((pm) => {
                     const isSelected = destinationMethod === pm.name;
+                    const freeBal = pm.free_balance !== undefined ? pm.free_balance : (pm.net_balance ?? 0);
                     return (
                       <button
                         key={pm.id}
                         type="button"
                         onClick={() => setDestinationMethod(pm.name)}
-                        className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-all flex items-center gap-1.5 ${
+                        className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-all flex items-center gap-1.5 shrink-0 ${
                           isSelected
                             ? 'bg-emerald-500/20 border-emerald-400 text-white ring-2 ring-emerald-500/40 shadow-md'
                             : 'bg-[#0B192C] border-[#243B55] text-slate-400 hover:text-white'
                         }`}
                       >
-                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: pm.color || '#00ADB5' }} />
-                        <span>{pm.name}</span>
+                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: pm.color || '#10B981' }} />
+                        <span>{pm.name} • {formatCOP(freeBal)}</span>
                       </button>
                     );
                   })}
@@ -572,6 +608,23 @@ export function QuickExpenseModal({
                     <Wallet className="w-3.5 h-3.5 text-cyan-400" />
                     <span>{isIncome ? '¿A qué cuenta o medio ingresó?' : 'Método de Pago'}</span>
                   </label>
+                  {(() => {
+                    const currentMethodObj = paymentMethods.find((pm) => pm.name === paymentMethod);
+                    const pocketsCount = currentMethodObj?.pockets?.length || 0;
+                    if (pocketsCount === 0) return null;
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => setShowPockets(!showPockets)}
+                        className="text-[11px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors px-2 py-0.5 rounded-lg bg-cyan-950/40 border border-cyan-500/30 hover:border-cyan-400"
+                      >
+                        <span>🏷️ Usar bolsillo</span>
+                        <span className="bg-cyan-500/20 text-cyan-300 px-1.5 py-0.2 rounded-full text-[10px]">
+                          {pocketsCount}
+                        </span>
+                      </button>
+                    );
+                  })()}
                 </div>
 
                 {/* Inline Quick Method Form */}
@@ -595,15 +648,20 @@ export function QuickExpenseModal({
                   </div>
                 )}
 
-                <div className="flex flex-wrap gap-2">
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 whitespace-nowrap">
                   {paymentMethods.map((pm) => {
-                    const isSelected = paymentMethod === pm.name;
+                    // When a pocket is selected, the main account is deselected
+                    const isSelected = paymentMethod === pm.name && !selectedPocketId;
+                    const freeBal = pm.free_balance !== undefined ? pm.free_balance : (pm.net_balance ?? 0);
                     return (
                       <button
                         key={pm.id}
                         type="button"
-                        onClick={() => setPaymentMethod(pm.name)}
-                        className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-all flex items-center gap-1.5 ${
+                        onClick={() => {
+                          setPaymentMethod(pm.name);
+                          setSelectedPocketId(null);
+                        }}
+                        className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-all flex items-center gap-1.5 shrink-0 ${
                           isSelected
                             ? 'bg-[#102A43] border-[#00ADB5] text-white ring-2 ring-[#00ADB5]/50 shadow-md'
                             : 'bg-[#102A43] border-[#243B55] text-slate-400 hover:text-white'
@@ -613,11 +671,65 @@ export function QuickExpenseModal({
                           className="w-2 h-2 rounded-full"
                           style={{ backgroundColor: pm.color || '#00ADB5' }}
                         />
-                        <span>{pm.name}</span>
+                        <span>{pm.name} • {formatCOP(freeBal)}</span>
                       </button>
                     );
                   })}
                 </div>
+
+                {/* Pocket Carousel when showPockets is true and pockets exist */}
+                {(() => {
+                  if (!showPockets) return null;
+                  const currentMethodObj = paymentMethods.find((pm) => pm.name === paymentMethod);
+                  const pocketsList = currentMethodObj?.pockets || [];
+                  if (pocketsList.length === 0) return null;
+
+                  return (
+                    <div className="mt-2 pt-2 border-t border-cyan-950/60">
+                      <div className="text-[11px] text-cyan-300/80 font-medium mb-1.5 flex items-center justify-between">
+                        <span>Bolsillos de {currentMethodObj?.name}:</span>
+                        {selectedPocketId && (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedPocketId(null)}
+                            className="text-[10px] text-slate-400 hover:text-white underline"
+                          >
+                            Volver a cuenta principal
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 whitespace-nowrap">
+                        {pocketsList.map((pkt) => {
+                          const isPktSelected = selectedPocketId === pkt.id;
+                          return (
+                            <button
+                              key={pkt.id}
+                              type="button"
+                              onClick={() => {
+                                if (isPktSelected) {
+                                  setSelectedPocketId(null);
+                                } else {
+                                  setSelectedPocketId(pkt.id);
+                                }
+                              }}
+                              className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-all flex items-center gap-1.5 shrink-0 ${
+                                isPktSelected
+                                  ? 'bg-cyan-500/20 border-cyan-400 text-white ring-2 ring-cyan-500/50 shadow-md'
+                                  : 'bg-[#0B192C] border-[#243B55] text-slate-300 hover:text-white hover:border-cyan-500/40'
+                              }`}
+                            >
+                              <span
+                                className="w-2 h-2 rounded-full"
+                                style={{ backgroundColor: pkt.color || '#00ADB5' }}
+                              />
+                              <span>{pkt.name} • {formatCOP(pkt.current_balance)}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </>
           )}

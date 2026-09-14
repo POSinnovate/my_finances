@@ -172,6 +172,10 @@ export async function initDatabaseSchema() {
     ALTER TABLE loans 
     ADD COLUMN IF NOT EXISTS duration_months NUMERIC DEFAULT 1;
   `;
+  await sql`
+    ALTER TABLE loans 
+    ADD COLUMN IF NOT EXISTS tag VARCHAR(50);
+  `;
 
   // 8. Loan payments (audit table)
   await sql`
@@ -189,11 +193,40 @@ export async function initDatabaseSchema() {
     );
   `;
 
+  // 9. Account Pockets (Bolsillos / Subcuentas de presupuesto)
+  await sql`
+    CREATE TABLE IF NOT EXISTS account_pockets (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      payment_method_id TEXT NOT NULL REFERENCES payment_methods(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      color TEXT NOT NULL DEFAULT '#00ADB5',
+      icon TEXT NOT NULL DEFAULT 'Folder',
+      current_balance NUMERIC NOT NULL DEFAULT 0,
+      target_amount NUMERIC DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `;
+
+  await sql`
+    ALTER TABLE expenses 
+    ADD COLUMN IF NOT EXISTS pocket_id TEXT REFERENCES account_pockets(id) ON DELETE SET NULL;
+  `;
+
+  await sql`
+    ALTER TABLE loans 
+    ADD COLUMN IF NOT EXISTS pocket_id TEXT REFERENCES account_pockets(id) ON DELETE SET NULL;
+  `;
+
   // Indexes
   await sql`CREATE INDEX IF NOT EXISTS idx_expenses_user_date ON expenses(user_id, date);`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_expenses_pocket ON expenses(pocket_id);`;
   await sql`CREATE INDEX IF NOT EXISTS idx_categories_user ON categories(user_id);`;
   await sql`CREATE INDEX IF NOT EXISTS idx_goals_user ON goals(user_id);`;
   await sql`CREATE INDEX IF NOT EXISTS idx_payment_methods_user ON payment_methods(user_id);`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_account_pockets_user ON account_pockets(user_id);`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_account_pockets_method ON account_pockets(payment_method_id);`;
   await sql`CREATE INDEX IF NOT EXISTS idx_scheduled_items_user ON scheduled_items(user_id);`;
   await sql`CREATE INDEX IF NOT EXISTS idx_scheduled_items_cat ON scheduled_items(category_id);`;
   await sql`CREATE INDEX IF NOT EXISTS idx_loans_user ON loans(user_id);`;

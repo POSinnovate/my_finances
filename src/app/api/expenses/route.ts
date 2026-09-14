@@ -84,6 +84,9 @@ export async function GET(req: NextRequest) {
         e.type,
         e.payment_method,
         e.destination_method,
+        e.pocket_id,
+        p.name as pocket_name,
+        p.color as pocket_color,
         e.notes,
         strftime('%Y-%m-%d', e.date) as date,
         e.created_at,
@@ -94,6 +97,7 @@ export async function GET(req: NextRequest) {
         COALESCE(c.is_fixed, 0) as is_fixed
       FROM expenses e
       LEFT JOIN categories c ON c.id = e.category_id
+      LEFT JOIN account_pockets p ON p.id = e.pocket_id
       ${whereClause}
       ORDER BY e.date DESC, e.created_at DESC
       LIMIT ? OFFSET ?
@@ -143,7 +147,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const auth = await requireAuth();
-    const { amount, category_id, payment_method, destination_method, notes, date, type } = await req.json();
+    const { amount, category_id, payment_method, destination_method, pocket_id, notes, date, type } = await req.json();
 
     const parsedAmount = Number(amount);
     if (!parsedAmount || parsedAmount <= 0) {
@@ -165,6 +169,31 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // If pocket_id is provided, verify and update pocket balance
+    if (pocket_id) {
+      const pocket = (await db
+        .prepare('SELECT id, current_balance, name FROM account_pockets WHERE id = ? AND user_id = ?')
+        .get(pocket_id, auth.userId)) as any;
+
+      if (!pocket) {
+        return NextResponse.json({ error: 'El bolsillo seleccionado no existe' }, { status: 404 });
+      }
+
+      if (txType === 'EXPENSE' || txType === 'TRANSFER') {
+        const pocketBal = Number(pocket.current_balance) || 0;
+        if (parsedAmount > pocketBal) {
+          return NextResponse.json({
+            error: `Saldo insuficiente en el bolsillo "${pocket.name}". Saldo disponible: $${pocketBal.toLocaleString('es-CO')}`,
+          }, { status: 400 });
+        }
+        await db.prepare('UPDATE account_pockets SET current_balance = current_balance - ?, updated_at = NOW() WHERE id = ?')
+          .run(parsedAmount, pocket_id);
+      } else if (txType === 'INCOME') {
+        await db.prepare('UPDATE account_pockets SET current_balance = current_balance + ?, updated_at = NOW() WHERE id = ?')
+          .run(parsedAmount, pocket_id);
+      }
+    }
+
     const getTodayColombiaDate = () => {
       try {
         return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
@@ -179,8 +208,8 @@ export async function POST(req: NextRequest) {
     const id = randomUUID();
 
     await db.prepare(`
-      INSERT INTO expenses (id, user_id, category_id, type, amount, payment_method, destination_method, notes, date)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO expenses (id, user_id, category_id, type, amount, payment_method, destination_method, pocket_id, notes, date)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       auth.userId,
@@ -189,6 +218,7 @@ export async function POST(req: NextRequest) {
       parsedAmount,
       payment_method || (txType === 'INCOME' ? 'Transferencia' : 'Nequi'),
       txType === 'TRANSFER' ? destination_method : null,
+      pocket_id || null,
       notes?.trim() || (txType === 'TRANSFER' ? `Transferencia de ${payment_method} a ${destination_method}` : (txType === 'INCOME' ? 'Ingreso registrado' : null)),
       expenseDate
     );

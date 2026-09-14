@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db/client';
 import { randomUUID } from 'crypto';
 import { syncUserCurrentCash } from '@/lib/finance-balance';
+import { getTodayColombiaDate } from '@/lib/dayjs';
 
 export async function GET(req: NextRequest) {
   try {
@@ -87,6 +88,8 @@ export async function GET(req: NextRequest) {
         status,
         COALESCE(loan_type, 'LENT') as loan_type,
         COALESCE(duration_months, 1) as duration_months,
+        tag,
+        pocket_id,
         notes,
         created_at
       FROM loans
@@ -260,6 +263,8 @@ export async function POST(req: NextRequest) {
       due_date,
       payment_method,
       loan_type,
+      tag,
+      pocket_id,
       notes,
     } = body;
 
@@ -281,6 +286,28 @@ export async function POST(req: NextRequest) {
     const isBorrowed = loan_type === 'BORROWED';
     const cleanLoanType = isBorrowed ? 'BORROWED' : 'LENT';
 
+    // If loan is lent from a pocket, verify pocket balance and deduct
+    if (pocket_id && !isBorrowed) {
+      const pocket = (await db
+        .prepare('SELECT id, current_balance, name FROM account_pockets WHERE id = ? AND user_id = ?')
+        .get(pocket_id, auth.userId)) as any;
+
+      if (!pocket) {
+        return NextResponse.json({ error: 'El bolsillo seleccionado no existe' }, { status: 404 });
+      }
+
+      const pBal = Number(pocket.current_balance) || 0;
+      if (principal > pBal) {
+        return NextResponse.json({
+          error: `Saldo insuficiente en el bolsillo "${pocket.name}". Saldo disponible: $${pBal.toLocaleString('es-CO')}`,
+        }, { status: 400 });
+      }
+
+      await db
+        .prepare('UPDATE account_pockets SET current_balance = current_balance - ?, updated_at = NOW() WHERE id = ?')
+        .run(principal, pocket_id);
+    }
+
     const rate = Number(interest_rate) || 0;
     let monthlyInterest = Number(expected_interest);
     if (isNaN(monthlyInterest) || monthlyInterest <= 0) {
@@ -291,7 +318,7 @@ export async function POST(req: NextRequest) {
     const projectedInterest = rate > 0 ? Math.round(principal * (rate / 100) * durationMonths) : monthlyInterest;
     const totalExpected = principal + projectedInterest;
     const currentBalance = principal;
-    const startDate = start_date || new Date().toISOString().split('T')[0];
+    const startDate = start_date || getTodayColombiaDate();
     const dueDate = due_date || null;
     const method = payment_method || 'Efectivo';
     const cleanNotes = notes?.trim() || null;
@@ -320,8 +347,10 @@ export async function POST(req: NextRequest) {
         payment_method,
         status,
         loan_type,
+        tag,
+        pocket_id,
         notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, 'ACTIVE', ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?, ?)
     `
       )
       .run(
@@ -339,6 +368,8 @@ export async function POST(req: NextRequest) {
         durationMonths,
         method,
         cleanLoanType,
+        tag?.trim() || null,
+        pocket_id || null,
         cleanNotes
       );
 
@@ -372,8 +403,8 @@ export async function POST(req: NextRequest) {
       await db
         .prepare(
           `
-        INSERT INTO expenses (id, user_id, category_id, type, amount, payment_method, notes, date)
-        VALUES (?, ?, ?, 'EXPENSE', ?, ?, ?, ?)
+        INSERT INTO expenses (id, user_id, category_id, type, amount, payment_method, pocket_id, notes, date)
+        VALUES (?, ?, ?, 'EXPENSE', ?, ?, ?, ?, ?)
       `
         )
         .run(
@@ -382,6 +413,7 @@ export async function POST(req: NextRequest) {
           loanCategory.id,
           principal,
           method,
+          pocket_id || null,
           `Desembolso de préstamo a ${borrower_name.trim()} [ID:${loanId}]${cleanNotes ? ` - ${cleanNotes}` : ''}`,
           startDate
         );

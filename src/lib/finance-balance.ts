@@ -1,6 +1,18 @@
 import { db } from '@/lib/db/client';
 import { createDefaultPaymentMethodsForUser } from '@/lib/db/categories-default';
 
+export interface Pocket {
+  id: string;
+  user_id: string;
+  payment_method_id: string;
+  name: string;
+  color: string;
+  icon: string;
+  current_balance: number;
+  target_amount?: number;
+  created_at: string;
+}
+
 export interface PaymentMethodBalance {
   id: string;
   user_id: string;
@@ -19,6 +31,9 @@ export interface PaymentMethodBalance {
   transfers_out: number;
   net_balance: number;
   net_this_month: number;
+  pockets_balance: number;
+  free_balance: number;
+  pockets: Pocket[];
 }
 
 export interface UserBalanceOverview {
@@ -74,6 +89,7 @@ export async function calculatePaymentMethodsWithBalances(
       amount, 
       payment_method, 
       destination_method, 
+      pocket_id,
       date
     FROM expenses
     WHERE user_id = ?
@@ -81,7 +97,28 @@ export async function calculatePaymentMethodsWithBalances(
     )
     .all(userId)) as any[];
 
-  // 3. Check if user already had legacy current_cash but all methods have initial_balance = 0 and no income
+  // 3. Query all pockets for this user
+  const userPockets = (await db
+    .prepare(
+      `
+    SELECT 
+      id, 
+      user_id, 
+      payment_method_id, 
+      name, 
+      color, 
+      icon, 
+      COALESCE(current_balance, 0) as current_balance, 
+      COALESCE(target_amount, 0) as target_amount, 
+      created_at
+    FROM account_pockets
+    WHERE user_id = ?
+    ORDER BY created_at ASC
+  `
+    )
+    .all(userId)) as any[];
+
+  // 4. Check if user already had legacy current_cash but all methods have initial_balance = 0 and no income
   const totalInitial = methods.reduce((acc, m) => acc + (Number(m.initial_balance) || 0), 0);
   if (totalInitial === 0 && userExpenses.length === 0) {
     const userRow = (await db
@@ -166,6 +203,18 @@ export async function calculatePaymentMethodsWithBalances(
     const net_balance = initialBalance + net_movements;
     const net_this_month = income_this_month - expense_this_month;
 
+    // Filter pockets for this account
+    const pockets: Pocket[] = userPockets
+      .filter((p) => p.payment_method_id === m.id)
+      .map((p) => ({
+        ...p,
+        current_balance: Number(p.current_balance) || 0,
+        target_amount: Number(p.target_amount) || 0,
+      }));
+
+    const pockets_balance = pockets.reduce((acc, p) => acc + p.current_balance, 0);
+    const free_balance = Math.max(0, net_balance - pockets_balance);
+
     totalAvailableCash += net_balance;
 
     return {
@@ -180,6 +229,9 @@ export async function calculatePaymentMethodsWithBalances(
       total_expense,
       net_balance,
       net_this_month,
+      pockets_balance,
+      free_balance,
+      pockets,
     };
   });
 

@@ -116,9 +116,8 @@ export function formatShortDateSpanish(dateStr: string | Date | null | undefined
 
   const diffDays = today.diff(d, 'day');
 
-  if (diffDays === 0) return 'Hoy';
-  if (diffDays === 1) return 'Ayer';
-  if (diffDays === -1) return 'Mañana';
+  if (diffDays === 0) return `Hoy, ${d.format('D MMM')}`;
+  if (diffDays === 1) return `Ayer, ${d.format('D MMM')}`;
 
   if (d.year() === today.year()) {
     return d.format('D MMM');

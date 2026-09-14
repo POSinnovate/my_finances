@@ -5,7 +5,7 @@ import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { QuickExpenseModal } from '@/components/expenses/QuickExpenseModal';
 import { formatCOP } from '@/lib/utils';
-import { formatShortDateSpanish } from '@/lib/dayjs';
+import dayjs, { formatShortDateSpanish, getTodayColombiaDate } from '@/lib/dayjs';
 import { 
   useUser, 
   useLoans, 
@@ -35,7 +35,8 @@ import {
   Check,
   Edit2,
   Edit,
-  ListCheck
+  ListCheck,
+  Tag
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageBanner, Pagination } from '@/components/ui';
@@ -81,14 +82,18 @@ export default function LoansPage() {
   // Unified Loan Form State (Creation & Full Editing)
   const [formLoanType, setFormLoanType] = useState<'LENT' | 'BORROWED'>('LENT');
   const [formBorrowerName, setFormBorrowerName] = useState('');
+  const [formTag, setFormTag] = useState('');
+  const [selectedTagFilter, setSelectedTagFilter] = useState<string>('ALL');
   const [formInitialAmount, setFormInitialAmount] = useState('');
   const [formDurationMonths, setFormDurationMonths] = useState('1');
   const [formInterestType, setFormInterestType] = useState<'PERCENT' | 'FIXED'>('PERCENT');
   const [formInterestRate, setFormInterestRate] = useState('10');
   const [formFixedInterest, setFormFixedInterest] = useState('');
-  const [formStartDate, setFormStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [formStartDate, setFormStartDate] = useState(getTodayColombiaDate());
   const [formDueDate, setFormDueDate] = useState('');
   const [formPaymentMethod, setFormPaymentMethod] = useState('');
+  const [formPocketId, setFormPocketId] = useState<string | null>(null);
+  const [showLoanPockets, setShowLoanPockets] = useState(false);
   const [formNotes, setFormNotes] = useState('');
   const [isSavingLoan, setIsSavingLoan] = useState(false);
 
@@ -96,7 +101,7 @@ export default function LoansPage() {
   const [payCapital, setPayCapital] = useState('');
   const [payInterest, setPayInterest] = useState('');
   const [payMethod, setPayMethod] = useState('');
-  const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
+  const [payDate, setPayDate] = useState(getTodayColombiaDate());
   const [payNotes, setPayNotes] = useState('');
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
   const [activePaymentShortcut, setActivePaymentShortcut] = useState<'INTEREST_ONLY' | 'SETTLE_ALL' | 'HALF_CAPITAL' | null>(null);
@@ -106,6 +111,7 @@ export default function LoansPage() {
     const map = new Map<string, {
       borrower_name: string;
       loans: any[];
+      tags: string[];
       total_current_balance: number;
       total_initial_amount: number;
       total_remaining_capital: number;
@@ -139,12 +145,14 @@ export default function LoansPage() {
       const totToCollect = Number(loan.total_to_collect) || (remainingCap + projInt);
       const totCollected = Number(loan.total_collected) || ((Number(loan.paid_capital) || 0) + (Number(loan.paid_interest) || 0));
       const remToCollect = Number(loan.remaining_to_collect) ?? Math.max(0, totToCollect - totCollected);
+      const loanTag = (loan.tag || '').trim();
 
       const existing = map.get(key);
       if (!existing) {
         map.set(key, {
           borrower_name: loan.borrower_name,
           loans: [loan],
+          tags: loanTag ? [loanTag] : [],
           total_current_balance: remainingCap,
           total_initial_amount: Number(loan.initial_amount) || 0,
           total_remaining_capital: remainingCap,
@@ -160,6 +168,9 @@ export default function LoansPage() {
         });
       } else {
         existing.loans.push(loan);
+        if (loanTag && !existing.tags.includes(loanTag)) {
+          existing.tags.push(loanTag);
+        }
         existing.total_current_balance += remainingCap;
         existing.total_initial_amount += Number(loan.initial_amount) || 0;
         existing.total_remaining_capital += remainingCap;
@@ -180,24 +191,44 @@ export default function LoansPage() {
     return Array.from(map.values());
   }, [loans]);
 
+  // Dynamic tags extracted from existing loans
+  const availableTags = useMemo(() => {
+    const map = new Map<string, number>();
+    loans.forEach((l: any) => {
+      const t = (l.tag || '').trim();
+      if (t) map.set(t, (map.get(t) || 0) + 1);
+    });
+    return Array.from(map.entries()).map(([name, count]) => ({ name, count }));
+  }, [loans]);
+
+  const existingTags = useMemo(() => availableTags.map(t => t.name), [availableTags]);
+
+  // Filter debtors by selected tag
+  const filteredDebtors = useMemo(() => {
+    if (selectedTagFilter === 'ALL') return groupedDebtors;
+    return groupedDebtors.filter((d: any) =>
+      d.loans.some((l: any) => (l.tag || '').trim().toLowerCase() === selectedTagFilter.trim().toLowerCase())
+    );
+  }, [groupedDebtors, selectedTagFilter]);
+
   // Pagination & Debtor Collapsing State
   const ITEMS_PER_PAGE = 8;
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedDebtorKeys, setExpandedDebtorKeys] = useState<Set<string>>(new Set());
 
-  // Reset pagination & fold all cards on tab, search, or status filter change
+  // Reset pagination & fold all cards on tab, search, status, or tag filter change
   useEffect(() => {
     setCurrentPage(1);
     setExpandedDebtorKeys(new Set());
-  }, [loanTypeTab, search, statusFilter]);
+  }, [loanTypeTab, search, statusFilter, selectedTagFilter]);
 
-  const totalDebtors = groupedDebtors.length;
+  const totalDebtors = filteredDebtors.length;
   const totalPages = Math.ceil(totalDebtors / ITEMS_PER_PAGE) || 1;
 
   const paginatedDebtors = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return groupedDebtors.slice(start, start + ITEMS_PER_PAGE);
-  }, [groupedDebtors, currentPage, ITEMS_PER_PAGE]);
+    return filteredDebtors.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredDebtors, currentPage, ITEMS_PER_PAGE]);
 
   const toggleDebtor = (key: string) => {
     setExpandedDebtorKeys(prev => {
@@ -267,14 +298,17 @@ export default function LoansPage() {
     setSelectedLoanForEdit(null);
     setFormLoanType(presetType || loanTypeTab);
     setFormBorrowerName(prefillDebtor || '');
+    setFormTag('');
     setFormInitialAmount('');
     setFormDurationMonths('1');
     setFormInterestType('PERCENT');
     setFormInterestRate('10');
     setFormFixedInterest('');
-    setFormStartDate(new Date().toISOString().split('T')[0]);
+    setFormStartDate(getTodayColombiaDate());
     setFormDueDate('');
     setFormPaymentMethod(paymentMethods[0]?.name || 'Efectivo');
+    setFormPocketId(null);
+    setShowLoanPockets(false);
     setFormNotes(prefillDebtor ? `Préstamo adicional` : '');
     setIsLoanModalOpen(true);
   };
@@ -285,6 +319,7 @@ export default function LoansPage() {
     setSelectedLoanForEdit(loan);
     setFormLoanType(loan.loan_type || 'LENT');
     setFormBorrowerName(loan.borrower_name || '');
+    setFormTag(loan.tag || '');
     setFormInitialAmount(String(loan.initial_amount || ''));
     setFormDurationMonths(String(loan.duration_months || 1));
     if (Number(loan.interest_rate) > 0) {
@@ -296,9 +331,11 @@ export default function LoansPage() {
       setFormFixedInterest(String(loan.expected_interest || ''));
       setFormInterestRate('0');
     }
-    setFormStartDate(loan.start_date || new Date().toISOString().split('T')[0]);
+    setFormStartDate(loan.start_date ? loan.start_date.split('T')[0] : getTodayColombiaDate());
     setFormDueDate(loan.due_date || '');
     setFormPaymentMethod(loan.payment_method || paymentMethods[0]?.name || 'Efectivo');
+    setFormPocketId(loan.pocket_id || null);
+    setShowLoanPockets(Boolean(loan.pocket_id));
     setFormNotes(loan.notes || '');
     setIsLoanModalOpen(true);
   };
@@ -325,6 +362,7 @@ export default function LoansPage() {
       const payload = {
         loan_type: formLoanType,
         borrower_name: formBorrowerName.trim(),
+        tag: formTag.trim() || null,
         initial_amount: principal,
         duration_months: Math.max(1, Number(formDurationMonths) || 1),
         interest_rate: formInterestType === 'PERCENT' ? Number(formInterestRate) || 0 : 0,
@@ -332,6 +370,7 @@ export default function LoansPage() {
         start_date: formStartDate,
         due_date: formDueDate || null,
         payment_method: formPaymentMethod || paymentMethods[0]?.name || 'Efectivo',
+        pocket_id: formPocketId || null,
         notes: formNotes.trim() || null,
       };
 
@@ -378,7 +417,7 @@ export default function LoansPage() {
     setPayInterest(String(monthlyFee > 0 ? monthlyFee : ''));
     setActivePaymentShortcut(monthlyFee > 0 ? 'INTEREST_ONLY' : null);
     setPayMethod(paymentMethods[0]?.name || 'Nequi');
-    setPayDate(new Date().toISOString().split('T')[0]);
+    setPayDate(getTodayColombiaDate());
     setPayNotes('');
   };
 
@@ -670,6 +709,47 @@ export default function LoansPage() {
           </div>
         </div>
 
+        {/* Dynamic Tags Carousel (never wraps/folds) */}
+        {availableTags.length > 0 && (
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 whitespace-nowrap">
+            <span className="text-[11px] font-semibold text-slate-400 flex items-center gap-1 shrink-0 mr-1">
+              <Tag className="w-3 h-3 text-[#00ADB5]" />
+              Etiquetas:
+            </span>
+            <button
+              type="button"
+              onClick={() => setSelectedTagFilter('ALL')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                selectedTagFilter === 'ALL'
+                  ? 'bg-linear-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] shadow-sm'
+                  : 'bg-[#102A43] text-slate-300 hover:text-white border border-[#243B55]'
+              }`}
+            >
+              Todas ({loans.length})
+            </button>
+            {availableTags.map(({ name, count }) => {
+              const isSelected = selectedTagFilter.toLowerCase() === name.toLowerCase();
+              return (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => setSelectedTagFilter(isSelected ? 'ALL' : name)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
+                    isSelected
+                      ? 'bg-linear-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] shadow-sm'
+                      : 'bg-[#102A43] text-slate-300 hover:text-white border border-[#243B55]'
+                  }`}
+                >
+                  <span>{name}</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${isSelected ? 'bg-[#0B192C]/30 text-[#0B192C]' : 'bg-[#0B192C] text-slate-400'}`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {/* Loans List */}
         {loadingLoans ? (
           <div className="text-center py-10">
@@ -776,6 +856,20 @@ export default function LoansPage() {
                           {debtor.loans.length} {isLentMode ? 'préstamos' : 'deudas'}
                         </span>
                       )}
+
+                      {debtor.tags && debtor.tags.length > 0 && (
+                        <div className="flex items-center gap-1">
+                          {debtor.tags.map((t: string) => (
+                            <span
+                              key={t}
+                              className="text-[10px] font-semibold px-1.5 py-0.2 rounded-md bg-[#00ADB5]/15 border border-[#00ADB5]/30 text-cyan-300 flex items-center gap-1"
+                            >
+                              <Tag className="w-2.5 h-2.5 text-[#00ADB5]" />
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     {/* Summary figures & Icon-only Actions */}
@@ -836,7 +930,13 @@ export default function LoansPage() {
                             {/* Meta row & Icon-only actions */}
                             <div className="flex items-center justify-between gap-2 flex-wrap">
                               <div className="flex flex-col gap-2 flex-wrap text-xs text-slate-400">
-                                <section className='flex gap-2'>
+                                <section className='flex gap-2 flex-wrap items-center'>
+                                  {loan.tag && (
+                                    <span className="px-1.5 py-0.2 rounded-md bg-[#00ADB5]/15 border border-[#00ADB5]/30 text-[10px] text-cyan-300 flex items-center gap-1 font-medium">
+                                      <Tag className="w-2.5 h-2.5 text-[#00ADB5]" />
+                                      {loan.tag}
+                                    </span>
+                                  )}
                                   {loan.notes && (
                                     <span className="text-cyan-300/90 font-medium italic truncate max-w-xs text-xs">
                                       "{loan.notes}"
@@ -1200,6 +1300,44 @@ export default function LoansPage() {
                   )}
                 </div>
 
+                {/* Tag / Classification (Freeform with dynamic suggestions) */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">
+                    Etiqueta / Clasificación <span className="text-[10px] text-slate-500 font-normal">(Opcional: Trabajo, Externo, Familiar, etc.)</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={formTag}
+                      onChange={(e) => setFormTag(e.target.value)}
+                      placeholder="Ej: Trabajo, Externo, Familiar..."
+                      maxLength={50}
+                      className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] text-white text-sm pl-8 pr-3 py-2 rounded-xl focus:outline-none"
+                    />
+                    <Tag className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  </div>
+                  {/* Dynamic suggestions carousel */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 whitespace-nowrap mt-1">
+                    <span className="text-[10px] text-slate-400 shrink-0">Sugerencias:</span>
+                    {Array.from(new Set(['Trabajo', 'Externo', 'Familiar', ...existingTags]))
+                      .slice(0, 7)
+                      .map((tagSuggestion) => (
+                        <button
+                          key={tagSuggestion}
+                          type="button"
+                          onClick={() => setFormTag(tagSuggestion)}
+                          className={`text-[10px] px-2 py-0.5 rounded-md border transition-all cursor-pointer shrink-0 ${
+                            formTag.trim().toLowerCase() === tagSuggestion.toLowerCase()
+                              ? 'bg-[#00ADB5] text-[#0B192C] font-bold border-[#00ADB5]'
+                              : 'bg-[#102A43] hover:bg-[#152E4D] border-[#243B55] text-cyan-300'
+                          }`}
+                        >
+                          {tagSuggestion}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+
                 {/* Interest calculation */}
                 <div className="bg-[#102A43]/70 border border-[#243B55] rounded-2xl p-3 space-y-2">
                   <div className="flex items-center justify-between">
@@ -1303,9 +1441,7 @@ export default function LoansPage() {
                         const m = e.target.value;
                         setFormDurationMonths(m);
                         if (formStartDate && Number(m) > 0) {
-                          const d = new Date(formStartDate);
-                          d.setMonth(d.getMonth() + Number(m));
-                          setFormDueDate(d.toISOString().split('T')[0]);
+                          setFormDueDate(dayjs(formStartDate).add(Number(m), 'month').format('YYYY-MM-DD'));
                         }
                       }}
                       placeholder="1"
@@ -1324,9 +1460,7 @@ export default function LoansPage() {
                         const start = e.target.value;
                         setFormStartDate(start);
                         if (start && Number(formDurationMonths) > 0) {
-                          const d = new Date(start);
-                          d.setMonth(d.getMonth() + Number(formDurationMonths));
-                          setFormDueDate(d.toISOString().split('T')[0]);
+                          setFormDueDate(dayjs(start).add(Number(formDurationMonths), 'month').format('YYYY-MM-DD'));
                         }
                       }}
                       className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] rounded-xl px-2.5 py-1.5 text-xs sm:text-sm text-white outline-none"
@@ -1345,26 +1479,117 @@ export default function LoansPage() {
                   </div>
                 </div>
 
-                {/* Account & Notes */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {/* Account Selector with Pockets */}
+                <div className="space-y-2.5">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1">
-                      {formLoanType === 'LENT' ? 'Cuenta de Desembolso' : 'Cuenta Receptora'}
-                    </label>
-                    <select
-                      value={formPaymentMethod}
-                      onChange={(e) => setFormPaymentMethod(e.target.value)}
-                      className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] rounded-xl px-3 py-2 text-xs sm:text-sm text-white outline-none"
-                    >
-                      {paymentMethods.map((pm: any) => (
-                        <option key={pm.id} value={pm.name}>
-                          {pm.name}
-                        </option>
-                      ))}
-                      {paymentMethods.length === 0 && <option value="Efectivo">Efectivo</option>}
-                    </select>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-semibold text-slate-400">
+                        {formLoanType === 'LENT' ? 'Cuenta de Desembolso' : 'Cuenta Receptora'}
+                      </label>
+                      {(() => {
+                        const currentMethodObj = paymentMethods.find((pm: any) => pm.name === formPaymentMethod);
+                        const pocketsCount = currentMethodObj?.pockets?.length || 0;
+                        if (pocketsCount === 0) return null;
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => setShowLoanPockets(!showLoanPockets)}
+                            className="text-[11px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors px-2 py-0.5 rounded-lg bg-cyan-950/40 border border-cyan-500/30 hover:border-cyan-400 cursor-pointer"
+                          >
+                            <span>🏷️ Usar bolsillo</span>
+                            <span className="bg-cyan-500/20 text-cyan-300 px-1.5 py-0.2 rounded-full text-[10px]">
+                              {pocketsCount}
+                            </span>
+                          </button>
+                        );
+                      })()}
+                    </div>
+
+                    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 whitespace-nowrap">
+                      {paymentMethods.map((pm: any) => {
+                        // When a pocket is selected, the main account is deselected
+                        const isSelected = formPaymentMethod === pm.name && !formPocketId;
+                        const freeBal = pm.free_balance !== undefined ? pm.free_balance : (pm.net_balance ?? 0);
+                        return (
+                          <button
+                            key={pm.id}
+                            type="button"
+                            onClick={() => {
+                              setFormPaymentMethod(pm.name);
+                              setFormPocketId(null);
+                            }}
+                            className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                              isSelected
+                                ? 'bg-[#102A43] border-[#00ADB5] text-white ring-2 ring-[#00ADB5]/50 shadow-md'
+                                : 'bg-[#102A43] border-[#243B55] text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            <span
+                              className="w-2 h-2 rounded-full"
+                              style={{ backgroundColor: pm.color || '#00ADB5' }}
+                            />
+                            <span>{pm.name} • {formatCOP(freeBal)}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Pocket Carousel when showLoanPockets is true and pockets exist */}
+                    {(() => {
+                      if (!showLoanPockets) return null;
+                      const currentMethodObj = paymentMethods.find((pm: any) => pm.name === formPaymentMethod);
+                      const pocketsList = currentMethodObj?.pockets || [];
+                      if (pocketsList.length === 0) return null;
+
+                      return (
+                        <div className="mt-2 pt-2 border-t border-cyan-950/60">
+                          <div className="text-[11px] text-cyan-300/80 font-medium mb-1.5 flex items-center justify-between">
+                            <span>Bolsillos de {currentMethodObj?.name}:</span>
+                            {formPocketId && (
+                              <button
+                                type="button"
+                                onClick={() => setFormPocketId(null)}
+                                className="text-[10px] text-slate-400 hover:text-white underline cursor-pointer"
+                              >
+                                Volver a cuenta principal
+                              </button>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 whitespace-nowrap">
+                            {pocketsList.map((pkt: any) => {
+                              const isPktSelected = formPocketId === pkt.id;
+                              return (
+                                <button
+                                  key={pkt.id}
+                                  type="button"
+                                  onClick={() => {
+                                    if (isPktSelected) {
+                                      setFormPocketId(null);
+                                    } else {
+                                      setFormPocketId(pkt.id);
+                                    }
+                                  }}
+                                  className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                                    isPktSelected
+                                      ? 'bg-cyan-500/20 border-cyan-400 text-white ring-2 ring-cyan-500/50 shadow-md'
+                                      : 'bg-[#0B192C] border-[#243B55] text-slate-300 hover:text-white hover:border-cyan-500/40'
+                                  }`}
+                                >
+                                  <span
+                                    className="w-2 h-2 rounded-full"
+                                    style={{ backgroundColor: pkt.color || '#00ADB5' }}
+                                  />
+                                  <span>{pkt.name} • {formatCOP(pkt.current_balance)}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
 
+                  {/* Notes */}
                   <div>
                     <label className="block text-xs font-semibold text-slate-400 mb-1">
                       Notas / Condiciones

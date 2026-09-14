@@ -12,11 +12,23 @@ export async function DELETE(
     const { id } = await params;
 
     const expense = await db.prepare(`
-      SELECT amount, type, user_id FROM expenses WHERE id = ? AND user_id = ?
-    `).get(id, auth.userId) as { amount: number; type: string; user_id: string } | undefined;
+      SELECT amount, type, user_id, pocket_id FROM expenses WHERE id = ? AND user_id = ?
+    `).get(id, auth.userId) as { amount: number; type: string; user_id: string; pocket_id?: string } | undefined;
 
     if (!expense) {
       return NextResponse.json({ error: 'Movimiento no encontrado' }, { status: 404 });
+    }
+
+    // If expense was tied to a pocket, refund/reverse pocket balance
+    if (expense.pocket_id) {
+      const amt = Number(expense.amount) || 0;
+      if (expense.type === 'EXPENSE' || expense.type === 'TRANSFER') {
+        await db.prepare('UPDATE account_pockets SET current_balance = current_balance + ?, updated_at = NOW() WHERE id = ?')
+          .run(amt, expense.pocket_id);
+      } else if (expense.type === 'INCOME') {
+        await db.prepare('UPDATE account_pockets SET current_balance = current_balance - ?, updated_at = NOW() WHERE id = ?')
+          .run(amt, expense.pocket_id);
+      }
     }
 
     await db.prepare(`DELETE FROM expenses WHERE id = ? AND user_id = ?`).run(id, auth.userId);

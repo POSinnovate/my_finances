@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db/client';
 import { randomUUID } from 'crypto';
 import { syncUserCurrentCash } from '@/lib/finance-balance';
+import { getTodayColombiaDate } from '@/lib/dayjs';
 
 export async function POST(
   req: NextRequest,
@@ -66,7 +67,7 @@ export async function POST(
     const newBalance = remainingCapital;
     // Loan is paid off only when all principal is returned
     const newStatus = remainingCapital <= 0 ? 'PAID' : 'ACTIVE';
-    const payDate = payment_date || new Date().toISOString().split('T')[0];
+    const payDate = payment_date || getTodayColombiaDate();
     const method = payment_method || 'Nequi';
     const cleanNotes = notes?.trim() || null;
 

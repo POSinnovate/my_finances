@@ -26,6 +26,10 @@ import {
   ArrowDownRight, 
   ArrowUpRight, 
   X,
+  Layers,
+  PiggyBank,
+  ArrowRightLeft,
+  DollarSign
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageBanner } from '@/components/ui';
@@ -67,11 +71,180 @@ export default function AccountsPage() {
   const [editMethodTargetBalance, setEditMethodTargetBalance] = useState('');
   const [isSavingEditMethod, setIsSavingEditMethod] = useState(false);
 
+  // Add Pocket Modal
+  const [isAddPocketOpen, setIsAddPocketOpen] = useState(false);
+  const [pocketTargetMethod, setPocketTargetMethod] = useState<any | null>(null);
+  const [newPocketName, setNewPocketName] = useState('');
+  const [newPocketColor, setNewPocketColor] = useState(COLOR_OPTIONS[1]);
+  const [newPocketTargetAmount, setNewPocketTargetAmount] = useState('');
+  const [newPocketInitialFunding, setNewPocketInitialFunding] = useState('');
+  const [isCreatingPocket, setIsCreatingPocket] = useState(false);
+
+  // Transfer Pocket Modal (Meter / Sacar dinero)
+  const [transferModalData, setTransferModalData] = useState<{
+    pocket: any;
+    account: any;
+  } | null>(null);
+  const [transferType, setTransferType] = useState<'DEPOSIT' | 'WITHDRAW'>('DEPOSIT');
+  const [transferAmount, setTransferAmount] = useState('');
+  const [isTransferringPocket, setIsTransferringPocket] = useState(false);
+
   // Total balance across all accounts
   const totalBalance = paymentMethods.reduce(
     (acc: number, pm: any) => acc + (Number(pm.net_balance) || 0), 
     0
   );
+  const totalFreeBalance = paymentMethods.reduce(
+    (acc: number, pm: any) => acc + (Number(pm.free_balance !== undefined ? pm.free_balance : pm.net_balance) || 0), 
+    0
+  );
+  const totalPocketsBalance = paymentMethods.reduce(
+    (acc: number, pm: any) => acc + (Number(pm.pockets_balance) || 0), 
+    0
+  );
+
+  // Open Add Pocket Modal
+  const handleOpenAddPocket = (pm: any) => {
+    setPocketTargetMethod(pm);
+    setNewPocketName('');
+    setNewPocketColor(COLOR_OPTIONS[Math.floor(Math.random() * COLOR_OPTIONS.length)]);
+    setNewPocketTargetAmount('');
+    setNewPocketInitialFunding('');
+    setIsAddPocketOpen(true);
+  };
+
+  // Create Pocket
+  const handleCreatePocket = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pocketTargetMethod || !newPocketName.trim()) {
+      toast.error('Nombre del bolsillo obligatorio');
+      return;
+    }
+
+    const funding = Number(newPocketInitialFunding) || 0;
+    const freeBal = pocketTargetMethod.free_balance !== undefined ? pocketTargetMethod.free_balance : (pocketTargetMethod.net_balance || 0);
+    if (funding > freeBal) {
+      toast.error(`El saldo libre disponible en ${pocketTargetMethod.name} es ${formatCOP(freeBal)}`);
+      return;
+    }
+
+    setIsCreatingPocket(true);
+    try {
+      const res = await fetch('/api/pockets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          payment_method_id: pocketTargetMethod.id,
+          name: newPocketName.trim(),
+          color: newPocketColor,
+          target_amount: Number(newPocketTargetAmount) || 0,
+          initial_balance: funding,
+        }),
+      });
+
+      if (res.ok) {
+        toast.success(`Bolsillo "${newPocketName.trim()}" creado`);
+        setIsAddPocketOpen(false);
+        setNewPocketName('');
+        setNewPocketInitialFunding('');
+        setNewPocketTargetAmount('');
+        await refetchPaymentMethods();
+        invalidateFinance();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || 'Error al crear bolsillo');
+      }
+    } catch {
+      toast.error('Error de conexión');
+    } finally {
+      setIsCreatingPocket(false);
+    }
+  };
+
+  // Open Transfer Modal
+  const handleOpenTransferPocket = (pocket: any, account: any, type: 'DEPOSIT' | 'WITHDRAW') => {
+    setTransferModalData({ pocket, account });
+    setTransferType(type);
+    setTransferAmount('');
+  };
+
+  // Handle Transfer (Meter / Sacar)
+  const handleTransferPocket = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!transferModalData || !transferAmount) return;
+
+    const amt = Number(transferAmount);
+    if (isNaN(amt) || amt <= 0) {
+      toast.error('Ingresa un monto válido');
+      return;
+    }
+
+    const { pocket, account } = transferModalData;
+    const freeBal = account.free_balance !== undefined ? account.free_balance : (account.net_balance || 0);
+
+    if (transferType === 'DEPOSIT' && amt > freeBal) {
+      toast.error(`Solo tienes ${formatCOP(freeBal)} libres en ${account.name}`);
+      return;
+    }
+
+    if (transferType === 'WITHDRAW' && amt > pocket.current_balance) {
+      toast.error(`Solo tienes ${formatCOP(pocket.current_balance)} en este bolsillo`);
+      return;
+    }
+
+    setIsTransferringPocket(true);
+    try {
+      const res = await fetch(`/api/pockets/${pocket.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'transfer',
+          transfer_type: transferType,
+          amount: amt,
+        }),
+      });
+
+      if (res.ok) {
+        toast.success(
+          transferType === 'DEPOSIT'
+            ? `Ingresaste ${formatCOP(amt)} al bolsillo "${pocket.name}"`
+            : `Sacaste ${formatCOP(amt)} al saldo libre de "${account.name}"`
+        );
+        setTransferModalData(null);
+        setTransferAmount('');
+        await refetchPaymentMethods();
+        invalidateFinance();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || 'Error en la transferencia');
+      }
+    } catch {
+      toast.error('Error de conexión');
+    } finally {
+      setIsTransferringPocket(false);
+    }
+  };
+
+  // Delete Pocket
+  const handleDeletePocket = async (pocket: any, accountName: string) => {
+    if (!confirm(`¿Eliminar el bolsillo "${pocket.name}"? Los ${formatCOP(pocket.current_balance)} guardados quedarán disponibles automáticamente como saldo libre en ${accountName}.`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/pockets/${pocket.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        toast.success(`Bolsillo "${pocket.name}" eliminado`);
+        await refetchPaymentMethods();
+        invalidateFinance();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || 'Error al eliminar bolsillo');
+      }
+    } catch {
+      toast.error('Error de conexión');
+    }
+  };
 
   // Create new account
   const handleCreateMethod = async (e: React.FormEvent) => {
@@ -303,25 +476,125 @@ export default function AccountsPage() {
                   </div>
                 </div>
 
-                {/* Balance & Calibration Pill */}
-                <div className="p-2.5 rounded-xl bg-[#070F1E] border border-[#1E3A5F] flex items-center justify-between gap-2">
-                  <div>
-                    <span className="text-[10px] text-slate-400 font-medium block">Saldo Actual:</span>
-                    <span className={`text-sm font-black font-mono block ${
-                      isPositive ? 'text-cyan-300' : 'text-rose-400'
-                    }`}>
-                      {formatCOP(pm.net_balance ?? 0)}
-                    </span>
+                {/* Balances Section: Total vs Libre vs Bolsillos */}
+                <div className="p-3 rounded-2xl bg-[#070F1E] border border-[#1E3A5F] space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-medium block">Saldo Total en Cuenta:</span>
+                      <span className={`text-sm sm:text-base font-black font-mono block ${
+                        isPositive ? 'text-white' : 'text-rose-400'
+                      }`}>
+                        {formatCOP(pm.net_balance ?? 0)}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEditMethod(pm)}
+                      className="px-2.5 py-1 rounded-lg bg-cyan-400/10 hover:bg-cyan-400/20 text-cyan-300 hover:text-cyan-200 border border-cyan-500/30 text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                      title="Equilibrar o calibrar el saldo de esta cuenta"
+                    >
+                      <SlidersHorizontal className="w-3 h-3" />
+                      <span>Ajustar</span>
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleOpenEditMethod(pm)}
-                    className="px-2.5 py-1 rounded-lg bg-cyan-400/10 hover:bg-cyan-400/20 text-cyan-300 hover:text-cyan-200 border border-cyan-500/30 text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
-                    title="Equilibrar o calibrar el saldo de esta cuenta"
-                  >
-                    <SlidersHorizontal className="w-3 h-3" />
-                    <span>Ajustar</span>
-                  </button>
+
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#1E3A5F]/60">
+                    <div className="p-2 rounded-xl bg-cyan-950/40 border border-cyan-500/30">
+                      <span className="text-[10px] text-cyan-300 font-bold block">
+                        Saldo Libre (Gastos)
+                      </span>
+                      <span className="text-xs font-black text-cyan-400 font-mono block mt-0.5">
+                        {formatCOP(pm.free_balance !== undefined ? pm.free_balance : (pm.net_balance ?? 0))}
+                      </span>
+                    </div>
+                    <div className="p-2 rounded-xl bg-violet-950/40 border border-violet-500/30">
+                      <span className="text-[10px] text-violet-300 font-bold block">
+                        En Bolsillos
+                      </span>
+                      <span className="text-xs font-black text-violet-400 font-mono block mt-0.5">
+                        {formatCOP(pm.pockets_balance || 0)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bolsillos Sub-Section */}
+                <div className="pt-2 border-t border-[#1E3A5F]/60 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5 text-cyan-400" />
+                      <span className="text-xs font-bold text-slate-200">
+                        Bolsillos ({pm.pockets?.length || 0})
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenAddPocket(pm)}
+                      className="text-[11px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cyan-950/40 border border-cyan-500/30 hover:border-cyan-400 transition-colors cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>Bolsillo</span>
+                    </button>
+                  </div>
+
+                  {/* Horizontal carousel of pockets */}
+                  {pm.pockets && pm.pockets.length > 0 ? (
+                    <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 whitespace-nowrap">
+                      {pm.pockets.map((pkt: any) => (
+                        <div
+                          key={pkt.id}
+                          className="px-2.5 py-1.5 rounded-xl bg-[#102A43]/80 border border-[#243B55] hover:border-cyan-500/40 shrink-0 flex items-center gap-2 shadow-sm transition-all"
+                        >
+                          <span
+                            className="w-2.5 h-2.5 rounded-full shrink-0"
+                            style={{ backgroundColor: pkt.color || '#00ADB5' }}
+                          />
+                          <div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs font-bold text-white truncate max-w-[110px]">
+                                {pkt.name}
+                              </span>
+                            </div>
+                            <span className="text-xs font-extrabold text-cyan-300 font-mono block">
+                              {formatCOP(pkt.current_balance)}
+                            </span>
+                          </div>
+                          
+                          {/* Actions: Meter / Sacar / Delete */}
+                          <div className="flex items-center gap-0.5 pl-1 border-l border-[#243B55]">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenTransferPocket(pkt, pm, 'DEPOSIT')}
+                              className="p-1 rounded text-emerald-400 hover:bg-emerald-500/10 cursor-pointer"
+                              title="Meter dinero al bolsillo"
+                            >
+                              <ArrowDownRight className="w-3 h-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenTransferPocket(pkt, pm, 'WITHDRAW')}
+                              className="p-1 rounded text-amber-400 hover:bg-amber-500/10 cursor-pointer"
+                              title="Sacar dinero al saldo libre"
+                            >
+                              <ArrowUpRight className="w-3 h-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePocket(pkt, pm.name)}
+                              className="p-1 rounded text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 cursor-pointer"
+                              title="Eliminar bolsillo"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-slate-500 italic">
+                      Sin bolsillos creados en esta cuenta.
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between text-[11px] text-slate-400 pt-0.5">
@@ -523,7 +796,7 @@ export default function AccountsPage() {
                     <button
                       key={c}
                       type="button"
-                      onClick={() => setNewMethodColor(c)}
+                      onClick={() => setEditMethodColor(c)}
                       className={`w-7 h-7 rounded-full transition-transform cursor-pointer ${
                         editMethodColor === c ? 'scale-110 ring-2 ring-white' : 'opacity-70 hover:opacity-100'
                       }`}
@@ -547,6 +820,235 @@ export default function AccountsPage() {
                   className="flex-1 py-2.5 rounded-xl bg-cyan-400 text-slate-950 text-xs font-black hover:bg-cyan-300 transition-colors disabled:opacity-50"
                 >
                   {isSavingEditMethod ? 'Guardando...' : 'Guardar Cambios'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CREAR NUEVO BOLSILLO */}
+      {isAddPocketOpen && pocketTargetMethod && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-md bg-[#0B192C] border border-[#1E3A5F] rounded-3xl p-5 sm:p-6 shadow-2xl relative max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-[#1E3A5F]">
+              <span className="text-sm font-bold text-white flex items-center gap-2">
+                <Layers className="w-4 h-4 text-cyan-400" />
+                <span>Nuevo Bolsillo en {pocketTargetMethod.name}</span>
+              </span>
+              <button
+                onClick={() => setIsAddPocketOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreatePocket} className="mt-4 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Nombre del Bolsillo *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newPocketName}
+                  onChange={(e) => setNewPocketName(e.target.value)}
+                  placeholder="Ej: Arriendo, Ahorro Moto, Vacaciones"
+                  className="w-full bg-[#102A43] border border-[#243B55] rounded-xl px-3 py-2 text-sm text-white placeholder-slate-400 outline-none focus:border-cyan-400"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-slate-300">
+                    Monto Inicial a Asignar ($ COP)
+                  </label>
+                  <span className="text-[10px] text-cyan-400 font-mono">
+                    Libre en cuenta: {formatCOP(pocketTargetMethod.free_balance !== undefined ? pocketTargetMethod.free_balance : (pocketTargetMethod.net_balance || 0))}
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  step="1000"
+                  value={newPocketInitialFunding}
+                  onChange={(e) => setNewPocketInitialFunding(e.target.value)}
+                  placeholder="0"
+                  className="w-full bg-[#102A43] border border-[#243B55] rounded-xl px-3 py-2 text-sm font-mono text-white outline-none focus:border-cyan-400"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Se apartará del saldo libre de {pocketTargetMethod.name} y quedará protegido en este bolsillo.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Meta Opcional ($ COP)
+                </label>
+                <input
+                  type="number"
+                  step="1000"
+                  value={newPocketTargetAmount}
+                  onChange={(e) => setNewPocketTargetAmount(e.target.value)}
+                  placeholder="Ej: 1500000"
+                  className="w-full bg-[#102A43] border border-[#243B55] rounded-xl px-3 py-2 text-sm font-mono text-white outline-none focus:border-cyan-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Color Identificador
+                </label>
+                <div className="flex gap-2 flex-wrap">
+                  {COLOR_OPTIONS.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setNewPocketColor(c)}
+                      className={`w-7 h-7 rounded-full transition-transform cursor-pointer ${
+                        newPocketColor === c ? 'scale-110 ring-2 ring-white' : 'opacity-70 hover:opacity-100'
+                      }`}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddPocketOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-[#243B55] text-xs font-bold text-slate-300 hover:text-white cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreatingPocket}
+                  className="flex-1 py-2.5 rounded-xl bg-cyan-400 text-slate-950 text-xs font-black hover:bg-cyan-300 transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {isCreatingPocket ? 'Creando...' : 'Crear Bolsillo'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: TRANSFERIR DINERO A / DESDE BOLSILLO (METER / SACAR) */}
+      {transferModalData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-md bg-[#0B192C] border border-[#1E3A5F] rounded-3xl p-5 sm:p-6 shadow-2xl relative max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-[#1E3A5F]">
+              <span className="text-sm font-bold text-white flex items-center gap-2">
+                <ArrowRightLeft className="w-4 h-4 text-cyan-400" />
+                <span>
+                  {transferType === 'DEPOSIT'
+                    ? `Meter dinero a "${transferModalData.pocket.name}"`
+                    : `Sacar dinero de "${transferModalData.pocket.name}"`}
+                </span>
+              </span>
+              <button
+                onClick={() => setTransferModalData(null)}
+                className="text-slate-400 hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Type selector toggle (Meter vs Sacar) */}
+            <div className="flex bg-[#070F1E] p-1 rounded-xl border border-[#1E3A5F] mt-4 mb-3">
+              <button
+                type="button"
+                onClick={() => setTransferType('DEPOSIT')}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  transferType === 'DEPOSIT'
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <ArrowDownRight className="w-3.5 h-3.5" />
+                <span>Meter al Bolsillo</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setTransferType('WITHDRAW')}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  transferType === 'WITHDRAW'
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <ArrowUpRight className="w-3.5 h-3.5" />
+                <span>Sacar a Saldo Libre</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleTransferPocket} className="space-y-3.5">
+              {/* Balances summary */}
+              <div className="grid grid-cols-2 gap-2 p-2.5 rounded-2xl bg-[#102A43]/60 border border-[#243B55]">
+                <div>
+                  <span className="text-[10px] text-slate-400 block">En Bolsillo:</span>
+                  <span className="text-xs font-black text-cyan-300 font-mono block">
+                    {formatCOP(transferModalData.pocket.current_balance)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 block">Libre en {transferModalData.account.name}:</span>
+                  <span className="text-xs font-black text-emerald-400 font-mono block">
+                    {formatCOP(transferModalData.account.free_balance !== undefined ? transferModalData.account.free_balance : (transferModalData.account.net_balance || 0))}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Monto a {transferType === 'DEPOSIT' ? 'Meter' : 'Sacar'} ($ COP) *
+                </label>
+                <input
+                  type="number"
+                  step="1000"
+                  required
+                  autoFocus
+                  value={transferAmount}
+                  onChange={(e) => setTransferAmount(e.target.value)}
+                  placeholder="0"
+                  className="w-full bg-[#102A43] border border-[#243B55] rounded-xl px-3 py-2 text-base font-mono font-bold text-white outline-none focus:border-cyan-400"
+                />
+              </div>
+
+              {/* Quick shortcut buttons */}
+              <div className="flex gap-1.5 flex-wrap">
+                {[20000, 50000, 100000, 200000, 500000].map((val) => (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => setTransferAmount(String(val))}
+                    className="text-[11px] px-2 py-0.5 rounded-lg bg-[#070F1E] border border-[#243B55] text-slate-300 hover:text-white font-mono cursor-pointer"
+                  >
+                    +{formatCOP(val).replace('$', '').trim()}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setTransferModalData(null)}
+                  className="flex-1 py-2.5 rounded-xl border border-[#243B55] text-xs font-bold text-slate-300 hover:text-white cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isTransferringPocket || !transferAmount}
+                  className={`flex-1 py-2.5 rounded-xl text-slate-950 text-xs font-black transition-colors disabled:opacity-50 cursor-pointer ${
+                    transferType === 'DEPOSIT'
+                      ? 'bg-emerald-400 hover:bg-emerald-300'
+                      : 'bg-amber-400 hover:bg-amber-300'
+                  }`}
+                >
+                  {isTransferringPocket ? 'Procesando...' : transferType === 'DEPOSIT' ? 'Meter al Bolsillo' : 'Sacar a Saldo Libre'}
                 </button>
               </div>
             </form>

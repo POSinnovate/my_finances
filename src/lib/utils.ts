@@ -54,11 +54,9 @@ export function formatDateSpanish(dateString: string | null | undefined, include
       const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
       if (targetTime === today.getTime()) {
-        return 'Hoy';
+        return `Hoy, ${day} ${months[month]}`;
       } else if (targetTime === yesterday.getTime()) {
-        return 'Ayer';
-      } else if (targetTime === tomorrow.getTime()) {
-        return 'Mañana';
+        return `Ayer, ${day} ${months[month]}`;
       } else {
         return `${day} ${months[month]} ${year !== today.getFullYear() ? year : ''}`.trim();
       }
