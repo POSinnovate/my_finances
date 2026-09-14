@@ -359,52 +359,52 @@ export function QuickExpenseModal({
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
-      <div className="w-full max-w-lg bg-[#0B192C] border-t sm:border border-[#1E3A5F] rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl animate-in slide-in-from-bottom duration-200 max-h-[94vh] overflow-y-auto">
+      <div className="w-full max-w-lg bg-surface border-t sm:border border-border rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl animate-in slide-in-from-bottom duration-200 max-h-[94vh] overflow-y-auto">
         {/* Modal Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-[#1E3A5F]">
+        <div className="flex items-center justify-between pb-3 border-b border-border">
           {/* Toggle Type Tabs */}
-          <div className="flex items-center bg-[#102A43] p-1 rounded-2xl border border-[#243B55] gap-1 overflow-x-auto scrollbar-none">
+          <div className="flex items-center bg-surface-elevated p-1 rounded-2xl border border-border gap-1 overflow-x-auto scrollbar-none">
             <button
               type="button"
               onClick={() => handleSwitchType('EXPENSE')}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 cursor-pointer ${
                 txType === 'EXPENSE'
-                  ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-sm'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-danger/20 text-danger border border-danger/40 shadow-sm'
+                  : 'text-foreground/50 hover:text-foreground'
               }`}
             >
-              <ArrowDownCircle className="w-3.5 h-3.5 text-rose-400" />
+              <ArrowDownCircle className="w-3.5 h-3.5 text-danger" />
               <span>Gasto</span>
             </button>
             <button
               type="button"
               onClick={() => handleSwitchType('INCOME')}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 cursor-pointer ${
                 txType === 'INCOME'
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-success/20 text-success border border-success/40 shadow-sm'
+                  : 'text-foreground/50 hover:text-foreground'
               }`}
             >
-              <ArrowUpCircle className="w-3.5 h-3.5 text-emerald-400" />
+              <ArrowUpCircle className="w-3.5 h-3.5 text-success" />
               <span>Ingreso</span>
             </button>
             <button
               type="button"
               onClick={() => handleSwitchType('TRANSFER')}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 cursor-pointer ${
                 txType === 'TRANSFER'
-                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-accent/20 text-accent border border-accent/40 shadow-sm'
+                  : 'text-foreground/50 hover:text-foreground'
               }`}
             >
-              <ArrowRightLeft className="w-3.5 h-3.5 text-cyan-400" />
+              <ArrowRightLeft className="w-3.5 h-3.5 text-accent" />
               <span>Transferencia</span>
             </button>
           </div>
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-1.5 rounded-full text-foreground/40 hover:text-foreground hover:bg-surface-elevated transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -414,7 +414,7 @@ export function QuickExpenseModal({
           {/* Big Amount Input with Live Conversion Preview */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-xs font-semibold text-slate-400">
+              <label className="text-xs font-semibold text-foreground/60">
                 {isIncome
                   ? 'Monto del Ingreso ($ COP)'
                   : isTransfer
@@ -425,10 +425,10 @@ export function QuickExpenseModal({
                 <span
                   className={`text-xs font-extrabold px-2.5 py-0.5 rounded-lg border transition-all ${
                     isIncome
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                      ? 'bg-success/10 text-success border-success/30'
                       : isTransfer
-                      ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30'
-                      : 'bg-[#00ADB5]/10 text-[#00ADB5] border-[#00ADB5]/30'
+                      ? 'bg-accent/10 text-accent border-accent/30'
+                      : 'bg-primary/10 text-primary border-primary/30'
                   }`}
                 >
                   {formatCOP(numericAmount)}
@@ -439,7 +439,7 @@ export function QuickExpenseModal({
             <div className="relative">
               <span
                 className={`absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-black ${
-                  isIncome ? 'text-emerald-400' : isTransfer ? 'text-cyan-400' : 'text-[#00ADB5]'
+                  isIncome ? 'text-success' : isTransfer ? 'text-accent' : 'text-primary'
                 }`}
               >
                 $
@@ -451,7 +451,7 @@ export function QuickExpenseModal({
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 autoFocus
-                className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] text-white text-3xl font-extrabold pl-10 pr-4 py-3 rounded-2xl focus:outline-none transition-all placeholder:text-slate-600"
+                className="w-full bg-surface-elevated border border-border focus:border-primary text-foreground text-3xl font-extrabold pl-10 pr-4 py-3 rounded-2xl focus:outline-none transition-all placeholder:text-foreground/30"
               />
             </div>
 
@@ -462,7 +462,7 @@ export function QuickExpenseModal({
                   key={val}
                   type="button"
                   onClick={() => handleQuickAddAmount(val)}
-                  className="text-xs bg-[#152E4D] hover:bg-[#1E3A5F] active:scale-95 text-slate-200 px-2.5 py-1 rounded-lg border border-[#243B55] transition-all font-semibold"
+                  className="text-xs bg-secondary hover:bg-secondary/80 active:scale-95 text-foreground/90 px-2.5 py-1 rounded-lg border border-border transition-all font-semibold cursor-pointer"
                 >
                   +{formatCOP(val).replace('$', '').trim()}
                 </button>
@@ -472,10 +472,10 @@ export function QuickExpenseModal({
 
           {/* Conditional: Transfer Panel vs Standard Category & Method */}
           {isTransfer ? (
-            <div className="space-y-3.5 bg-[#102A43]/60 p-3.5 rounded-2xl border border-[#243B55]">
+            <div className="space-y-3.5 bg-surface-elevated/60 p-3.5 rounded-2xl border border-border">
               {/* Origin Account (From where money exits) */}
               <div>
-                <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5 mb-1.5">
+                <label className="text-xs font-bold text-foreground/80 flex items-center gap-1.5 mb-1.5">
                   <Wallet className="w-3.5 h-3.5 text-rose-400" />
                   <span>Desde (Medio / Cuenta Origen):</span>
                 </label>
@@ -493,8 +493,8 @@ export function QuickExpenseModal({
                         }}
                         className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-all flex items-center gap-1.5 shrink-0 ${
                           isSelected
-                            ? 'bg-rose-500/20 border-rose-400 text-white ring-2 ring-rose-500/40 shadow-md'
-                            : 'bg-[#0B192C] border-[#243B55] text-slate-400 hover:text-white'
+                            ? 'bg-rose-500/20 border-rose-400 text-foreground ring-2 ring-rose-500/40 shadow-md'
+                            : 'bg-surface border-border text-foreground/60 hover:text-foreground hover:bg-secondary/40'
                         }`}
                       >
                         <span className="w-2 h-2 rounded-full" style={{ backgroundColor: pm.color || '#00ADB5' }} />
@@ -507,7 +507,7 @@ export function QuickExpenseModal({
 
               {/* Destination Account (Where money arrives) */}
               <div>
-                <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5 mb-1.5">
+                <label className="text-xs font-bold text-foreground/80 flex items-center gap-1.5 mb-1.5">
                   <ArrowRightLeft className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Hacia (Medio / Cuenta Destino):</span>
                 </label>
@@ -522,8 +522,8 @@ export function QuickExpenseModal({
                         onClick={() => setDestinationMethod(pm.name)}
                         className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-all flex items-center gap-1.5 shrink-0 ${
                           isSelected
-                            ? 'bg-emerald-500/20 border-emerald-400 text-white ring-2 ring-emerald-500/40 shadow-md'
-                            : 'bg-[#0B192C] border-[#243B55] text-slate-400 hover:text-white'
+                            ? 'bg-emerald-500/20 border-emerald-400 text-foreground ring-2 ring-emerald-500/40 shadow-md'
+                            : 'bg-surface border-border text-foreground/60 hover:text-foreground hover:bg-secondary/40'
                         }`}
                       >
                         <span className="w-2 h-2 rounded-full" style={{ backgroundColor: pm.color || '#10B981' }} />
@@ -535,8 +535,8 @@ export function QuickExpenseModal({
               </div>
 
               {/* Educational alert */}
-              <p className="text-[11px] text-slate-300 bg-[#0B192C] p-2.5 rounded-xl border border-[#243B55]/70 flex items-start gap-2 leading-snug">
-                <Info className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
+              <p className="text-[11px] text-foreground/80 bg-surface p-2.5 rounded-xl border border-border/70 flex items-start gap-2 leading-snug">
+                <Info className="w-4 h-4 text-accent shrink-0 mt-0.5" />
                 <span>
                   Traspaso de dinero entre tus cuentas (ej. retiro de tarjeta a efectivo o traslado bancario). <strong>Tu fondo total libre permanece igual</strong>, solo cambia de medio.
                 </span>
@@ -547,27 +547,27 @@ export function QuickExpenseModal({
               {/* Category / Group Picker */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
-                    <Tag className="w-3.5 h-3.5 text-[#00ADB5]" />
+                  <label className="text-xs font-semibold text-foreground/60 flex items-center gap-1.5">
+                    <Tag className="w-3.5 h-3.5 text-primary" />
                     <span>{isIncome ? 'Fuente / Grupo de Ingreso' : 'Grupo de Gasto'}</span>
                   </label>
                 </div>
 
                 {/* Inline Quick Category Form */}
                 {showAddCat && (
-                  <div className="mb-2 p-2 bg-[#102A43] border border-[#00ADB5]/40 rounded-xl flex items-center gap-2">
+                  <div className="mb-2 p-2 bg-surface-elevated border border-primary/40 rounded-xl flex items-center gap-2">
                     <input
                       type="text"
                       placeholder={isIncome ? 'Nombre de la fuente (ej: Clientes TI)' : 'Nombre del grupo (ej: Gimnasio)'}
                       value={newCatName}
                       onChange={(e) => setNewCatName(e.target.value)}
-                      className="flex-1 bg-[#0B192C] border border-[#243B55] text-white text-xs px-2.5 py-1.5 rounded-lg focus:outline-none focus:border-[#00ADB5]"
+                      className="flex-1 bg-surface border border-border text-foreground text-xs px-2.5 py-1.5 rounded-lg focus:outline-none focus:border-primary placeholder:text-foreground/30"
                     />
                     <button
                       type="button"
                       onClick={handleQuickCreateCategory}
                       disabled={isSavingCat || !newCatName.trim()}
-                      className="px-3 py-1.5 rounded-lg bg-[#00ADB5] text-[#0B192C] font-black text-xs hover:bg-[#06B6D4] disabled:opacity-50"
+                      className="px-3 py-1.5 rounded-lg bg-primary text-background font-bold text-xs hover:bg-primary/90 disabled:opacity-50 transition-colors"
                     >
                       {isSavingCat ? '...' : 'Guardar'}
                     </button>
@@ -585,9 +585,9 @@ export function QuickExpenseModal({
                         className={`flex items-center gap-2 p-2.5 rounded-xl text-left border transition-all ${
                           isSelected
                             ? isIncome
-                              ? 'bg-emerald-500/20 border-emerald-400 text-white shadow-md shadow-emerald-500/10'
-                              : 'bg-[#00ADB5]/20 border-[#00ADB5] text-white shadow-md shadow-[#00ADB5]/10'
-                            : 'bg-[#102A43] border-[#243B55] text-slate-300 hover:border-slate-500'
+                              ? 'bg-emerald-500/20 border-emerald-400 text-foreground shadow-md shadow-emerald-500/10'
+                              : 'bg-primary/20 border-primary text-foreground shadow-md shadow-primary/10'
+                            : 'bg-surface-elevated border-border text-foreground/80 hover:border-border/80 hover:bg-secondary/40'
                         }`}
                       >
                         <div
@@ -604,8 +604,8 @@ export function QuickExpenseModal({
               {/* Payment Method Selector */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
-                    <Wallet className="w-3.5 h-3.5 text-cyan-400" />
+                  <label className="text-xs font-semibold text-foreground/60 flex items-center gap-1.5">
+                    <Wallet className="w-3.5 h-3.5 text-accent" />
                     <span>{isIncome ? '¿A qué cuenta o medio ingresó?' : 'Método de Pago'}</span>
                   </label>
                   {(() => {
@@ -616,10 +616,10 @@ export function QuickExpenseModal({
                       <button
                         type="button"
                         onClick={() => setShowPockets(!showPockets)}
-                        className="text-[11px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors px-2 py-0.5 rounded-lg bg-cyan-950/40 border border-cyan-500/30 hover:border-cyan-400"
+                        className="text-[11px] font-bold text-accent hover:text-accent/80 flex items-center gap-1 transition-colors px-2 py-0.5 rounded-lg bg-accent/10 border border-accent/30 hover:border-accent"
                       >
                         <span>🏷️ Usar bolsillo</span>
-                        <span className="bg-cyan-500/20 text-cyan-300 px-1.5 py-0.2 rounded-full text-[10px]">
+                        <span className="bg-accent/20 text-accent px-1.5 py-0.2 rounded-full text-[10px]">
                           {pocketsCount}
                         </span>
                       </button>
@@ -629,19 +629,19 @@ export function QuickExpenseModal({
 
                 {/* Inline Quick Method Form */}
                 {showAddMethod && (
-                  <div className="mb-2 p-2 bg-[#102A43] border border-cyan-500/40 rounded-xl flex items-center gap-2">
+                  <div className="mb-2 p-2 bg-surface-elevated border border-accent/40 rounded-xl flex items-center gap-2">
                     <input
                       type="text"
                       placeholder="Nombre de la cuenta (ej: Nu Colombia, Dale, Caja)"
                       value={newMethodName}
                       onChange={(e) => setNewMethodName(e.target.value)}
-                      className="flex-1 bg-[#0B192C] border border-[#243B55] text-white text-xs px-2.5 py-1.5 rounded-lg focus:outline-none focus:border-cyan-400"
+                      className="flex-1 bg-surface border border-border text-foreground text-xs px-2.5 py-1.5 rounded-lg focus:outline-none focus:border-accent placeholder:text-foreground/30"
                     />
                     <button
                       type="button"
                       onClick={handleQuickCreateMethod}
                       disabled={isSavingMethod || !newMethodName.trim()}
-                      className="px-3 py-1.5 rounded-lg bg-cyan-400 text-[#0B192C] font-black text-xs hover:bg-cyan-300 disabled:opacity-50"
+                      className="px-3 py-1.5 rounded-lg bg-accent text-background font-bold text-xs hover:bg-accent/90 disabled:opacity-50 transition-colors"
                     >
                       {isSavingMethod ? '...' : 'Guardar'}
                     </button>
@@ -663,8 +663,8 @@ export function QuickExpenseModal({
                         }}
                         className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-all flex items-center gap-1.5 shrink-0 ${
                           isSelected
-                            ? 'bg-[#102A43] border-[#00ADB5] text-white ring-2 ring-[#00ADB5]/50 shadow-md'
-                            : 'bg-[#102A43] border-[#243B55] text-slate-400 hover:text-white'
+                            ? 'bg-secondary border-primary text-foreground ring-2 ring-primary/50 shadow-md'
+                            : 'bg-surface-elevated border-border text-foreground/60 hover:text-foreground hover:bg-secondary/40'
                         }`}
                       >
                         <span
@@ -685,14 +685,14 @@ export function QuickExpenseModal({
                   if (pocketsList.length === 0) return null;
 
                   return (
-                    <div className="mt-2 pt-2 border-t border-cyan-950/60">
-                      <div className="text-[11px] text-cyan-300/80 font-medium mb-1.5 flex items-center justify-between">
+                    <div className="mt-2 pt-2 border-t border-border/60">
+                      <div className="text-[11px] text-accent/90 font-medium mb-1.5 flex items-center justify-between">
                         <span>Bolsillos de {currentMethodObj?.name}:</span>
                         {selectedPocketId && (
                           <button
                             type="button"
                             onClick={() => setSelectedPocketId(null)}
-                            className="text-[10px] text-slate-400 hover:text-white underline"
+                            className="text-[10px] text-foreground/50 hover:text-foreground underline"
                           >
                             Volver a cuenta principal
                           </button>
@@ -714,8 +714,8 @@ export function QuickExpenseModal({
                               }}
                               className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-all flex items-center gap-1.5 shrink-0 ${
                                 isPktSelected
-                                  ? 'bg-cyan-500/20 border-cyan-400 text-white ring-2 ring-cyan-500/50 shadow-md'
-                                  : 'bg-[#0B192C] border-[#243B55] text-slate-300 hover:text-white hover:border-cyan-500/40'
+                                  ? 'bg-accent/20 border-accent text-foreground ring-2 ring-accent/50 shadow-md'
+                                  : 'bg-surface border-border text-foreground/70 hover:text-foreground hover:border-accent/40 hover:bg-secondary/40'
                               }`}
                             >
                               <span
@@ -737,7 +737,7 @@ export function QuickExpenseModal({
           {/* Description and Date */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1">
+              <label className="block text-xs font-semibold text-foreground/60 mb-1">
                 {isIncome
                   ? 'Concepto'
                   : isTransfer
@@ -749,16 +749,16 @@ export function QuickExpenseModal({
                 placeholder={isIncome ? 'Ej: Quincena / Licencia software' : isTransfer ? 'Ej: Retiro para gastos en efectivo' : 'Ej: Café / Domicilio'}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] text-white text-base sm:text-xs px-3 py-2.5 rounded-xl focus:outline-none"
+                className="w-full bg-surface-elevated border border-border focus:border-primary text-foreground text-base sm:text-xs px-3 py-2.5 rounded-xl focus:outline-none placeholder:text-foreground/30"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1">Fecha</label>
+              <label className="block text-xs font-semibold text-foreground/60 mb-1">Fecha</label>
               <input
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full bg-[#102A43] border border-[#243B55] focus:border-[#00ADB5] text-white text-base sm:text-xs px-3 py-2.5 rounded-xl focus:outline-none"
+                className="w-full bg-surface-elevated border border-border focus:border-primary text-foreground text-base sm:text-xs px-3 py-2.5 rounded-xl focus:outline-none"
               />
             </div>
           </div>
@@ -767,12 +767,12 @@ export function QuickExpenseModal({
           <button
             type="submit"
             disabled={isSubmitting}
-            className={`w-full py-3.5 px-4 rounded-2xl font-black text-sm shadow-xl flex items-center justify-center gap-2 hover:opacity-95 active:scale-[0.99] transition-all disabled:opacity-50 ${
+            className={`w-full py-3.5 px-4 rounded-2xl font-black text-sm shadow-xl flex items-center justify-center gap-2 hover:opacity-95 active:scale-[0.99] transition-all disabled:opacity-50 cursor-pointer ${
               isIncome
                 ? 'bg-linear-to-r from-emerald-500 to-teal-400 text-slate-950 shadow-emerald-500/20'
                 : isTransfer
-                ? 'bg-linear-to-r from-cyan-500 to-blue-500 text-slate-950 shadow-cyan-500/25'
-                : 'bg-linear-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] shadow-[#00ADB5]/25'
+                ? 'bg-linear-to-r from-accent to-blue-500 text-slate-950 shadow-accent/25'
+                : 'bg-primary hover:bg-primary/90 text-background shadow-primary/25'
             }`}
           >
             {isSubmitting ? (

@@ -8,47 +8,74 @@ export const buttonVariants = cva(
     variants: {
       variant: {
         primary:
-          'bg-linear-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] font-black shadow-md shadow-[#00ADB5]/20 hover:brightness-110 active:scale-95',
+          'bg-primary text-background font-black shadow-md shadow-primary/20 hover:brightness-110 active:scale-95',
         secondary:
-          'bg-[#102A43] hover:bg-[#152E4D] border border-[#243B55] text-slate-300 hover:text-white font-bold',
-        emerald:
-          'bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black shadow-md shadow-emerald-400/20 active:scale-95',
-        amber:
-          'bg-linear-to-r from-amber-500 to-rose-500 text-[#0B192C] font-black shadow-md shadow-amber-500/20 hover:brightness-110 active:scale-95',
+          'bg-secondary hover:bg-secondary/80 border border-border text-foreground/80 hover:text-foreground font-bold active:scale-95',
+        accent:
+          'bg-accent text-background font-black shadow-md shadow-accent/20 hover:brightness-110 active:scale-95',
+        success:
+          'bg-success/15 text-success hover:bg-success/25 border border-success/30 font-black shadow-md shadow-success/20 active:scale-95',
+        warning:
+          'bg-warning/15 text-warning hover:bg-warning/25 border border-warning/30 font-black shadow-md shadow-warning/20 active:scale-95',
         danger:
-          'bg-[#102A43] hover:bg-rose-500/20 border border-[#243B55] text-slate-400 hover:text-rose-400',
+          'bg-danger/15 text-danger hover:bg-danger/25 border border-danger/30 font-black shadow-md shadow-danger/20 active:scale-95',
         ghost:
-          'text-slate-400 hover:text-white hover:bg-[#102A43]/50',
+          'text-foreground/60 hover:text-foreground hover:bg-surface-elevated/60 font-semibold',
         outline:
-          'border border-[#243B55] text-slate-300 hover:border-[#00ADB5] hover:text-white bg-transparent',
+          'border border-border text-foreground/80 hover:border-primary hover:text-foreground bg-transparent font-bold',
       },
       size: {
+        xs: 'text-[11px] py-1 px-2.5 rounded-lg',
         sm: 'text-xs py-1.5 px-3 rounded-xl',
-        md: 'text-xs sm:text-sm py-2 px-3.5 rounded-xl',
-        lg: 'text-xs sm:text-sm py-2.5 px-4 rounded-xl',
-        icon: 'p-1.5 rounded-xl',
-        'icon-sm': 'p-1 rounded-lg',
+        md: 'text-xs sm:text-sm py-2 px-4 rounded-xl',
+        lg: 'text-sm sm:text-base py-2.5 px-5 rounded-2xl',
+        icon: 'p-2 rounded-xl',
+        'icon-sm': 'p-1.5 rounded-lg',
+      },
+      fullWidth: {
+        true: 'w-full',
+        false: 'w-auto',
       },
     },
     defaultVariants: {
       variant: 'primary',
       size: 'md',
+      fullWidth: false,
     },
   }
 );
 
+import { Loader2 } from 'lucide-react';
+
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {}
+    VariantProps<typeof buttonVariants> {
+  isLoading?: boolean;
+  icon?: React.ComponentType<{ className?: string }> | React.ReactNode;
+}
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, ...props }, ref) => {
+  ({ className, variant, size, fullWidth, isLoading, icon: IconProp, children, disabled, ...props }, ref) => {
     return (
       <button
         ref={ref}
-        className={cn(buttonVariants({ variant, size, className }))}
+        disabled={disabled || isLoading}
+        className={cn(buttonVariants({ variant, size, fullWidth, className }))}
         {...props}
-      />
+      >
+        {isLoading ? (
+          <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+        ) : IconProp ? (
+          React.isValidElement(IconProp) ? (
+            IconProp
+          ) : (
+            React.createElement(IconProp as React.ElementType, {
+              className: 'w-4 h-4 shrink-0',
+            })
+          )
+        ) : null}
+        {children}
+      </button>
     );
   }
 );

@@ -7,13 +7,13 @@ export const tabVariants = cva(
   {
     variants: {
       activeColor: {
-        cyan: 'bg-linear-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] shadow-md shadow-[#00ADB5]/20',
-        amber: 'bg-linear-to-r from-amber-500 to-rose-500 text-[#0B192C] shadow-md shadow-amber-500/20',
+        cyan: 'bg-primary hover:bg-primary/90 text-background shadow-md shadow-primary/20',
+        amber: 'bg-linear-to-r from-amber-500 to-rose-500 text-background shadow-md shadow-amber-500/20',
         emerald: 'bg-emerald-400 text-slate-950 shadow-md shadow-emerald-400/20',
       },
       isActive: {
         true: '',
-        false: 'text-slate-400 hover:text-white bg-transparent',
+        false: 'text-foreground/60 hover:text-foreground bg-transparent',
       },
     },
     defaultVariants: {
@@ -52,7 +52,7 @@ export function TabButton({
         <span
           className={cn(
             'text-[10px] px-1.5 py-0.2 rounded-md font-mono transition-colors',
-            isActive ? 'bg-[#0B192C]/30 text-[#0B192C]' : 'bg-[#102A43] text-slate-300'
+            isActive ? 'bg-background/30 text-background' : 'bg-surface-elevated text-foreground/70'
           )}
         >
           {count}
@@ -79,7 +79,7 @@ export function TabGroup({ className, columns = 2, children, ...props }: TabGrou
   return (
     <div
       className={cn(
-        'bg-[#0B192C] border border-[#1E3A5F] p-1 rounded-2xl grid gap-1 shadow-md',
+        'bg-surface border border-border p-1 rounded-2xl grid gap-1 shadow-md',
         colClass,
         className
       )}

@@ -99,7 +99,7 @@ export function NotificationCenter() {
       {/* Bell Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-1.5 sm:p-2 rounded-xl text-slate-300 hover:text-[#00ADB5] hover:bg-[#102A43] border border-transparent hover:border-[#1E3A5F] transition-all shrink-0"
+        className="relative p-1.5 sm:p-2 rounded-xl text-foreground/70 hover:text-primary hover:bg-surface-elevated border border-transparent hover:border-border transition-all shrink-0 cursor-pointer"
         title="Notificaciones y avisos inteligentes"
         aria-label="Notificaciones"
       >
@@ -107,12 +107,12 @@ export function NotificationCenter() {
         {activeAlerts.length > 0 && (
           <span
             className={`absolute top-1 right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full ${
-              criticalCount > 0 ? 'bg-rose-500 ring-2 ring-rose-500/20' : 'bg-[#00ADB5] ring-2 ring-[#00ADB5]/20'
+              criticalCount > 0 ? 'bg-danger ring-2 ring-danger/20' : 'bg-primary ring-2 ring-primary/20'
             }`}
           >
             <span
               className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                criticalCount > 0 ? 'bg-rose-400' : 'bg-[#00ADB5]'
+                criticalCount > 0 ? 'bg-danger' : 'bg-primary'
               }`}
             />
           </span>
@@ -128,15 +128,15 @@ export function NotificationCenter() {
             onClick={() => setIsOpen(false)}
           />
 
-          <div className="fixed inset-x-3 top-16 max-h-[82vh] flex flex-col z-50 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-3 sm:w-105 sm:max-h-135 bg-[#0B192C] border border-[#1E3A5F] rounded-3xl shadow-2xl shadow-black/80 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+          <div className="fixed inset-x-3 top-16 max-h-[82vh] flex flex-col z-50 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-3 sm:w-105 sm:max-h-135 bg-surface border border-border rounded-3xl shadow-2xl shadow-black/80 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             {/* Header */}
-            <div className="px-5 py-4 border-b border-[#1E3A5F] flex items-center justify-between bg-[#102A43]/80 shrink-0">
+            <div className="px-5 py-4 border-b border-border flex items-center justify-between bg-surface-elevated/80 shrink-0">
               <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-xl bg-[#00ADB5]/20 flex items-center justify-center text-[#00ADB5]">
+                <div className="w-7 h-7 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
                   <Bell className="w-4 h-4" />
                 </div>
                 {activeAlerts.length > 0 && (
-                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-[#102A43] text-[#00ADB5] border border-[#00ADB5]/30 ml-1">
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-secondary text-primary border border-primary/30 ml-1">
                     {activeAlerts.length}
                   </span>
                 )}
@@ -146,14 +146,14 @@ export function NotificationCenter() {
                 {activeAlerts.length > 0 && (
                   <button
                     onClick={handleDismissAll}
-                    className="text-xs text-slate-400 hover:text-white font-medium px-2 py-1 rounded-lg hover:bg-slate-800 transition-colors text-nowrap"
+                    className="text-xs text-foreground/60 hover:text-foreground font-medium px-2 py-1 rounded-lg hover:bg-secondary/40 transition-colors text-nowrap cursor-pointer"
                   >
                     Limpiar todo
                   </button>
                 )}
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors sm:hidden"
+                  className="p-1.5 rounded-xl text-foreground/60 hover:text-foreground hover:bg-secondary/40 transition-colors sm:hidden cursor-pointer"
                   title="Cerrar"
                 >
                   <X className="w-4 h-4" />
@@ -165,11 +165,11 @@ export function NotificationCenter() {
             <div className="max-h-100 overflow-y-auto p-4 space-y-3">
               {activeAlerts.length === 0 ? (
                 <div className="py-12 px-6 text-center space-y-2">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto text-emerald-400 shadow-sm">
+                  <div className="w-12 h-12 rounded-2xl bg-success/10 border border-success/20 flex items-center justify-center mx-auto text-success shadow-sm">
                     <CheckCircle2 className="w-6 h-6" />
                   </div>
-                  <p className="text-sm font-bold text-white">Todo está al día</p>
-                  <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
+                  <p className="text-sm font-bold text-foreground">Todo está al día</p>
+                  <p className="text-xs text-foreground/60 max-w-xs mx-auto leading-relaxed">
                     No tienes pagos urgentes pendientes ni desbalances en tus fechas programadas.
                   </p>
                 </div>
@@ -183,20 +183,20 @@ export function NotificationCenter() {
                       key={alert.id}
                       className={`p-4 rounded-2xl transition-all relative group border shadow-sm ${
                         isCritical
-                          ? 'bg-rose-500/5 border-rose-500/40 text-rose-300'
+                          ? 'bg-danger/10 border-danger/40 text-danger'
                           : isWarning
-                          ? 'bg-amber-500/5 border-amber-500/40 text-amber-300'
-                          : 'bg-cyan-500/5 border-[#00ADB5]/40 text-cyan-300'
+                          ? 'bg-warning/10 border-warning/40 text-warning'
+                          : 'bg-accent/10 border-accent/40 text-accent'
                       }`}
                     >
                       <div className="flex items-start gap-3">
                         <div className="shrink-0 mt-0.5">
                           {isCritical ? (
-                            <AlertTriangle className="w-4 h-4 text-rose-400" />
+                            <AlertTriangle className="w-4 h-4 text-danger" />
                           ) : isWarning ? (
-                            <AlertCircle className="w-4 h-4 text-amber-400" />
+                            <AlertCircle className="w-4 h-4 text-warning" />
                           ) : (
-                            <Calendar className="w-4 h-4 text-[#00ADB5]" />
+                            <Calendar className="w-4 h-4 text-primary" />
                           )}
                         </div>
 
@@ -208,18 +208,18 @@ export function NotificationCenter() {
                                   ? 'text-rose-200'
                                   : isWarning
                                   ? 'text-amber-200'
-                                  : 'text-white'
+                                  : 'text-foreground'
                               }`}
                             >
                               {alert.title}
                             </h4>
                             {alert.date && (
-                              <span className="text-[10px] text-slate-400 font-medium shrink-0">
+                              <span className="text-[10px] text-foreground/50 font-medium shrink-0">
                                 {alert.date}
                               </span>
                             )}
                           </div>
-                          <p className="text-xs text-slate-300 mt-1.5 leading-relaxed font-normal">
+                          <p className="text-xs text-foreground/80 mt-1.5 leading-relaxed font-normal">
                             {alert.message}
                           </p>
                         </div>
@@ -227,7 +227,7 @@ export function NotificationCenter() {
                         {/* Dismiss item button */}
                         <button
                           onClick={(e) => handleDismiss(alert.id, e)}
-                          className="opacity-70 hover:opacity-100 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-black/20 transition-all shrink-0"
+                          className="opacity-70 hover:opacity-100 text-foreground/50 hover:text-foreground p-1 rounded-lg hover:bg-black/20 transition-all shrink-0 cursor-pointer"
                           title="Descartar aviso"
                         >
                           <X className="w-3.5 h-3.5" />
@@ -240,19 +240,19 @@ export function NotificationCenter() {
             </div>
 
             {/* Footer Link to Budgets */}
-            <div className="p-3.5 border-t border-[#1E3A5F] bg-[#070F1E] text-center">
+            <div className="p-3.5 border-t border-border bg-background text-center">
               <Link
                 href="/budgets"
                 onClick={() => setIsOpen(false)}
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-[#00ADB5] hover:text-[#06B6D4] transition-colors"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:text-accent transition-colors"
               >
                 <span>Gestionar grupos y fechas programadas</span>
                 <ChevronRight className="w-3.5 h-3.5" />
               </Link>
             </div>
           </div>
-      </>
-    )}
+        </>
+      )}
     </div>
   );
 }

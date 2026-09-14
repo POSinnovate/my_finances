@@ -3,6 +3,7 @@
 import React from 'react';
 import { Edit3, AlertCircle, Trash2, Layers, Calendar } from 'lucide-react';
 import { formatCOP } from '@/lib/utils';
+import { Badge, Button } from '@/components/ui';
 
 export interface CategoryWithBudget {
   id: string;
@@ -29,53 +30,53 @@ interface BudgetCardProps {
   onManageSchedule?: (category: CategoryWithBudget) => void;
 }
 
-export function BudgetCard({ category, onEdit, onDelete, onManageSchedule }: BudgetCardProps) {
+export function BudgetCard({ category, onEdit, onDelete }: BudgetCardProps) {
   const isExceeded = category.spent_this_month > category.monthly_budget && category.monthly_budget > 0;
   const progressWidth = Math.min(100, category.percentage_used);
 
-  const statusColor = category.status === 'RED'
-    ? 'text-rose-400 bg-rose-500/10 border-rose-500/30'
+  const statusVariant = category.status === 'RED'
+    ? 'danger'
     : category.status === 'YELLOW'
-    ? 'text-amber-400 bg-amber-500/10 border-amber-500/30'
-    : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30';
+    ? 'warning'
+    : 'success';
 
   const progressBarColor = category.status === 'RED'
-    ? 'bg-gradient-to-r from-rose-500 to-red-600'
+    ? 'bg-linear-to-r from-rose-500 to-red-600'
     : category.status === 'YELLOW'
-    ? 'bg-gradient-to-r from-amber-500 to-yellow-500'
-    : 'bg-gradient-to-r from-[#00ADB5] to-[#06B6D4]';
+    ? 'bg-linear-to-r from-amber-500 to-yellow-500'
+    : 'bg-linear-to-r from-primary to-accent';
 
   return (
-    <div className="bg-[#102A43] border border-[#243B55] hover:border-[#1E3A5F] rounded-2xl p-4 transition-all shadow-md space-y-3">
+    <div className="bg-surface-elevated border border-border hover:border-primary/40 rounded-2xl p-4 transition-all shadow-md space-y-3">
       {/* Top Header */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
           <div
-            className="w-8 h-8 rounded-xl flex items-center justify-center text-white shrink-0 shadow-sm"
+            className="w-8 h-8 rounded-xl flex items-center justify-center text-background shrink-0 shadow-sm"
             style={{ backgroundColor: category.color || '#00ADB5' }}
           >
             <Layers className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <h4 className="text-sm font-black text-white leading-snug truncate">{category.name}</h4>
+            <h4 className="text-sm font-black text-foreground leading-snug truncate">{category.name}</h4>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-[10px] text-slate-400 uppercase font-semibold whitespace-nowrap">
+              <span className="text-[10px] text-foreground/50 uppercase font-semibold whitespace-nowrap">
                 {category.is_fixed === 1 ? 'Gasto Fijo' : 'Gasto Variable'}
               </span>
               {category.is_fixed === 1 && (
-                <span className="text-[9px] font-bold text-cyan-400 px-1 py-0.2 rounded bg-cyan-950/60 border border-cyan-800/40 whitespace-nowrap">
+                <Badge variant="accent" size="sm">
                   Fijo
-                </span>
+                </Badge>
               )}
             </div>
             {category.has_multiple_items === 1 && category.items && category.items.length > 0 ? (
-              <div className="flex items-center gap-1 text-[10px] font-semibold text-cyan-300 mt-1">
-                <Calendar className="w-3 h-3 text-cyan-400 shrink-0" />
+              <div className="flex items-center gap-1 text-[10px] font-semibold text-accent mt-1">
+                <Calendar className="w-3 h-3 text-accent shrink-0" />
                 <span>{category.items.length} fechas: {category.items.map((it: any) => it.due_day ? `Día ${it.due_day}` : it.specific_date?.slice(5, 10)).join(', ')}</span>
               </div>
             ) : category.frequency === 'MONTHLY' && category.due_day ? (
-              <div className="flex items-center gap-1 text-[10px] font-semibold text-cyan-300 mt-1">
-                <Calendar className="w-3 h-3 text-cyan-400 shrink-0" />
+              <div className="flex items-center gap-1 text-[10px] font-semibold text-accent mt-1">
+                <Calendar className="w-3 h-3 text-accent shrink-0" />
                 <span>Día {category.due_day} de cada mes</span>
               </div>
             ) : category.specific_date ? (
@@ -89,29 +90,32 @@ export function BudgetCard({ category, onEdit, onDelete, onManageSchedule }: Bud
 
         {/* Action Buttons: Status Badge + Edit + Delete */}
         <div className="flex items-center gap-1.5 shrink-0">
-          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap ${statusColor}`}>
+          <Badge variant={statusVariant} size="sm">
             {category.percentage_used}%
-          </span>
-          <button
+          </Badge>
+          <Button
+            variant="ghost"
+            size="icon-sm"
             onClick={() => onEdit(category)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-cyan-500/10 transition-all shrink-0"
             title="Editar grupo de gasto"
           >
             <Edit3 className="w-3.5 h-3.5" />
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
             onClick={() => onDelete(category.id, category.name)}
-            className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all shrink-0"
+            className="text-danger hover:text-danger hover:bg-danger/15"
             title="Eliminar grupo de gasto"
           >
             <Trash2 className="w-3.5 h-3.5" />
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Progress Bar */}
       <div className="pt-1">
-        <div className="w-full h-2 bg-[#0B192C] rounded-full overflow-hidden">
+        <div className="w-full h-2 bg-surface rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all duration-500 ${progressBarColor}`}
             style={{ width: `${progressWidth}%` }}
@@ -120,16 +124,16 @@ export function BudgetCard({ category, onEdit, onDelete, onManageSchedule }: Bud
       </div>
 
       {/* Figures Row */}
-      <div className="flex items-center justify-between text-xs pt-2 border-t border-[#1E3A5F]">
+      <div className="flex items-center justify-between text-xs pt-2 border-t border-border">
         <div>
-          <span className="block text-[10px] text-slate-400">Gastado</span>
-          <span className="font-extrabold text-white">{formatCOP(category.spent_this_month)}</span>
+          <span className="block text-[10px] text-foreground/50">Gastado</span>
+          <span className="font-extrabold text-foreground">{formatCOP(category.spent_this_month)}</span>
         </div>
         <div className="text-right">
-          <span className="block text-[10px] text-slate-400">
+          <span className="block text-[10px] text-foreground/50">
             {isExceeded ? 'Excedido por' : 'Presupuesto'}
           </span>
-          <span className={`font-extrabold ${isExceeded ? 'text-rose-400' : 'text-slate-300'}`}>
+          <span className={`font-extrabold ${isExceeded ? 'text-danger' : 'text-foreground/80'}`}>
             {isExceeded
               ? formatCOP(category.spent_this_month - category.monthly_budget)
               : formatCOP(category.monthly_budget)}
@@ -138,8 +142,8 @@ export function BudgetCard({ category, onEdit, onDelete, onManageSchedule }: Bud
       </div>
 
       {isExceeded && (
-        <div className="mt-2 text-[11px] text-rose-300 bg-rose-950/40 border border-rose-800/40 rounded-lg p-1.5 flex items-center gap-1.5">
-          <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-400" />
+        <div className="mt-2 text-[11px] text-danger bg-danger/10 border border-danger/30 rounded-lg p-1.5 flex items-center gap-1.5">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0 text-danger" />
           <span>¡Límite superado! Detén gastos aquí.</span>
         </div>
       )}

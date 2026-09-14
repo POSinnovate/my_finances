@@ -33,7 +33,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" className="dark">
-      <body className="min-h-screen bg-[#070F1E] text-slate-100 antialiased selection:bg-[#00ADB5]/30 selection:text-white pb-mobile-nav">
+      <body className="min-h-screen antialiased selection:bg-primary/30 selection:text-white pb-mobile-nav">
         <QueryProvider>
           {children}
         </QueryProvider>

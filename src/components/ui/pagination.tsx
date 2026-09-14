@@ -48,17 +48,17 @@ export function Pagination({
   return (
     <div
       className={cn(
-        'p-3 sm:p-4 rounded-2xl bg-[#0B192C] border border-[#1E3A5F] flex flex-col sm:flex-row items-center justify-between gap-3 shadow-md',
+        'p-3 sm:p-4 rounded-2xl bg-surface border border-border flex flex-col sm:flex-row items-center justify-between gap-3 shadow-md',
         className
       )}
     >
       {/* Item Range Info */}
-      <div className="text-xs text-slate-400 font-medium text-center sm:text-left">
+      <div className="text-xs text-foreground/60 font-medium text-center sm:text-left">
         Mostrando{' '}
-        <strong className="text-white font-mono">
+        <strong className="text-foreground font-mono">
           {startItem} - {endItem}
         </strong>{' '}
-        de <strong className="text-cyan-400 font-mono">{totalItems}</strong> {label}
+        de <strong className="text-primary font-mono">{totalItems}</strong> {label}
       </div>
 
       {/* Pagination Controls */}
@@ -69,7 +69,7 @@ export function Pagination({
             type="button"
             onClick={() => onPageChange(Math.max(1, currentPage - 1))}
             disabled={currentPage === 1}
-            className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-[#102A43] hover:bg-[#152E4D] border border-[#243B55] hover:border-cyan-500/40 text-slate-300 hover:text-white text-xs font-bold transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer flex items-center gap-1"
+            className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-surface-elevated hover:bg-secondary/60 border border-border hover:border-primary/40 text-foreground/80 hover:text-foreground text-xs font-bold transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer flex items-center gap-1"
             title="Página anterior"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -81,7 +81,7 @@ export function Pagination({
             {pages.map((p, idx) => {
               if (p === '...') {
                 return (
-                  <span key={`ellipsis-${idx}`} className="px-1.5 text-xs text-slate-500 font-bold">
+                  <span key={`ellipsis-${idx}`} className="px-1.5 text-xs text-foreground/40 font-bold">
                     ...
                   </span>
                 );
@@ -98,8 +98,8 @@ export function Pagination({
                   className={cn(
                     'w-8 h-8 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center font-mono',
                     isActive
-                      ? 'bg-linear-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] shadow-md shadow-[#00ADB5]/20 font-black scale-105'
-                      : 'bg-[#102A43] hover:bg-[#152E4D] text-slate-300 hover:text-white border border-[#243B55] hover:border-cyan-500/40'
+                      ? 'bg-primary text-background shadow-md shadow-primary/20 font-black scale-105'
+                      : 'bg-surface-elevated hover:bg-secondary/60 text-foreground/70 hover:text-foreground border border-border hover:border-primary/40'
                   )}
                 >
                   {pageNum}
@@ -113,7 +113,7 @@ export function Pagination({
             type="button"
             onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
             disabled={currentPage === totalPages}
-            className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-[#102A43] hover:bg-[#152E4D] border border-[#243B55] hover:border-cyan-500/40 text-slate-300 hover:text-white text-xs font-bold transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer flex items-center gap-1"
+            className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-surface-elevated hover:bg-secondary/60 border border-border hover:border-primary/40 text-foreground/80 hover:text-foreground text-xs font-bold transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer flex items-center gap-1"
             title="Página siguiente"
           >
             <span className="hidden sm:inline">Siguiente</span>

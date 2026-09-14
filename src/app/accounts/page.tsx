@@ -32,7 +32,15 @@ import {
   DollarSign
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { PageBanner } from '@/components/ui';
+import { 
+  Button, 
+  Card, 
+  Input, 
+  Select, 
+  Badge, 
+  Modal, 
+  PageBanner 
+} from '@/components/ui';
 
 const COLOR_OPTIONS = [
   '#00ADB5', '#06B6D4', '#3B82F6', '#8B5CF6', 
@@ -63,13 +71,17 @@ export default function AccountsPage() {
   const [newMethodInitialBalance, setNewMethodInitialBalance] = useState('');
   const [isCreatingMethod, setIsCreatingMethod] = useState(false);
 
-  // Edit / Calibrate Account Modal
+  // Edit Account Modal (Name, Type, Color)
   const [editingMethod, setEditingMethod] = useState<any | null>(null);
   const [editMethodName, setEditMethodName] = useState('');
   const [editMethodType, setEditMethodType] = useState('WALLET');
   const [editMethodColor, setEditMethodColor] = useState(COLOR_OPTIONS[0]);
-  const [editMethodTargetBalance, setEditMethodTargetBalance] = useState('');
   const [isSavingEditMethod, setIsSavingEditMethod] = useState(false);
+
+  // Adjust / Calibrate Balance Modal
+  const [adjustingMethod, setAdjustingMethod] = useState<any | null>(null);
+  const [adjustTargetBalance, setAdjustTargetBalance] = useState('');
+  const [isSavingAdjustment, setIsSavingAdjustment] = useState(false);
 
   // Add Pocket Modal
   const [isAddPocketOpen, setIsAddPocketOpen] = useState(false);
@@ -285,18 +297,15 @@ export default function AccountsPage() {
     }
   };
 
-  // Open edit modal with current balance pre-filled
+  // Open edit modal (Name, Type, Color)
   const handleOpenEditMethod = (pm: any) => {
     setEditingMethod(pm);
     setEditMethodName(pm.name);
     setEditMethodType(pm.type || 'WALLET');
     setEditMethodColor(pm.color || COLOR_OPTIONS[0]);
-    setEditMethodTargetBalance(
-      pm.net_balance !== undefined ? String(pm.net_balance) : String(pm.initial_balance || 0)
-    );
   };
 
-  // Save edit / balance rebalance
+  // Save edit method
   const handleSaveEditMethod = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingMethod || !editMethodName.trim()) return;
@@ -309,13 +318,6 @@ export default function AccountsPage() {
         type: editMethodType,
         color: editMethodColor,
       };
-
-      if (editMethodTargetBalance !== '') {
-        const parsed = Number(editMethodTargetBalance);
-        if (!isNaN(parsed)) {
-          payload.target_balance = parsed;
-        }
-      }
 
       const res = await fetch('/api/payment-methods', {
         method: 'PUT',
@@ -330,12 +332,58 @@ export default function AccountsPage() {
         invalidateFinance();
       } else {
         const data = await res.json();
-        toast.error(data.error || 'Error al actualizar');
+        toast.error(data.error || 'Error al actualizar cuenta');
       }
     } catch {
       toast.error('Error de conexión');
     } finally {
       setIsSavingEditMethod(false);
+    }
+  };
+
+  // Open adjust balance modal
+  const handleOpenAdjustMethod = (pm: any) => {
+    setAdjustingMethod(pm);
+    setAdjustTargetBalance(
+      pm.net_balance !== undefined ? String(pm.net_balance) : String(pm.initial_balance || 0)
+    );
+  };
+
+  // Save balance adjustment
+  const handleSaveAdjustMethod = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adjustingMethod || adjustTargetBalance === '') return;
+
+    const parsed = Number(adjustTargetBalance);
+    if (isNaN(parsed)) {
+      toast.error('Ingresa un valor numérico válido');
+      return;
+    }
+
+    setIsSavingAdjustment(true);
+    try {
+      const res = await fetch('/api/payment-methods', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: adjustingMethod.id,
+          target_balance: parsed,
+        }),
+      });
+
+      if (res.ok) {
+        toast.success(`Saldo de "${adjustingMethod.name}" ajustado correctamente`);
+        setAdjustingMethod(null);
+        await refetchPaymentMethods();
+        invalidateFinance();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || 'Error al calibrar saldo');
+      }
+    } catch {
+      toast.error('Error de conexión');
+    } finally {
+      setIsSavingAdjustment(false);
     }
   };
 
@@ -366,7 +414,7 @@ export default function AccountsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#070F1E] flex flex-col pb-24">
+    <div className="min-h-screen bg-background flex flex-col pb-24">
       <Header user={user} onUserUpdate={invalidateFinance} />
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-4 py-5 space-y-4">
@@ -396,9 +444,11 @@ export default function AccountsPage() {
             const isPositive = (pm.net_balance ?? 0) >= 0;
 
             return (
-              <div
+              <Card
                 key={pm.id}
-                className="p-4 rounded-2xl bg-[#0B192C] border border-[#1E3A5F] hover:border-[#00ADB5]/50 transition-all space-y-3 shadow-lg"
+                variant="default"
+                padding="md"
+                className="space-y-3 hover:border-primary/50 transition-all"
               >
                 {/* Account Header */}
                 <div className="flex items-center justify-between gap-2">
@@ -410,8 +460,8 @@ export default function AccountsPage() {
                       <IconComponent className="w-4.5 h-4.5" />
                     </div>
                     <div className="min-w-0">
-                      <h3 className="text-sm font-black text-white truncate">{pm.name}</h3>
-                      <span className="text-[10px] text-slate-400 uppercase font-semibold whitespace-nowrap">
+                      <h3 className="text-sm font-black text-foreground truncate">{pm.name}</h3>
+                      <span className="text-[10px] text-foreground/50 uppercase font-semibold whitespace-nowrap">
                         {pm.type === 'WALLET'
                           ? 'Billetera Digital'
                           : pm.type === 'CASH'
@@ -424,52 +474,55 @@ export default function AccountsPage() {
                   </div>
 
                   <div className="flex items-center gap-1 shrink-0">
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
                       onClick={() => handleOpenEditMethod(pm)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-cyan-500/10 transition-all cursor-pointer"
-                      title="Editar o calibrar saldo"
+                      title="Editar cuenta"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
-                    </button>
+                    </Button>
                     {paymentMethods.length > 1 && (
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
                         onClick={() => handleDeleteMethod(pm.id, pm.name)}
-                        className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all cursor-pointer"
+                        className="text-foreground/40 hover:text-danger hover:bg-danger/10"
                         title="Eliminar cuenta"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      </Button>
                     )}
                   </div>
                 </div>
 
                 {/* Account Activity Summary (This Month) */}
-                <div className="grid grid-cols-2 gap-2 pt-1 border-t border-[#1E3A5F]/60">
-                  <div className="p-2 rounded-xl bg-[#102A43]/60">
-                    <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1 whitespace-nowrap">
+                <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border/60">
+                  <div className="p-2 rounded-xl bg-surface-elevated/70 border border-border/50">
+                    <span className="text-[10px] text-success font-bold flex items-center gap-1 whitespace-nowrap">
                       <ArrowDownRight className="w-3 h-3 shrink-0" />
                       <span>Entró este mes</span>
                     </span>
-                    <p className="text-xs font-black text-white mt-0.5 whitespace-nowrap font-mono">
+                    <p className="text-xs font-black text-foreground mt-0.5 whitespace-nowrap font-mono">
                       {formatCOP(pm.income_this_month || 0)}
                     </p>
                     {pm.transfers_in > 0 && (
-                      <span className="text-[9px] text-cyan-300 font-medium block mt-0.5 truncate font-mono">
+                      <span className="text-[9px] text-primary font-medium block mt-0.5 truncate font-mono">
                         {formatCOP(pm.transfers_in)} transf.
                       </span>
                     )}
                   </div>
 
-                  <div className="p-2 rounded-xl bg-[#102A43]/60">
-                    <span className="text-[10px] text-rose-400 font-bold flex items-center gap-1 whitespace-nowrap">
+                  <div className="p-2 rounded-xl bg-surface-elevated/70 border border-border/50">
+                    <span className="text-[10px] text-danger font-bold flex items-center gap-1 whitespace-nowrap">
                       <ArrowUpRight className="w-3 h-3 shrink-0" />
                       <span>Salió este mes</span>
                     </span>
-                    <p className="text-xs font-black text-white mt-0.5 whitespace-nowrap font-mono">
+                    <p className="text-xs font-black text-foreground mt-0.5 whitespace-nowrap font-mono">
                       {formatCOP(pm.expense_this_month || 0)}
                     </p>
                     {pm.transfers_out > 0 && (
-                      <span className="text-[9px] text-cyan-300 font-medium block mt-0.5 truncate font-mono">
+                      <span className="text-[9px] text-primary font-medium block mt-0.5 truncate font-mono">
                         {formatCOP(pm.transfers_out)} transf.
                       </span>
                     )}
@@ -477,41 +530,41 @@ export default function AccountsPage() {
                 </div>
 
                 {/* Balances Section: Total vs Libre vs Bolsillos */}
-                <div className="p-3 rounded-2xl bg-[#070F1E] border border-[#1E3A5F] space-y-2.5">
+                <div className="p-3 rounded-2xl bg-surface-elevated/80 border border-border/70 space-y-2.5">
                   <div className="flex items-center justify-between">
                     <div>
-                      <span className="text-[10px] text-slate-400 font-medium block">Saldo Total en Cuenta:</span>
+                      <span className="text-[10px] text-foreground/50 font-medium block">Saldo Total en Cuenta:</span>
                       <span className={`text-sm sm:text-base font-black font-mono block ${
-                        isPositive ? 'text-white' : 'text-rose-400'
+                        isPositive ? 'text-foreground' : 'text-danger'
                       }`}>
                         {formatCOP(pm.net_balance ?? 0)}
                       </span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleOpenEditMethod(pm)}
-                      className="px-2.5 py-1 rounded-lg bg-cyan-400/10 hover:bg-cyan-400/20 text-cyan-300 hover:text-cyan-200 border border-cyan-500/30 text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
-                      title="Equilibrar o calibrar el saldo de esta cuenta"
+                    <Button
+                      variant="accent"
+                      size="xs"
+                      onClick={() => handleOpenAdjustMethod(pm)}
+                      title="Ajustar o equilibrar el saldo de esta cuenta"
                     >
                       <SlidersHorizontal className="w-3 h-3" />
                       <span>Ajustar</span>
-                    </button>
+                    </Button>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#1E3A5F]/60">
-                    <div className="p-2 rounded-xl bg-cyan-950/40 border border-cyan-500/30">
-                      <span className="text-[10px] text-cyan-300 font-bold block">
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/60">
+                    <div className="p-2 rounded-xl bg-primary/10 border border-primary/30">
+                      <span className="text-[10px] text-primary font-bold block">
                         Saldo Libre (Gastos)
                       </span>
-                      <span className="text-xs font-black text-cyan-400 font-mono block mt-0.5">
+                      <span className="text-xs font-black text-primary font-mono block mt-0.5">
                         {formatCOP(pm.free_balance !== undefined ? pm.free_balance : (pm.net_balance ?? 0))}
                       </span>
                     </div>
-                    <div className="p-2 rounded-xl bg-violet-950/40 border border-violet-500/30">
-                      <span className="text-[10px] text-violet-300 font-bold block">
+                    <div className="p-2 rounded-xl bg-secondary/30 border border-secondary/50">
+                      <span className="text-[10px] text-foreground/80 font-bold block">
                         En Bolsillos
                       </span>
-                      <span className="text-xs font-black text-violet-400 font-mono block mt-0.5">
+                      <span className="text-xs font-black text-foreground font-mono block mt-0.5">
                         {formatCOP(pm.pockets_balance || 0)}
                       </span>
                     </div>
@@ -519,22 +572,23 @@ export default function AccountsPage() {
                 </div>
 
                 {/* Bolsillos Sub-Section */}
-                <div className="pt-2 border-t border-[#1E3A5F]/60 space-y-2">
+                <div className="pt-2 border-t border-border/60 space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
-                      <Layers className="w-3.5 h-3.5 text-cyan-400" />
-                      <span className="text-xs font-bold text-slate-200">
+                      <Layers className="w-3.5 h-3.5 text-primary" />
+                      <span className="text-xs font-bold text-foreground/90">
                         Bolsillos ({pm.pockets?.length || 0})
                       </span>
                     </div>
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="xs"
                       onClick={() => handleOpenAddPocket(pm)}
-                      className="text-[11px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cyan-950/40 border border-cyan-500/30 hover:border-cyan-400 transition-colors cursor-pointer"
+                      className="text-primary hover:text-primary hover:bg-primary/10"
                     >
                       <Plus className="w-3 h-3" />
                       <span>Bolsillo</span>
-                    </button>
+                    </Button>
                   </div>
 
                   {/* Horizontal carousel of pockets */}
@@ -543,7 +597,7 @@ export default function AccountsPage() {
                       {pm.pockets.map((pkt: any) => (
                         <div
                           key={pkt.id}
-                          className="px-2.5 py-1.5 rounded-xl bg-[#102A43]/80 border border-[#243B55] hover:border-cyan-500/40 shrink-0 flex items-center gap-2 shadow-sm transition-all"
+                          className="px-2.5 py-1.5 rounded-xl bg-surface-elevated border border-border/80 hover:border-primary/40 shrink-0 flex items-center gap-2 shadow-sm transition-all"
                         >
                           <span
                             className="w-2.5 h-2.5 rounded-full shrink-0"
@@ -551,510 +605,521 @@ export default function AccountsPage() {
                           />
                           <div>
                             <div className="flex items-center gap-1">
-                              <span className="text-xs font-bold text-white truncate max-w-[110px]">
+                              <span className="text-xs font-bold text-foreground truncate max-w-[110px]">
                                 {pkt.name}
                               </span>
                             </div>
-                            <span className="text-xs font-extrabold text-cyan-300 font-mono block">
+                            <span className="text-xs font-extrabold text-primary font-mono block">
                               {formatCOP(pkt.current_balance)}
                             </span>
                           </div>
                           
                           {/* Actions: Meter / Sacar / Delete */}
-                          <div className="flex items-center gap-0.5 pl-1 border-l border-[#243B55]">
-                            <button
+                          <div className="flex items-center gap-0.5 pl-1 border-l border-border/60">
+                            <Button
                               type="button"
+                              variant="ghost"
+                              size="icon-sm"
                               onClick={() => handleOpenTransferPocket(pkt, pm, 'DEPOSIT')}
-                              className="p-1 rounded text-emerald-400 hover:bg-emerald-500/10 cursor-pointer"
+                              className="text-success hover:bg-success/10 h-7 w-7 p-0"
                               title="Meter dinero al bolsillo"
                             >
-                              <ArrowDownRight className="w-3 h-3" />
-                            </button>
-                            <button
+                              <ArrowDownRight className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
                               type="button"
+                              variant="ghost"
+                              size="icon-sm"
                               onClick={() => handleOpenTransferPocket(pkt, pm, 'WITHDRAW')}
-                              className="p-1 rounded text-amber-400 hover:bg-amber-500/10 cursor-pointer"
+                              className="text-warning hover:bg-warning/10 h-7 w-7 p-0"
                               title="Sacar dinero al saldo libre"
                             >
-                              <ArrowUpRight className="w-3 h-3" />
-                            </button>
-                            <button
+                              <ArrowUpRight className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
                               type="button"
+                              variant="ghost"
+                              size="icon-sm"
                               onClick={() => handleDeletePocket(pkt, pm.name)}
-                              className="p-1 rounded text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 cursor-pointer"
+                              className="text-foreground/40 hover:text-danger hover:bg-danger/10 h-7 w-7 p-0"
                               title="Eliminar bolsillo"
                             >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
                           </div>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-[11px] text-slate-500 italic">
+                    <p className="text-[11px] text-foreground/40 italic">
                       Sin bolsillos creados en esta cuenta.
                     </p>
                   )}
                 </div>
 
-                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-0.5">
+                <div className="flex items-center justify-between text-[11px] text-foreground/50 pt-0.5">
                   <span className="whitespace-nowrap">Movimientos registrados:</span>
-                  <span className="font-extrabold text-white whitespace-nowrap font-mono">
+                  <span className="font-extrabold text-foreground whitespace-nowrap font-mono">
                     {pm.movement_count || 0}
                   </span>
                 </div>
-              </div>
+              </Card>
             );
           })}
         </div>
       </main>
 
       {/* MODAL: AGREGAR NUEVA CUENTA */}
-      {isAddMethodOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-md bg-[#0B192C] border border-[#1E3A5F] rounded-3xl p-6 shadow-2xl relative">
-            <div className="flex items-center justify-between pb-3 border-b border-[#1E3A5F]">
-              <span className="text-sm font-bold text-white flex items-center gap-2">
-                <Wallet className="w-4 h-4 text-cyan-400" />
-                <span>Nueva Cuenta o Medio de Pago</span>
-              </span>
-              <button
-                onClick={() => setIsAddMethodOpen(false)}
-                className="text-slate-400 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
+      <Modal
+        isOpen={isAddMethodOpen}
+        onClose={() => setIsAddMethodOpen(false)}
+        title="Nueva Cuenta o Medio de Pago"
+        icon={<Wallet className="w-5 h-5" />}
+      >
+        <form onSubmit={handleCreateMethod} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-foreground/80 mb-1">
+              Nombre de la Cuenta *
+            </label>
+            <Input
+              type="text"
+              required
+              value={newMethodName}
+              onChange={(e) => setNewMethodName(e.target.value)}
+              placeholder="Ej: Bancolombia, Nequi, Efectivo de Bolsillo"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-foreground/80 mb-1">
+              Tipo de Cuenta
+            </label>
+            <Select
+              value={newMethodType}
+              onChange={(e) => setNewMethodType(e.target.value)}
+            >
+              {METHOD_TYPES.map((type) => (
+                <option key={type.id} value={type.id} className="bg-surface-elevated text-foreground">
+                  {type.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-foreground/80 mb-1">
+              Saldo Inicial en esta cuenta ($ COP)
+            </label>
+            <Input
+              type="number"
+              step="1000"
+              value={newMethodInitialBalance}
+              onChange={(e) => setNewMethodInitialBalance(e.target.value)}
+              placeholder="0"
+            />
+            <p className="text-[10px] text-foreground/50 mt-1">
+              El dinero que tienes en esta cuenta al momento de crearla.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-foreground/80 mb-1.5">
+              Color Identificador
+            </label>
+            <div className="flex gap-2 flex-wrap">
+              {COLOR_OPTIONS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setNewMethodColor(c)}
+                  className={`w-7 h-7 rounded-full transition-transform cursor-pointer ${
+                    newMethodColor === c ? 'scale-110 ring-2 ring-white' : 'opacity-70 hover:opacity-100'
+                  }`}
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <Button
+              type="button"
+              variant="secondary"
+              fullWidth
+              onClick={() => setIsAddMethodOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              fullWidth
+              disabled={isCreatingMethod}
+            >
+              {isCreatingMethod ? 'Creando...' : 'Crear Cuenta'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* MODAL: EDITAR CUENTA (Nombre, Tipo, Color) */}
+      <Modal
+        isOpen={!!editingMethod}
+        onClose={() => setEditingMethod(null)}
+        title="Editar Cuenta"
+        icon={<Edit3 className="w-5 h-5" />}
+      >
+        {editingMethod && (
+          <form onSubmit={handleSaveEditMethod} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-foreground/80 mb-1">
+                Nombre de la Cuenta *
+              </label>
+              <Input
+                type="text"
+                required
+                value={editMethodName}
+                onChange={(e) => setEditMethodName(e.target.value)}
+                placeholder="Ej: Bancolombia Principal, Nequi..."
+              />
             </div>
 
-            <form onSubmit={handleCreateMethod} className="mt-4 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Nombre de la Cuenta *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newMethodName}
-                  onChange={(e) => setNewMethodName(e.target.value)}
-                  placeholder="Ej: Bancolombia, Nequi, Efectivo de Bolsillo"
-                  className="w-full bg-[#102A43] border border-[#243B55] rounded-xl px-3 py-2 text-sm text-white placeholder-slate-400 outline-none focus:border-cyan-400"
-                />
-              </div>
+            <div>
+              <label className="block text-xs font-semibold text-foreground/80 mb-1">
+                Tipo de Cuenta
+              </label>
+              <Select
+                value={editMethodType}
+                onChange={(e) => setEditMethodType(e.target.value)}
+              >
+                {METHOD_TYPES.map((type) => (
+                  <option key={type.id} value={type.id} className="bg-surface-elevated text-foreground">
+                    {type.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Tipo de Cuenta
-                </label>
-                <select
-                  value={newMethodType}
-                  onChange={(e) => setNewMethodType(e.target.value)}
-                  className="w-full bg-[#102A43] border border-[#243B55] rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-cyan-400"
-                >
-                  {METHOD_TYPES.map((type) => (
-                    <option key={type.id} value={type.id}>
-                      {type.label}
-                    </option>
-                  ))}
-                </select>
+            <div>
+              <label className="block text-xs font-semibold text-foreground/80 mb-1.5">
+                Color Identificador
+              </label>
+              <div className="flex gap-2 flex-wrap">
+                {COLOR_OPTIONS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setEditMethodColor(c)}
+                    className={`w-7 h-7 rounded-full transition-transform cursor-pointer ${
+                      editMethodColor === c ? 'scale-110 ring-2 ring-white' : 'opacity-70 hover:opacity-100'
+                    }`}
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
               </div>
+            </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Saldo Inicial en esta cuenta ($ COP)
-                </label>
-                <input
-                  type="number"
-                  step="1000"
-                  value={newMethodInitialBalance}
-                  onChange={(e) => setNewMethodInitialBalance(e.target.value)}
-                  placeholder="0"
-                  className="w-full bg-[#102A43] border border-[#243B55] rounded-xl px-3 py-2 text-sm font-mono text-white outline-none focus:border-cyan-400"
-                />
-                <p className="text-[10px] text-slate-400 mt-1">
-                  El dinero que tienes en esta cuenta al momento de crearla.
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Color Identificador
-                </label>
-                <div className="flex gap-2 flex-wrap">
-                  {COLOR_OPTIONS.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setNewMethodColor(c)}
-                      className={`w-7 h-7 rounded-full transition-transform cursor-pointer ${
-                        newMethodColor === c ? 'scale-110 ring-2 ring-white' : 'opacity-70 hover:opacity-100'
-                      }`}
-                      style={{ backgroundColor: c }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAddMethodOpen(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-[#243B55] text-xs font-bold text-slate-300 hover:text-white"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={isCreatingMethod}
-                  className="flex-1 py-2.5 rounded-xl bg-cyan-400 text-slate-950 text-xs font-black hover:bg-cyan-300 transition-colors disabled:opacity-50"
-                >
-                  {isCreatingMethod ? 'Creando...' : 'Crear Cuenta'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: EDITAR / EQUILIBRAR CUENTA */}
-      {editingMethod && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-md bg-[#0B192C] border border-cyan-400 rounded-3xl p-6 shadow-2xl relative">
-            <div className="flex items-center justify-between pb-3 border-b border-[#1E3A5F]">
-              <span className="text-sm font-bold text-white flex items-center gap-2">
-                <Edit3 className="w-4 h-4 text-cyan-400" />
-                <span>Editar / Calibrar Cuenta</span>
-              </span>
-              <button
+            <div className="flex gap-2 pt-2">
+              <Button
+                type="button"
+                variant="secondary"
+                fullWidth
                 onClick={() => setEditingMethod(null)}
-                className="text-slate-400 hover:text-white"
               >
-                <X className="w-4 h-4" />
-              </button>
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                fullWidth
+                disabled={isSavingEditMethod}
+              >
+                {isSavingEditMethod ? 'Guardando...' : 'Guardar Cambios'}
+              </Button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
+      {/* MODAL: AJUSTAR / CALIBRAR SALDO */}
+      <Modal
+        isOpen={!!adjustingMethod}
+        onClose={() => setAdjustingMethod(null)}
+        title="Ajustar Saldo de Cuenta"
+        icon={<SlidersHorizontal className="w-5 h-5" />}
+      >
+        {adjustingMethod && (
+          <form onSubmit={handleSaveAdjustMethod} className="space-y-4">
+            {/* Account Context Badge */}
+            <div className="p-3 rounded-2xl bg-surface-elevated/70 border border-border flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-white shrink-0 shadow"
+                  style={{ backgroundColor: adjustingMethod.color || '#00ADB5' }}
+                >
+                  <Wallet className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-foreground truncate">{adjustingMethod.name}</p>
+                  <p className="text-[10px] text-foreground/50 uppercase font-semibold">
+                    {adjustingMethod.type === 'WALLET'
+                      ? 'Billetera Digital'
+                      : adjustingMethod.type === 'CASH'
+                      ? 'Efectivo'
+                      : adjustingMethod.type === 'CARD'
+                      ? 'Tarjeta'
+                      : 'Banco'}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                <span className="text-[10px] text-foreground/50 block font-medium">Saldo en App</span>
+                <span className="text-xs font-bold text-foreground/90 font-mono">
+                  {formatCOP(adjustingMethod.net_balance ?? 0)}
+                </span>
+              </div>
             </div>
 
-            <form onSubmit={handleSaveEditMethod} className="mt-4 space-y-3.5">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Nombre de la Cuenta *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editMethodName}
-                  onChange={(e) => setEditMethodName(e.target.value)}
-                  className="w-full bg-[#102A43] border border-[#243B55] rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-cyan-400"
-                />
-              </div>
+            {/* Adjust Input */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-foreground/80">
+                Nuevo Saldo Real Exacto *
+              </label>
+              <Input
+                type="number"
+                step="100"
+                required
+                value={adjustTargetBalance}
+                onChange={(e) => setAdjustTargetBalance(e.target.value)}
+                placeholder="Ej: 1500000"
+                icon={<span className="text-primary font-bold text-sm">$</span>}
+              />
+              <p className="text-[11px] text-foreground/50 leading-relaxed pt-1">
+                Ingresa el saldo exacto que tienes actualmente en tu banco o billetera física. La app generará automáticamente un movimiento contable de ajuste para calibrar la diferencia.
+              </p>
+            </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Tipo de Cuenta
-                </label>
-                <select
-                  value={editMethodType}
-                  onChange={(e) => setEditMethodType(e.target.value)}
-                  className="w-full bg-[#102A43] border border-[#243B55] rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-cyan-400"
-                >
-                  {METHOD_TYPES.map((type) => (
-                    <option key={type.id} value={type.id}>
-                      {type.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Equilibrar / Calibrar Saldo */}
-              <div className="bg-[#102A43] border border-cyan-500/40 rounded-2xl p-3.5 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
-                    <SlidersHorizontal className="w-3.5 h-3.5" />
-                    <span>Equilibrar / Calibrar Saldo Real</span>
-                  </span>
-                  <span className="text-[10px] text-slate-400 font-mono">
-                    Actual: {formatCOP(editingMethod.net_balance ?? 0)}
-                  </span>
-                </div>
-                <input
-                  type="number"
-                  step="100"
-                  value={editMethodTargetBalance}
-                  onChange={(e) => setEditMethodTargetBalance(e.target.value)}
-                  placeholder="Saldo real exacto"
-                  className="w-full bg-[#0B192C] border border-[#243B55] focus:border-cyan-400 rounded-xl px-3 py-2 text-sm font-mono text-white outline-none font-bold"
-                />
-                <p className="text-[10px] text-slate-400 leading-relaxed">
-                  Si tu saldo en la app no coincide con el saldo de tu app bancaria o billetera, escribe aquí el saldo real y el sistema generará un movimiento de ajuste automático.
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Color Identificador
-                </label>
-                <div className="flex gap-2 flex-wrap">
-                  {COLOR_OPTIONS.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setEditMethodColor(c)}
-                      className={`w-7 h-7 rounded-full transition-transform cursor-pointer ${
-                        editMethodColor === c ? 'scale-110 ring-2 ring-white' : 'opacity-70 hover:opacity-100'
-                      }`}
-                      style={{ backgroundColor: c }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingMethod(null)}
-                  className="flex-1 py-2.5 rounded-xl border border-[#243B55] text-xs font-bold text-slate-300 hover:text-white"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSavingEditMethod}
-                  className="flex-1 py-2.5 rounded-xl bg-cyan-400 text-slate-950 text-xs font-black hover:bg-cyan-300 transition-colors disabled:opacity-50"
-                >
-                  {isSavingEditMethod ? 'Guardando...' : 'Guardar Cambios'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            <div className="flex gap-2 pt-2">
+              <Button
+                type="button"
+                variant="secondary"
+                fullWidth
+                onClick={() => setAdjustingMethod(null)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                fullWidth
+                disabled={isSavingAdjustment}
+              >
+                {isSavingAdjustment ? 'Calibrando...' : 'Aplicar Ajuste'}
+              </Button>
+            </div>
+          </form>
+        )}
+      </Modal>
 
       {/* MODAL: CREAR NUEVO BOLSILLO */}
-      {isAddPocketOpen && pocketTargetMethod && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-md bg-[#0B192C] border border-[#1E3A5F] rounded-3xl p-5 sm:p-6 shadow-2xl relative max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-[#1E3A5F]">
-              <span className="text-sm font-bold text-white flex items-center gap-2">
-                <Layers className="w-4 h-4 text-cyan-400" />
-                <span>Nuevo Bolsillo en {pocketTargetMethod.name}</span>
-              </span>
-              <button
-                onClick={() => setIsAddPocketOpen(false)}
-                className="text-slate-400 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
+      <Modal
+        isOpen={isAddPocketOpen && !!pocketTargetMethod}
+        onClose={() => setIsAddPocketOpen(false)}
+        title={`Nuevo Bolsillo en ${pocketTargetMethod?.name}`}
+        icon={<Layers className="w-5 h-5" />}
+      >
+        {pocketTargetMethod && (
+          <form onSubmit={handleCreatePocket} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-foreground/80 mb-1">
+                Nombre del Bolsillo *
+              </label>
+              <Input
+                type="text"
+                required
+                value={newPocketName}
+                onChange={(e) => setNewPocketName(e.target.value)}
+                placeholder="Ej: Arriendo, Ahorro Moto, Vacaciones"
+              />
             </div>
 
-            <form onSubmit={handleCreatePocket} className="mt-4 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Nombre del Bolsillo *
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-foreground/80">
+                  Monto Inicial a Asignar ($ COP)
                 </label>
-                <input
-                  type="text"
-                  required
-                  value={newPocketName}
-                  onChange={(e) => setNewPocketName(e.target.value)}
-                  placeholder="Ej: Arriendo, Ahorro Moto, Vacaciones"
-                  className="w-full bg-[#102A43] border border-[#243B55] rounded-xl px-3 py-2 text-sm text-white placeholder-slate-400 outline-none focus:border-cyan-400"
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-semibold text-slate-300">
-                    Monto Inicial a Asignar ($ COP)
-                  </label>
-                  <span className="text-[10px] text-cyan-400 font-mono">
-                    Libre en cuenta: {formatCOP(pocketTargetMethod.free_balance !== undefined ? pocketTargetMethod.free_balance : (pocketTargetMethod.net_balance || 0))}
-                  </span>
-                </div>
-                <input
-                  type="number"
-                  step="1000"
-                  value={newPocketInitialFunding}
-                  onChange={(e) => setNewPocketInitialFunding(e.target.value)}
-                  placeholder="0"
-                  className="w-full bg-[#102A43] border border-[#243B55] rounded-xl px-3 py-2 text-sm font-mono text-white outline-none focus:border-cyan-400"
-                />
-                <p className="text-[10px] text-slate-400 mt-1">
-                  Se apartará del saldo libre de {pocketTargetMethod.name} y quedará protegido en este bolsillo.
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Meta Opcional ($ COP)
-                </label>
-                <input
-                  type="number"
-                  step="1000"
-                  value={newPocketTargetAmount}
-                  onChange={(e) => setNewPocketTargetAmount(e.target.value)}
-                  placeholder="Ej: 1500000"
-                  className="w-full bg-[#102A43] border border-[#243B55] rounded-xl px-3 py-2 text-sm font-mono text-white outline-none focus:border-cyan-400"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Color Identificador
-                </label>
-                <div className="flex gap-2 flex-wrap">
-                  {COLOR_OPTIONS.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setNewPocketColor(c)}
-                      className={`w-7 h-7 rounded-full transition-transform cursor-pointer ${
-                        newPocketColor === c ? 'scale-110 ring-2 ring-white' : 'opacity-70 hover:opacity-100'
-                      }`}
-                      style={{ backgroundColor: c }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAddPocketOpen(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-[#243B55] text-xs font-bold text-slate-300 hover:text-white cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={isCreatingPocket}
-                  className="flex-1 py-2.5 rounded-xl bg-cyan-400 text-slate-950 text-xs font-black hover:bg-cyan-300 transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  {isCreatingPocket ? 'Creando...' : 'Crear Bolsillo'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: TRANSFERIR DINERO A / DESDE BOLSILLO (METER / SACAR) */}
-      {transferModalData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-md bg-[#0B192C] border border-[#1E3A5F] rounded-3xl p-5 sm:p-6 shadow-2xl relative max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-[#1E3A5F]">
-              <span className="text-sm font-bold text-white flex items-center gap-2">
-                <ArrowRightLeft className="w-4 h-4 text-cyan-400" />
-                <span>
-                  {transferType === 'DEPOSIT'
-                    ? `Meter dinero a "${transferModalData.pocket.name}"`
-                    : `Sacar dinero de "${transferModalData.pocket.name}"`}
+                <span className="text-[10px] text-primary font-mono font-bold">
+                  Libre en cuenta: {formatCOP(pocketTargetMethod.free_balance !== undefined ? pocketTargetMethod.free_balance : (pocketTargetMethod.net_balance || 0))}
                 </span>
-              </span>
-              <button
-                onClick={() => setTransferModalData(null)}
-                className="text-slate-400 hover:text-white cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              </div>
+              <Input
+                type="number"
+                step="1000"
+                value={newPocketInitialFunding}
+                onChange={(e) => setNewPocketInitialFunding(e.target.value)}
+                placeholder="0"
+              />
+              <p className="text-[10px] text-foreground/50 mt-1">
+                Se apartará del saldo libre de {pocketTargetMethod.name} y quedará protegido en este bolsillo.
+              </p>
             </div>
 
-            {/* Type selector toggle (Meter vs Sacar) */}
-            <div className="flex bg-[#070F1E] p-1 rounded-xl border border-[#1E3A5F] mt-4 mb-3">
-              <button
+            <div>
+              <label className="block text-xs font-semibold text-foreground/80 mb-1">
+                Meta Opcional ($ COP)
+              </label>
+              <Input
+                type="number"
+                step="1000"
+                value={newPocketTargetAmount}
+                onChange={(e) => setNewPocketTargetAmount(e.target.value)}
+                placeholder="Ej: 1500000"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-foreground/80 mb-1.5">
+                Color Identificador
+              </label>
+              <div className="flex gap-2 flex-wrap">
+                {COLOR_OPTIONS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setNewPocketColor(c)}
+                    className={`w-7 h-7 rounded-full transition-transform cursor-pointer ${
+                      newPocketColor === c ? 'scale-110 ring-2 ring-white' : 'opacity-70 hover:opacity-100'
+                    }`}
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <Button
                 type="button"
+                variant="secondary"
+                fullWidth
+                onClick={() => setIsAddPocketOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                fullWidth
+                disabled={isCreatingPocket}
+              >
+                {isCreatingPocket ? 'Creando...' : 'Crear Bolsillo'}
+              </Button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
+      {/* MODAL: TRANSFERIR DINERO A / DESDE BOLSILLO */}
+      <Modal
+        isOpen={!!transferModalData}
+        onClose={() => setTransferModalData(null)}
+        title={
+          transferType === 'DEPOSIT'
+            ? `Meter dinero a "${transferModalData?.pocket?.name}"`
+            : `Sacar dinero de "${transferModalData?.pocket?.name}"`
+        }
+        icon={<ArrowRightLeft className="w-5 h-5" />}
+      >
+        {transferModalData && (
+          <div className="space-y-4">
+            {/* Type selector toggle */}
+            <div className="flex bg-surface-elevated p-1 rounded-xl border border-border gap-1">
+              <Button
+                type="button"
+                size="sm"
+                variant={transferType === 'DEPOSIT' ? 'success' : 'ghost'}
                 onClick={() => setTransferType('DEPOSIT')}
-                className={`flex-1 py-1.5 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                  transferType === 'DEPOSIT'
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
-                    : 'text-slate-400 hover:text-white'
-                }`}
+                icon={ArrowDownRight}
+                className="flex-1"
               >
-                <ArrowDownRight className="w-3.5 h-3.5" />
-                <span>Meter al Bolsillo</span>
-              </button>
-              <button
+                Meter al Bolsillo
+              </Button>
+              <Button
                 type="button"
+                size="sm"
+                variant={transferType === 'WITHDRAW' ? 'warning' : 'ghost'}
                 onClick={() => setTransferType('WITHDRAW')}
-                className={`flex-1 py-1.5 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                  transferType === 'WITHDRAW'
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
-                    : 'text-slate-400 hover:text-white'
-                }`}
+                icon={ArrowUpRight}
+                className="flex-1"
               >
-                <ArrowUpRight className="w-3.5 h-3.5" />
-                <span>Sacar a Saldo Libre</span>
-              </button>
+                Sacar a Saldo Libre
+              </Button>
             </div>
 
             <form onSubmit={handleTransferPocket} className="space-y-3.5">
-              {/* Balances summary */}
-              <div className="grid grid-cols-2 gap-2 p-2.5 rounded-2xl bg-[#102A43]/60 border border-[#243B55]">
+              <div className="grid grid-cols-2 gap-2 p-2.5 rounded-2xl bg-surface-elevated/70 border border-border/70">
                 <div>
-                  <span className="text-[10px] text-slate-400 block">En Bolsillo:</span>
-                  <span className="text-xs font-black text-cyan-300 font-mono block">
+                  <span className="text-[10px] text-foreground/50 block">En Bolsillo:</span>
+                  <span className="text-xs font-black text-primary font-mono block">
                     {formatCOP(transferModalData.pocket.current_balance)}
                   </span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-400 block">Libre en {transferModalData.account.name}:</span>
-                  <span className="text-xs font-black text-emerald-400 font-mono block">
+                  <span className="text-[10px] text-foreground/50 block">Libre en {transferModalData.account.name}:</span>
+                  <span className="text-xs font-black text-success font-mono block">
                     {formatCOP(transferModalData.account.free_balance !== undefined ? transferModalData.account.free_balance : (transferModalData.account.net_balance || 0))}
                   </span>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Monto a {transferType === 'DEPOSIT' ? 'Meter' : 'Sacar'} ($ COP) *
-                </label>
-                <input
-                  type="number"
-                  step="1000"
-                  required
-                  autoFocus
-                  value={transferAmount}
-                  onChange={(e) => setTransferAmount(e.target.value)}
-                  placeholder="0"
-                  className="w-full bg-[#102A43] border border-[#243B55] rounded-xl px-3 py-2 text-base font-mono font-bold text-white outline-none focus:border-cyan-400"
-                />
-              </div>
+              <Input
+                label={`Monto a ${transferType === 'DEPOSIT' ? 'Meter' : 'Sacar'} ($ COP) *`}
+                type="number"
+                step="1000"
+                required
+                autoFocus
+                value={transferAmount}
+                onChange={(e) => setTransferAmount(e.target.value)}
+                placeholder="0"
+              />
 
               {/* Quick shortcut buttons */}
               <div className="flex gap-1.5 flex-wrap">
                 {[20000, 50000, 100000, 200000, 500000].map((val) => (
-                  <button
+                  <Button
                     key={val}
                     type="button"
+                    variant="outline"
+                    size="xs"
                     onClick={() => setTransferAmount(String(val))}
-                    className="text-[11px] px-2 py-0.5 rounded-lg bg-[#070F1E] border border-[#243B55] text-slate-300 hover:text-white font-mono cursor-pointer"
+                    className="font-mono"
                   >
                     +{formatCOP(val).replace('$', '').trim()}
-                  </button>
+                  </Button>
                 ))}
               </div>
 
               <div className="flex gap-2 pt-2">
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
+                  fullWidth
                   onClick={() => setTransferModalData(null)}
-                  className="flex-1 py-2.5 rounded-xl border border-[#243B55] text-xs font-bold text-slate-300 hover:text-white cursor-pointer"
                 >
                   Cancelar
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
+                  variant={transferType === 'DEPOSIT' ? 'success' : 'warning'}
+                  fullWidth
                   disabled={isTransferringPocket || !transferAmount}
-                  className={`flex-1 py-2.5 rounded-xl text-slate-950 text-xs font-black transition-colors disabled:opacity-50 cursor-pointer ${
-                    transferType === 'DEPOSIT'
-                      ? 'bg-emerald-400 hover:bg-emerald-300'
-                      : 'bg-amber-400 hover:bg-amber-300'
-                  }`}
                 >
                   {isTransferringPocket ? 'Procesando...' : transferType === 'DEPOSIT' ? 'Meter al Bolsillo' : 'Sacar a Saldo Libre'}
-                </button>
+                </Button>
               </div>
             </form>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
 
       <BottomNav
         onOpenQuickExpense={() => setIsQuickExpenseOpen(true)}

@@ -34,6 +34,7 @@ import {
   usePaymentMethods, 
   useInvalidateFinance 
 } from '@/lib/api-hooks';
+import { PageBanner, Button, Badge, Modal, Input } from '@/components/ui';
 
 export default function GoalsPage() {
   const router = useRouter();
@@ -238,52 +239,39 @@ export default function GoalsPage() {
   const availableCash = Number(user?.current_cash) || 0;
 
   return (
-    <div className="min-h-screen bg-[#070F1E] flex flex-col">
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
       <Header user={user} onUserUpdate={invalidateFinance} />
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-5 space-y-5">
-        {/* Top Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0B192C] border border-[#1E3A5F] rounded-3xl p-5 shadow-xl">
-          <div className="flex items-center gap-3">
-            <Link
-              href="/"
-              className="p-2 rounded-xl bg-[#102A43] border border-[#243B55] text-slate-400 hover:text-white transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </Link>
-            <div>
-              <h1 className="text-xl font-black text-white">Metas & Plan de Ahorro</h1>
-              <p className="text-xs text-slate-400">Cada abono se descuenta de tu saldo en mano y queda registrado en tu historial</p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setIsAddGoalOpen(true)}
-            className="py-2.5 px-4 rounded-xl bg-linear-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] font-extrabold text-xs shadow-md shadow-[#00ADB5]/20 flex items-center gap-1.5 self-start sm:self-center hover:opacity-95 active:scale-95 transition-all"
-          >
-            <Plus className="w-4 h-4 stroke-[3px]" />
-            <span>Nueva Meta</span>
-          </button>
-        </div>
+        {/* Top Header Banner */}
+        <PageBanner
+          icon={<Target className="w-5 h-5" />}
+          title="Metas & Plan de Ahorro"
+          description="Cada abono se descuenta de tu saldo en mano y queda registrado en tu historial"
+          badgeText="Planificación"
+          actionText="Nueva Meta"
+          onAction={() => setIsAddGoalOpen(true)}
+          actionIcon={<Plus className="w-4 h-4 stroke-[3px]" />}
+        />
 
         {/* Global Savings & Cash Banner */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-          <div className="p-3.5 rounded-2xl bg-[#102A43] border border-[#1E3A5F]">
-            <span className="text-[11px] font-semibold text-[#00ADB5] block">Dinero Libre Disponible</span>
-            <p className="text-xl sm:text-2xl font-black text-white mt-0.5">{formatCOP(availableCash)}</p>
-            <span className="text-[10px] text-slate-400 mt-1 block">Saldo en mano para gastos diarios</span>
+          <div className="p-3.5 rounded-2xl bg-surface border border-border">
+            <span className="text-[11px] font-semibold text-primary block">Dinero Libre Disponible</span>
+            <p className="text-xl sm:text-2xl font-black text-foreground mt-0.5">{formatCOP(availableCash)}</p>
+            <span className="text-[10px] text-foreground/50 mt-1 block">Saldo en mano para gastos diarios</span>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-[#102A43] border border-[#1E3A5F]">
+          <div className="p-3.5 rounded-2xl bg-surface border border-border">
             <span className="text-[11px] font-semibold text-emerald-400 block">Total Ahorrado en Metas</span>
             <p className="text-xl sm:text-2xl font-black text-emerald-400 mt-0.5">{formatCOP(totalSavedInGoals)}</p>
-            <span className="text-[10px] text-slate-400 mt-1 block">Dinero apartado y protegido</span>
+            <span className="text-[10px] text-foreground/50 mt-1 block">Dinero apartado y protegido</span>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-[#102A43] border border-[#1E3A5F]">
-            <span className="text-[11px] font-semibold text-cyan-400 block">Objetivo Total Acumulado</span>
-            <p className="text-xl sm:text-2xl font-black text-white mt-0.5">{formatCOP(totalTargetInGoals)}</p>
-            <span className="text-[10px] text-slate-400 mt-1 block">
+          <div className="p-3.5 rounded-2xl bg-surface border border-border">
+            <span className="text-[11px] font-semibold text-accent block">Objetivo Total Acumulado</span>
+            <p className="text-xl sm:text-2xl font-black text-foreground mt-0.5">{formatCOP(totalTargetInGoals)}</p>
+            <span className="text-[10px] text-foreground/50 mt-1 block">
               {totalTargetInGoals > 0 ? `${Math.round((totalSavedInGoals / totalTargetInGoals) * 100)}% de avance global` : 'Sin metas creadas'}
             </span>
           </div>
@@ -291,24 +279,28 @@ export default function GoalsPage() {
 
         {/* Active Goals List */}
         <div className="space-y-3.5">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2">
-            <PiggyBank className="w-4 h-4 text-[#00ADB5]" />
+          <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+            <PiggyBank className="w-4 h-4 text-primary" />
             <span>Activas ({goals.length})</span>
           </h3>
 
           {goals.length === 0 ? (
-            <div className="p-8 rounded-3xl bg-[#0B192C] border border-[#1E3A5F] text-center text-xs text-slate-400">
-              <Target className="w-10 h-10 text-[#00ADB5] mx-auto mb-2 opacity-30" />
-              <p className="text-sm font-bold text-white">Aún no tienes metas registradas</p>
-              <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+            <div className="p-8 rounded-3xl bg-surface border border-border text-center text-xs text-foreground/60">
+              <Target className="w-10 h-10 text-primary mx-auto mb-2 opacity-30" />
+              <p className="text-sm font-bold text-foreground">Aún no tienes metas registradas</p>
+              <p className="text-xs text-foreground/50 mt-1 max-w-sm mx-auto">
                 Crea una meta (ej: Moto, Viaje, Fondo de Emergencia) para saber con precisión cuánto debes guardar cada día.
               </p>
-              <button
-                onClick={() => setIsAddGoalOpen(true)}
-                className="mt-4 px-4 py-2 bg-[#00ADB5] text-[#0B192C] font-extrabold text-xs rounded-xl shadow-md"
-              >
-                + Crear Mi Primera Meta
-              </button>
+              <div className="mt-4 flex justify-center">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setIsAddGoalOpen(true)}
+                  icon={Plus}
+                >
+                  Crear Mi Primera Meta
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -321,57 +313,60 @@ export default function GoalsPage() {
                 return (
                   <div
                     key={goal.id}
-                    className="bg-[#102A43] border border-[#243B55] hover:border-[#1E3A5F] rounded-3xl p-5 shadow-xl flex flex-col justify-between transition-all"
+                    className="bg-surface border border-border hover:border-border/80 rounded-3xl p-5 shadow-xl flex flex-col justify-between transition-all"
                   >
                     <div>
                       {/* Card Header */}
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2.5">
-                          <div className="p-2.5 rounded-2xl bg-[#00ADB5]/15 border border-[#00ADB5]/30 text-[#00ADB5]">
+                          <div className="p-2.5 rounded-2xl bg-primary/15 border border-primary/30 text-primary">
                             <Target className="w-5 h-5" />
                           </div>
                           <div>
-                            <h4 className="text-sm font-black text-white">{goal.title}</h4>
-                            <p className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
-                              <Calendar className="w-3 h-3 text-[#00ADB5]" />
+                            <h4 className="text-sm font-black text-foreground">{goal.title}</h4>
+                            <p className="text-[11px] text-foreground/50 flex items-center gap-1 mt-0.5">
+                              <Calendar className="w-3 h-3 text-primary" />
                               <span>{formatDateSpanish(goal.target_date)}</span>
                             </p>
                           </div>
                         </div>
 
-                        <button
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
                           onClick={() => handleDeleteGoal(goal.id, Number(goal.current_amount) || 0)}
-                          className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
                           title="Eliminar meta"
+                          className="text-foreground/40 hover:text-danger hover:bg-danger/10"
                         >
                           <Trash2 className="w-4 h-4" />
-                        </button>
+                        </Button>
                       </div>
 
                       {/* Amounts Display */}
                       <div className="mt-4 flex items-baseline justify-between">
                         <div>
-                          <span className="text-[10px] uppercase font-bold text-slate-400">Ahorrado</span>
+                          <span className="text-[10px] uppercase font-bold text-foreground/50">Ahorrado</span>
                           <p className="text-lg font-black text-emerald-400">{formatCOP(goal.current_amount)}</p>
                         </div>
                         <div className="text-right">
-                          <span className="text-[10px] uppercase font-bold text-slate-400">Objetivo</span>
-                          <p className="text-lg font-black text-white">{formatCOP(goal.target_amount)}</p>
+                          <span className="text-[10px] uppercase font-bold text-foreground/50">Objetivo</span>
+                          <p className="text-lg font-black text-foreground">{formatCOP(goal.target_amount)}</p>
                         </div>
                       </div>
 
                       {/* Progress Bar */}
                       <div className="mt-2">
                         <div className="flex items-center justify-between text-[11px] mb-1 font-semibold">
-                          <span className="text-slate-400">Progreso</span>
-                          <span className="text-[#00ADB5] font-black">{progress}%</span>
+                          <span className="text-foreground/50">Progreso</span>
+                          <span className="text-primary font-black">{progress}%</span>
                         </div>
-                        <div className="w-full h-2.5 rounded-full bg-[#0B192C] overflow-hidden border border-[#1E3A5F]">
+                        <div className="w-full h-2.5 rounded-full bg-surface-elevated overflow-hidden border border-border">
                           <div
                             className={`h-full transition-all duration-500 rounded-full ${
                               isDone
                                 ? 'bg-emerald-400'
-                                : 'bg-linear-to-r from-[#00ADB5] to-[#06B6D4]'
+                                : 'bg-linear-to-r from-primary to-accent'
                             }`}
                             style={{ width: `${progress}%` }}
                           />
@@ -380,21 +375,21 @@ export default function GoalsPage() {
 
                       {/* DAILY SAVING METRIC BADGE */}
                       {!isDone && (
-                        <div className="mt-3.5 p-3 rounded-2xl bg-[#0B192C] border border-[#00ADB5]/30 space-y-1.5">
+                        <div className="mt-3.5 p-3 rounded-2xl bg-surface-elevated border border-primary/30 space-y-1.5">
                           <div className="flex items-center justify-between">
-                            <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
-                              <Sparkles className="w-3.5 h-3.5 text-[#00ADB5]" />
+                            <span className="text-[11px] font-bold text-foreground/80 flex items-center gap-1.5">
+                              <Sparkles className="w-3.5 h-3.5 text-primary" />
                               <span>Ahorro diario requerido:</span>
                             </span>
-                            <span className="text-xs font-black text-[#00ADB5] bg-[#00ADB5]/10 px-2 py-0.5 rounded-lg border border-[#00ADB5]/30">
+                            <span className="text-xs font-black text-primary bg-primary/10 px-2 py-0.5 rounded-lg border border-primary/30">
                               {formatCOP(goal.daily_saving_needed)} / día
                             </span>
                           </div>
 
-                          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-[#1E3A5F]">
-                            <span>Por quincena: <strong className="text-white">{formatCOP(goal.quincena_saving_needed || (goal.daily_saving_needed * 15))}</strong></span>
+                          <div className="flex items-center justify-between text-[11px] text-foreground/50 pt-1 border-t border-border">
+                            <span>Por quincena: <strong className="text-foreground">{formatCOP(goal.quincena_saving_needed || (goal.daily_saving_needed * 15))}</strong></span>
                             {goal.days_remaining > 0 && (
-                              <span className="text-[#00ADB5] font-semibold flex items-center gap-1">
+                              <span className="text-primary font-semibold flex items-center gap-1">
                                 <Clock className="w-3 h-3" />
                                 {goal.days_remaining} días restantes
                               </span>
@@ -404,24 +399,24 @@ export default function GoalsPage() {
                       )}
 
                       {isDone && (
-                        <div className="mt-3 p-2.5 rounded-xl bg-emerald-950/40 border border-emerald-600/40 text-center text-xs font-bold text-emerald-300">
+                        <div className="mt-3 p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-center text-xs font-bold text-emerald-300">
                           🎉 ¡Meta 100% alcanzada! Felicitaciones por tu disciplina.
                         </div>
                       )}
                     </div>
 
                     {/* Deposit & Withdraw Actions */}
-                    <div className="mt-4 pt-3 border-t border-[#243B55]">
+                    <div className="mt-4 pt-3 border-t border-border">
                       {/* MODE 1: DEPOSIT PANEL */}
                       {isDepositingThis && (
-                        <div className="p-3 rounded-2xl bg-[#0B192C] border border-[#00ADB5] space-y-2.5 animate-in fade-in duration-150">
+                        <div className="p-3 rounded-2xl bg-surface-elevated border border-primary space-y-2.5 animate-in fade-in duration-150">
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                              <ArrowDownRight className="w-3.5 h-3.5 text-[#00ADB5]" />
+                            <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                              <ArrowDownRight className="w-3.5 h-3.5 text-primary" />
                               <span>Abonar a esta meta</span>
                             </span>
                             {Number(depositAmount) > 0 && (
-                              <span className="text-xs font-black text-[#00ADB5]">
+                              <span className="text-xs font-black text-primary">
                                 {formatCOP(Number(depositAmount))}
                               </span>
                             )}
@@ -432,17 +427,17 @@ export default function GoalsPage() {
                             placeholder="Monto a guardar (ej: 50000)"
                             value={depositAmount}
                             onChange={(e) => setDepositAmount(e.target.value)}
-                            className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2 rounded-xl focus:border-[#00ADB5] focus:outline-none"
+                            className="w-full bg-surface border border-border text-foreground text-xs px-3 py-2 rounded-xl focus:border-primary focus:outline-none"
                             autoFocus
                           />
 
                           {/* Payment method selector */}
                           <div className="flex items-center justify-between gap-2">
-                            <label className="text-[11px] text-slate-400 shrink-0">Medio / Cuenta:</label>
+                            <label className="text-[11px] text-foreground/50 shrink-0">Medio / Cuenta:</label>
                             <select
                               value={depositMethod}
                               onChange={(e) => setDepositMethod(e.target.value)}
-                              className="flex-1 bg-[#102A43] border border-[#243B55] text-white text-xs px-2 py-1.5 rounded-lg focus:outline-none"
+                              className="flex-1 bg-surface border border-border text-foreground text-xs px-2 py-1.5 rounded-lg focus:outline-none"
                             >
                               {paymentMethods.map((pm: any) => (
                                 <option key={pm.id} value={pm.name}>
@@ -452,42 +447,47 @@ export default function GoalsPage() {
                             </select>
                           </div>
 
-                          <p className="text-[10px] text-slate-400 bg-[#102A43]/60 p-2 rounded-lg border border-[#243B55]/50">
-                            🔻 Se restará de tu fondo libre (Saldo disponible actual: <strong className="text-white">{formatCOP(availableCash)}</strong>) y se registrará en tu historial.
+                          <p className="text-[10px] text-foreground/50 bg-surface/60 p-2 rounded-lg border border-border/50">
+                            🔻 Se restará de tu fondo libre (Saldo disponible actual: <strong className="text-foreground">{formatCOP(availableCash)}</strong>) y se registrará en tu historial.
                           </p>
 
                           <div className="flex items-center justify-end gap-2 pt-1">
-                            <button
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="xs"
                               onClick={() => {
                                 setDepositGoalId(null);
                                 setDepositAmount('');
                               }}
-                              className="px-2.5 py-1.5 text-xs text-slate-400 hover:text-white"
                             >
                               Cancelar
-                            </button>
-                            <button
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="primary"
+                              size="xs"
                               onClick={() => handleDepositFunds(goal.id)}
                               disabled={isDepositing || !Number(depositAmount)}
-                              className="px-3.5 py-1.5 bg-[#00ADB5] text-[#0B192C] rounded-xl font-extrabold text-xs flex items-center gap-1 hover:opacity-90 disabled:opacity-50"
+                              isLoading={isDepositing}
+                              icon={Check}
                             >
-                              <Check className="w-3.5 h-3.5 stroke-[3px]" />
-                              <span>{isDepositing ? 'Guardando...' : 'Confirmar Abono'}</span>
-                            </button>
+                              Confirmar Abono
+                            </Button>
                           </div>
                         </div>
                       )}
 
                       {/* MODE 2: WITHDRAW PANEL */}
                       {isWithdrawingThis && (
-                        <div className="p-3 rounded-2xl bg-[#0B192C] border border-amber-500/60 space-y-2.5 animate-in fade-in duration-150">
+                        <div className="p-3 rounded-2xl bg-surface-elevated border border-warning/60 space-y-2.5 animate-in fade-in duration-150">
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
-                              <ArrowUpRight className="w-3.5 h-3.5 text-amber-400" />
+                            <span className="text-xs font-bold text-warning flex items-center gap-1.5">
+                              <ArrowUpRight className="w-3.5 h-3.5 text-warning" />
                               <span>Retirar ahorro al fondo libre</span>
                             </span>
                             {Number(withdrawAmount) > 0 && (
-                              <span className="text-xs font-black text-amber-400">
+                              <span className="text-xs font-black text-warning">
                                 {formatCOP(Number(withdrawAmount))}
                               </span>
                             )}
@@ -498,16 +498,16 @@ export default function GoalsPage() {
                             placeholder={`Monto (Máximo ${formatCOP(goal.current_amount)})`}
                             value={withdrawAmount}
                             onChange={(e) => setWithdrawAmount(e.target.value)}
-                            className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2 rounded-xl focus:border-amber-400 focus:outline-none"
+                            className="w-full bg-surface border border-border text-foreground text-xs px-3 py-2 rounded-xl focus:border-warning focus:outline-none"
                             autoFocus
                           />
 
                           <div className="flex items-center justify-between gap-2">
-                            <label className="text-[11px] text-slate-400 shrink-0">Recibir en:</label>
+                            <label className="text-[11px] text-foreground/50 shrink-0">Recibir en:</label>
                             <select
                               value={withdrawMethod}
                               onChange={(e) => setWithdrawMethod(e.target.value)}
-                              className="flex-1 bg-[#102A43] border border-[#243B55] text-white text-xs px-2 py-1.5 rounded-lg focus:outline-none"
+                              className="flex-1 bg-surface border border-border text-foreground text-xs px-2 py-1.5 rounded-lg focus:outline-none"
                             >
                               {paymentMethods.map((pm: any) => (
                                 <option key={pm.id} value={pm.name}>
@@ -517,28 +517,33 @@ export default function GoalsPage() {
                             </select>
                           </div>
 
-                          <p className="text-[10px] text-slate-400 bg-[#102A43]/60 p-2 rounded-lg border border-[#243B55]/50">
+                          <p className="text-[10px] text-foreground/50 bg-surface/60 p-2 rounded-lg border border-border/50">
                             🟢 Regresará inmediatamente a tu dinero disponible en mano.
                           </p>
 
                           <div className="flex items-center justify-end gap-2 pt-1">
-                            <button
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="xs"
                               onClick={() => {
                                 setWithdrawGoalId(null);
                                 setWithdrawAmount('');
                               }}
-                              className="px-2.5 py-1.5 text-xs text-slate-400 hover:text-white"
                             >
                               Cancelar
-                            </button>
-                            <button
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="warning"
+                              size="xs"
                               onClick={() => handleWithdrawFunds(goal.id)}
                               disabled={isWithdrawing || !Number(withdrawAmount)}
-                              className="px-3.5 py-1.5 bg-amber-400 text-slate-950 rounded-xl font-extrabold text-xs flex items-center gap-1 hover:opacity-90 disabled:opacity-50"
+                              isLoading={isWithdrawing}
+                              icon={Check}
                             >
-                              <Check className="w-3.5 h-3.5 stroke-[3px]" />
-                              <span>{isWithdrawing ? 'Retirando...' : 'Confirmar Retiro'}</span>
-                            </button>
+                              Confirmar Retiro
+                            </Button>
                           </div>
                         </div>
                       )}
@@ -546,28 +551,33 @@ export default function GoalsPage() {
                       {/* DEFAULT BUTTONS: ABONAR & RETIRAR */}
                       {!isDepositingThis && !isWithdrawingThis && (
                         <div className="flex items-center gap-2">
-                          <button
+                          <Button
+                            type="button"
+                            variant="primary"
+                            size="sm"
+                            className="flex-1"
                             onClick={() => {
                               setDepositGoalId(goal.id);
                               setWithdrawGoalId(null);
                             }}
-                            className="flex-1 py-2 rounded-xl bg-[#00ADB5] hover:bg-[#06B6D4] text-[#0B192C] font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                            icon={PiggyBank}
                           >
-                            <PiggyBank className="w-4 h-4" />
-                            <span>Abonar (+ Dinero)</span>
-                          </button>
+                            Abonar (+ Dinero)
+                          </Button>
 
                           {Number(goal.current_amount) > 0 && (
-                            <button
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
                               onClick={() => {
                                 setWithdrawGoalId(goal.id);
                                 setDepositGoalId(null);
                               }}
-                              className="py-2 px-3 rounded-xl bg-[#152E4D] hover:bg-[#1E3A5F] border border-[#243B55] text-slate-300 hover:text-white text-xs font-bold transition-all"
                               title="Retirar dinero de esta meta al fondo disponible"
                             >
                               Retirar
-                            </button>
+                            </Button>
                           )}
                         </div>
                       )}
@@ -579,272 +589,95 @@ export default function GoalsPage() {
           )}
         </div>
 
-        {/* Modal for New Goal with Live Daily Saving Calculator */}
-        {isAddGoalOpen && (
-          <div className="bg-[#0B192C] border border-[#00ADB5] rounded-3xl p-5 sm:p-6 shadow-2xl animate-in fade-in duration-150">
-            <div className="flex items-center justify-between pb-3 border-b border-[#1E3A5F]">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <Target className="w-4 h-4 text-[#00ADB5]" />
-                <span>Crear Nueva Meta Financiera</span>
-              </h3>
-              <button
-                onClick={() => setIsAddGoalOpen(false)}
-                className="text-slate-400 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateGoal} className="mt-4 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Título de la Meta
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ej: Moto Nueva, Fondo de Emergencia, Viaje"
-                  value={goalTitle}
-                  onChange={(e) => setGoalTitle(e.target.value)}
-                  className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2.5 rounded-xl focus:border-[#00ADB5] focus:outline-none"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-semibold text-slate-300">
-                      Monto Objetivo ($ COP)
-                    </label>
-                    {numTarget > 0 && (
-                      <span className="text-[11px] text-[#00ADB5] font-bold">
-                        {formatCOP(numTarget)}
-                      </span>
-                    )}
-                  </div>
-                  <input
-                    type="number"
-                    placeholder="Ej: 5000000"
-                    value={goalTarget}
-                    onChange={(e) => setGoalTarget(e.target.value)}
-                    className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2.5 rounded-xl focus:border-[#00ADB5] focus:outline-none"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-semibold text-slate-300">
-                      Ahorro Inicial Acumulado ($ COP)
-                    </label>
-                    {numCurrent > 0 && (
-                      <span className="text-[11px] text-emerald-400 font-bold">
-                        {formatCOP(numCurrent)}
-                      </span>
-                    )}
-                  </div>
-                  <input
-                    type="number"
-                    placeholder="Ej: 500000 (Opcional)"
-                    value={goalCurrent}
-                    onChange={(e) => setGoalCurrent(e.target.value)}
-                    className="w-full bg-[#102A43] border border-[#243B55] text-white text-xs px-3 py-2.5 rounded-xl focus:border-[#00ADB5] focus:outline-none"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    Dinero que ya tienes ahorrado para esta meta.
-                  </p>
-                </div>
-              </div>
-
-              {/* Target Date with Quick Presets */}
-              <div className="p-3.5 rounded-2xl bg-[#102A43]/60 border border-[#243B55]">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                  <label className="text-xs font-semibold text-white flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-[#00ADB5]" />
-                    <span>Fecha Límite Deseada</span>
-                  </label>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] text-slate-400 mr-1">Rápido:</span>
-                    <button
-                      type="button"
-                      onClick={() => handleSetPresetMonths(3)}
-                      className="text-[10px] bg-[#152E4D] hover:bg-[#1E3A5F] text-slate-300 px-2 py-0.5 rounded-lg border border-[#243B55]"
-                    >
-                      +3m
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSetPresetMonths(6)}
-                      className="text-[10px] bg-[#152E4D] hover:bg-[#1E3A5F] text-slate-300 px-2 py-0.5 rounded-lg border border-[#243B55]"
-                    >
-                      +6m
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSetPresetMonths(12)}
-                      className="text-[10px] bg-[#152E4D] hover:bg-[#1E3A5F] text-slate-300 px-2 py-0.5 rounded-lg border border-[#243B55]"
-                    >
-                      +1 año
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSetPresetMonths(24)}
-                      className="text-[10px] bg-[#152E4D] hover:bg-[#1E3A5F] text-slate-300 px-2 py-0.5 rounded-lg border border-[#243B55]"
-                    >
-                      +2 años
-                    </button>
-                  </div>
-                </div>
-
-                <input
-                  type="date"
-                  value={goalDate}
-                  onChange={(e) => setGoalDate(e.target.value)}
-                  className="w-full bg-[#0B192C] border border-[#243B55] text-white text-xs px-3 py-2 rounded-xl focus:border-[#00ADB5] focus:outline-none"
-                />
-              </div>
-
-              {/* LIVE DAILY SAVINGS SIMULATOR IN MODAL */}
-              {remainingInModal > 0 && dailyInModal > 0 && (
-                <div className="p-3.5 rounded-2xl bg-linear-to-r from-[#0B192C] to-[#102A43] border border-[#00ADB5]/40 space-y-2 animate-in fade-in duration-150">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                      <Sparkles className="w-4 h-4 text-[#00ADB5]" />
-                      <span>Plan de Ahorro Sugerido:</span>
-                    </span>
-                    <span className="text-xs font-black text-[#00ADB5]">
-                      {daysInModal} días faltantes
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    <div className="p-2 rounded-xl bg-[#0B192C] border border-[#1E3A5F]">
-                      <span className="text-[10px] text-slate-400 block font-medium">Ahorro Diario Requerido</span>
-                      <p className="text-base font-black text-[#00ADB5] mt-0.5">
-                        {formatCOP(dailyInModal)} <span className="text-[10px] font-normal text-slate-400">/ día</span>
-                      </p>
-                    </div>
-
-                    <div className="p-2 rounded-xl bg-[#0B192C] border border-[#1E3A5F]">
-                      <span className="text-[10px] text-slate-400 block font-medium">Por Quincena (15 días)</span>
-                      <p className="text-base font-black text-white mt-0.5">
-                        {formatCOP(quincenaInModal)} <span className="text-[10px] font-normal text-slate-400">/ quincena</span>
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAddGoalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs text-slate-400 hover:text-white"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmittingGoal}
-                  className="px-5 py-2.5 rounded-xl bg-[#00ADB5] text-[#0B192C] font-extrabold text-xs shadow-md hover:opacity-90 flex items-center gap-1.5"
-                >
-                  <Check className="w-4 h-4 stroke-[3px]" />
-                  <span>Guardar Meta</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
         {/* Reverse Engineering Income Calculator */}
         <div className="space-y-4">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-cyan-400/20 text-[#00ADB5]">
+            <div className="p-2 rounded-xl bg-primary/20 text-primary">
               <Calculator className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-black text-white">Calculadora Inversa: ¿Cuánto Necesito Ganar al Mes?</h2>
-              <p className="text-xs text-slate-400">
+              <h2 className="text-base font-black text-foreground">Calculadora Inversa: ¿Cuánto Necesito Ganar al Mes?</h2>
+              <p className="text-xs text-foreground/50">
                 Suma tus compromisos fijos, margen variable, metas de ahorro y margen de seguridad.
               </p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="bg-[#0B192C] border border-[#243B55] rounded-2xl p-3">
+            <div className="bg-surface border border-border rounded-2xl p-3">
               <div className="flex items-center justify-between mb-1">
-                <label className="text-[11px] font-semibold text-slate-400">
+                <label className="text-[11px] font-semibold text-foreground/50">
                   1. Compromisos Fijos
                 </label>
-                <span className="text-[10px] text-cyan-400 font-bold">{formatCOP(calcFixedExpenses)}</span>
+                <span className="text-[10px] text-accent font-bold">{formatCOP(calcFixedExpenses)}</span>
               </div>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-500 font-bold">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-foreground/40 font-bold">$</span>
                 <input
                   type="number"
                   value={calcFixedExpenses}
                   onChange={(e) => setCalcFixedExpenses(Number(e.target.value) || 0)}
-                  className="w-full bg-[#152E4D] border border-[#243B55] text-white text-xs font-bold pl-7 pr-2 py-2 rounded-xl focus:border-[#00ADB5] focus:outline-none"
+                  className="w-full bg-surface-elevated border border-border text-foreground text-xs font-bold pl-7 pr-2 py-2 rounded-xl focus:border-primary focus:outline-none"
                 />
               </div>
-              <span className="text-[10px] text-slate-500 mt-1 block">Papás, arriendo, servicios, suscripciones</span>
+              <span className="text-[10px] text-foreground/40 mt-1 block">Papás, arriendo, servicios, suscripciones</span>
             </div>
 
-            <div className="bg-[#0B192C] border border-[#243B55] rounded-2xl p-3">
+            <div className="bg-surface border border-border rounded-2xl p-3">
               <div className="flex items-center justify-between mb-1">
-                <label className="text-[11px] font-semibold text-slate-400">
+                <label className="text-[11px] font-semibold text-foreground/50">
                   2. Margen Variable (Tope)
                 </label>
-                <span className="text-[10px] text-[#00ADB5] font-bold">{formatCOP(calcVariableExpenses)}</span>
+                <span className="text-[10px] text-primary font-bold">{formatCOP(calcVariableExpenses)}</span>
               </div>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-500 font-bold">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-foreground/40 font-bold">$</span>
                 <input
                   type="number"
                   value={calcVariableExpenses}
                   onChange={(e) => setCalcVariableExpenses(Number(e.target.value) || 0)}
-                  className="w-full bg-[#152E4D] border border-[#243B55] text-white text-xs font-bold pl-7 pr-2 py-2 rounded-xl focus:border-[#00ADB5] focus:outline-none"
+                  className="w-full bg-surface-elevated border border-border text-foreground text-xs font-bold pl-7 pr-2 py-2 rounded-xl focus:border-primary focus:outline-none"
                 />
               </div>
-              <span className="text-[10px] text-slate-500 mt-1 block">Alimentación, pasajes, ocio</span>
+              <span className="text-[10px] text-foreground/40 mt-1 block">Alimentación, pasajes, ocio</span>
             </div>
 
-            <div className="bg-[#0B192C] border border-[#243B55] rounded-2xl p-3">
+            <div className="bg-surface border border-border rounded-2xl p-3">
               <div className="flex items-center justify-between mb-1">
-                <label className="text-[11px] font-semibold text-slate-400">
+                <label className="text-[11px] font-semibold text-foreground/50">
                   3. Ahorro Mensual para Metas
                 </label>
                 <span className="text-[10px] text-emerald-400 font-bold">{formatCOP(calcDesiredSavings)}</span>
               </div>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-500 font-bold">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-foreground/40 font-bold">$</span>
                 <input
                   type="number"
                   value={calcDesiredSavings}
                   onChange={(e) => setCalcDesiredSavings(Number(e.target.value) || 0)}
-                  className="w-full bg-[#152E4D] border border-[#243B55] text-white text-xs font-bold pl-7 pr-2 py-2 rounded-xl focus:border-[#00ADB5] focus:outline-none"
+                  className="w-full bg-surface-elevated border border-border text-foreground text-xs font-bold pl-7 pr-2 py-2 rounded-xl focus:border-primary focus:outline-none"
                 />
               </div>
-              <span className="text-[10px] text-slate-500 mt-1 block">Para emergencias y metas</span>
+              <span className="text-[10px] text-foreground/40 mt-1 block">Para emergencias y metas</span>
             </div>
           </div>
 
           {/* Calculator Output Hero */}
-          <div className="mt-4 p-4 rounded-2xl bg-[#0B192C]/90 border border-[#243B55] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="mt-4 p-4 rounded-2xl bg-surface border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-[#00ADB5]">
+              <span className="text-xs font-bold uppercase tracking-wider text-primary">
                 Ingreso Mensual Necesario
               </span>
-              <p className="text-2xl sm:text-3xl font-black text-white mt-0.5">
+              <p className="text-2xl sm:text-3xl font-black text-foreground mt-0.5">
                 {formatCOP(requiredMonthlyIncome)}
               </p>
-              <p className="text-[11px] text-slate-400 mt-0.5">
+              <p className="text-[11px] text-foreground/50 mt-0.5">
                 Incluye un colchón de imprevistos del {calcBufferPercent}% ({formatCOP(safetyBuffer)}).
               </p>
             </div>
 
-            <div className="bg-[#102A43] border border-[#243B55] rounded-xl p-3 text-right">
-              <span className="block text-[10px] text-slate-400 font-medium">Comparado con tus ingresos de este mes</span>
+            <div className="bg-surface-elevated border border-border rounded-xl p-3 text-right">
+              <span className="block text-[10px] text-foreground/50 font-medium">Comparado con tus ingresos de este mes</span>
               <p className={`text-sm font-extrabold mt-0.5 ${incomeDifference >= 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
                 {incomeDifference >= 0
                   ? `¡Lo cubres! Te sobran ${formatCOP(incomeDifference)}`
@@ -854,6 +687,184 @@ export default function GoalsPage() {
           </div>
         </div>
       </main>
+
+      {/* MODAL: NUEVA META */}
+      <Modal
+        isOpen={isAddGoalOpen}
+        onClose={() => setIsAddGoalOpen(false)}
+        title="Crear Nueva Meta Financiera"
+        icon={<Target className="w-5 h-5 text-primary" />}
+        size="lg"
+      >
+        <form onSubmit={handleCreateGoal} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-foreground/80 mb-1">
+              Título de la Meta
+            </label>
+            <input
+              type="text"
+              placeholder="Ej: Moto Nueva, Fondo de Emergencia, Viaje"
+              value={goalTitle}
+              onChange={(e) => setGoalTitle(e.target.value)}
+              className="w-full bg-surface-elevated border border-border text-foreground text-xs px-3 py-2.5 rounded-xl focus:border-primary focus:outline-none"
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-foreground/80">
+                  Monto Objetivo ($ COP)
+                </label>
+                {numTarget > 0 && (
+                  <span className="text-[11px] text-primary font-bold">
+                    {formatCOP(numTarget)}
+                  </span>
+                )}
+              </div>
+              <input
+                type="number"
+                placeholder="Ej: 5000000"
+                value={goalTarget}
+                onChange={(e) => setGoalTarget(e.target.value)}
+                className="w-full bg-surface-elevated border border-border text-foreground text-xs px-3 py-2.5 rounded-xl focus:border-primary focus:outline-none"
+                required
+              />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-foreground/80">
+                  Ahorro Inicial Acumulado ($ COP)
+                </label>
+                {numCurrent > 0 && (
+                  <span className="text-[11px] text-emerald-400 font-bold">
+                    {formatCOP(numCurrent)}
+                  </span>
+                )}
+              </div>
+              <input
+                type="number"
+                placeholder="Ej: 500000 (Opcional)"
+                value={goalCurrent}
+                onChange={(e) => setGoalCurrent(e.target.value)}
+                className="w-full bg-surface-elevated border border-border text-foreground text-xs px-3 py-2.5 rounded-xl focus:border-primary focus:outline-none"
+              />
+              <p className="text-[10px] text-foreground/50 mt-1">
+                Dinero que ya tienes ahorrado para esta meta.
+              </p>
+            </div>
+          </div>
+
+          {/* Target Date with Quick Presets */}
+          <div className="p-3.5 rounded-2xl bg-surface-elevated border border-border">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+              <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-primary" />
+                <span>Fecha Límite Deseada</span>
+              </label>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-foreground/50 mr-1">Rápido:</span>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="xs"
+                  onClick={() => handleSetPresetMonths(3)}
+                  className="text-[10px] py-0.5 px-2 h-auto"
+                >
+                  +3m
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="xs"
+                  onClick={() => handleSetPresetMonths(6)}
+                  className="text-[10px] py-0.5 px-2 h-auto"
+                >
+                  +6m
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="xs"
+                  onClick={() => handleSetPresetMonths(12)}
+                  className="text-[10px] py-0.5 px-2 h-auto"
+                >
+                  +1 año
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="xs"
+                  onClick={() => handleSetPresetMonths(24)}
+                  className="text-[10px] py-0.5 px-2 h-auto"
+                >
+                  +2 años
+                </Button>
+              </div>
+            </div>
+
+            <Input
+              type="date"
+              value={goalDate}
+              onChange={(e) => setGoalDate(e.target.value)}
+            />
+          </div>
+
+          {/* LIVE DAILY SAVINGS SIMULATOR IN MODAL */}
+          {remainingInModal > 0 && dailyInModal > 0 && (
+            <div className="p-3.5 rounded-2xl bg-surface border border-primary/40 space-y-2 animate-in fade-in duration-150">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-primary" />
+                  <span>Plan de Ahorro Sugerido:</span>
+                </span>
+                <span className="text-xs font-black text-primary">
+                  {daysInModal} días faltantes
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <div className="p-2 rounded-xl bg-surface-elevated border border-border">
+                  <span className="text-[10px] text-foreground/50 block font-medium">Ahorro Diario Requerido</span>
+                  <p className="text-base font-black text-primary mt-0.5">
+                    {formatCOP(dailyInModal)} <span className="text-[10px] font-normal text-foreground/50">/ día</span>
+                  </p>
+                </div>
+
+                <div className="p-2 rounded-xl bg-surface-elevated border border-border">
+                  <span className="text-[10px] text-foreground/50 block font-medium">Por Quincena (15 días)</span>
+                  <p className="text-base font-black text-foreground mt-0.5">
+                    {formatCOP(quincenaInModal)} <span className="text-[10px] font-normal text-foreground/50">/ quincena</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsAddGoalOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              disabled={isSubmittingGoal}
+              isLoading={isSubmittingGoal}
+              icon={Check}
+            >
+              Guardar Meta
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       <BottomNav
         onOpenQuickExpense={() => setIsQuickExpenseOpen(true)}

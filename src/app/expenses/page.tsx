@@ -36,6 +36,8 @@ import {
 import Link from 'next/link';
 import { toast } from 'sonner';
 
+import { Button, Badge } from '@/components/ui';
+
 export default function ExpensesPage() {
   const router = useRouter();
   const invalidateFinance = useInvalidateFinance();
@@ -112,21 +114,20 @@ export default function ExpensesPage() {
   const prevMonth2 = new Date(Date.now() - 60 * 86400000).toISOString().slice(0, 7);
 
   return (
-    <div className="min-h-screen bg-[#070F1E] flex flex-col">
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
       <Header user={user} onUserUpdate={invalidateFinance} />
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-5 space-y-4">
         <div>
-          <h1 className="text-xl font-black text-white">Libro de Movimientos</h1>
+          <h1 className="text-xl font-black text-foreground">Libro de Movimientos</h1>
           <p className="text-xs text-slate-400">Historial completo de entradas y salidas de dinero</p>
         </div>
-    
 
-        {/* 1. HORIZONTAL MONTH FILTER BAR (Never breaks downwards) */}
-        <div className="bg-[#0B192C] border border-[#1E3A5F] p-2 rounded-2xl">
+        {/* 1. HORIZONTAL MONTH FILTER BAR */}
+        <div className="bg-surface border border-border p-2 rounded-2xl">
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-none whitespace-nowrap">
             <div className="flex items-center gap-1 text-xs text-slate-400 font-semibold px-2 shrink-0">
-              <Calendar className="w-3.5 h-3.5 text-[#00ADB5]" />
+              <Calendar className="w-3.5 h-3.5 text-primary" />
               <span className="whitespace-nowrap">Período:</span>
             </div>
 
@@ -135,8 +136,8 @@ export default function ExpensesPage() {
               onClick={() => setSelectedMonth('ALL')}
               className={`text-xs px-3.5 py-1.5 rounded-xl border font-bold transition-all whitespace-nowrap shrink-0 ${
                 selectedMonth === 'ALL'
-                  ? 'bg-[#00ADB5] text-[#0B192C] border-[#00ADB5] shadow-sm'
-                  : 'bg-[#102A43] text-slate-300 border-[#243B55] hover:text-white'
+                  ? 'bg-primary text-secondary-foreground border-primary shadow-sm'
+                  : 'bg-surface-elevated text-slate-300 border-border hover:text-foreground'
               }`}
             >
               Todo el Historial
@@ -147,8 +148,8 @@ export default function ExpensesPage() {
               onClick={() => setSelectedMonth(currentMonthISO)}
               className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-all whitespace-nowrap shrink-0 ${
                 selectedMonth === currentMonthISO
-                  ? 'bg-[#00ADB5] text-[#0B192C] border-[#00ADB5] font-bold'
-                  : 'bg-[#102A43] text-slate-300 border-[#243B55] hover:text-white'
+                  ? 'bg-primary text-secondary-foreground border-primary font-bold'
+                  : 'bg-surface-elevated text-slate-300 border-border hover:text-foreground'
               }`}
             >
               Este Mes
@@ -158,21 +159,21 @@ export default function ExpensesPage() {
               onClick={() => setSelectedMonth(prevMonth1)}
               className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-all whitespace-nowrap shrink-0 ${
                 selectedMonth === prevMonth1
-                  ? 'bg-[#00ADB5] text-[#0B192C] border-[#00ADB5] font-bold'
-                  : 'bg-[#102A43] text-slate-300 border-[#243B55] hover:text-white'
+                  ? 'bg-primary text-secondary-foreground border-primary font-bold'
+                  : 'bg-surface-elevated text-slate-300 border-border hover:text-foreground'
               }`}
             >
               Mes Anterior
             </button>
 
             {/* Custom Month Picker */}
-            <div className="flex items-center gap-1.5 pl-2 border-l border-[#1E3A5F] shrink-0">
+            <div className="flex items-center gap-1.5 pl-2 border-l border-border shrink-0">
               <span className="text-[11px] text-slate-400 whitespace-nowrap">Otro mes:</span>
               <input
                 type="month"
                 value={selectedMonth === 'ALL' ? '' : selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value || 'ALL')}
-                className="bg-[#102A43] border border-[#243B55] text-white text-xs px-2.5 py-1 rounded-xl focus:outline-none focus:border-[#00ADB5] shrink-0"
+                className="bg-surface-elevated border border-border text-foreground text-xs px-2.5 py-1 rounded-xl focus:outline-none focus:border-primary shrink-0"
               />
             </div>
           </div>
@@ -183,24 +184,24 @@ export default function ExpensesPage() {
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
             {/* Search Input */}
             <div className="relative flex-1">
-              <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 placeholder="Buscar por concepto, grupo, tarjeta o valor..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-[#0B192C] border border-[#1E3A5F] text-white text-xs pl-9 pr-3 py-2.5 rounded-xl focus:border-[#00ADB5] focus:outline-none"
+                className="w-full bg-surface border border-border text-foreground text-xs pl-9 pr-3 py-2.5 rounded-xl focus:border-primary focus:outline-none placeholder:text-slate-500"
               />
             </div>
 
-            {/* Type Switcher (All / Expenses / Incomes) with Horizontal Scroll */}
-            <div className="flex items-center gap-1.5 bg-[#0B192C] border border-[#1E3A5F] p-1.5 rounded-xl overflow-x-auto scrollbar-none whitespace-nowrap shrink-0">
+            {/* Type Switcher */}
+            <div className="flex items-center gap-1.5 bg-surface border border-border p-1.5 rounded-xl overflow-x-auto scrollbar-none whitespace-nowrap shrink-0">
               <button
                 onClick={() => setSelectedType('ALL')}
                 className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
                   selectedType === 'ALL'
-                    ? 'bg-linear-to-r from-[#00ADB5] to-[#06B6D4] text-[#0B192C] shadow'
-                    : 'text-slate-400 hover:text-white'
+                    ? 'bg-primary text-secondary-foreground shadow'
+                    : 'text-slate-400 hover:text-foreground'
                 }`}
               >
                 <Layers className="w-3.5 h-3.5" />
@@ -221,7 +222,7 @@ export default function ExpensesPage() {
                 onClick={() => setSelectedType('INCOME')}
                 className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
                   selectedType === 'INCOME'
-                    ? 'bg-emerald-500 text-[#0B192C] shadow'
+                    ? 'bg-emerald-500 text-secondary-foreground shadow'
                     : 'text-slate-400 hover:text-emerald-400'
                 }`}
               >
@@ -232,8 +233,8 @@ export default function ExpensesPage() {
                 onClick={() => setSelectedType('TRANSFER')}
                 className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
                   selectedType === 'TRANSFER'
-                    ? 'bg-cyan-500 text-[#0B192C] shadow'
-                    : 'text-slate-400 hover:text-cyan-400'
+                    ? 'bg-accent text-accent-foreground shadow'
+                    : 'text-slate-400 hover:text-accent'
                 }`}
               >
                 <ArrowRightLeft className="w-3.5 h-3.5" />
@@ -242,19 +243,19 @@ export default function ExpensesPage() {
             </div>
           </div>
 
-          {/* 3. CATEGORIES CHIPS (Horizontal Scroll) */}
-          <div className="bg-[#0B192C] border border-[#1E3A5F] p-2 rounded-2xl">
+          {/* 3. CATEGORIES CHIPS */}
+          <div className="bg-surface border border-border p-2 rounded-2xl">
             <div className="flex items-center gap-2 overflow-x-auto scrollbar-none whitespace-nowrap">
               <div className="flex items-center gap-1 text-[11px] text-slate-400 font-semibold px-1 shrink-0">
-                <Layers className="w-3 h-3 text-[#00ADB5]" />
+                <Layers className="w-3 h-3 text-primary" />
                 <span>Grupos:</span>
               </div>
               <button
                 onClick={() => setSelectedCategory('ALL')}
                 className={`text-xs px-3 py-1.5 rounded-xl whitespace-nowrap shrink-0 border font-medium transition-colors ${
                   selectedCategory === 'ALL'
-                    ? 'bg-[#00ADB5] text-[#0B192C] border-[#00ADB5] font-bold'
-                    : 'bg-[#102A43] text-slate-300 border-[#243B55]'
+                    ? 'bg-primary text-secondary-foreground border-primary font-bold'
+                    : 'bg-surface-elevated text-slate-300 border-border'
                 }`}
               >
                 Todos los grupos
@@ -265,8 +266,8 @@ export default function ExpensesPage() {
                   onClick={() => setSelectedCategory(c.id)}
                   className={`text-xs px-3 py-1.5 rounded-xl whitespace-nowrap shrink-0 border font-medium transition-colors flex items-center gap-1.5 ${
                     selectedCategory === c.id
-                      ? 'bg-[#00ADB5] text-[#0B192C] border-[#00ADB5] font-bold'
-                      : 'bg-[#102A43] text-slate-300 border-[#243B55]'
+                      ? 'bg-primary text-secondary-foreground border-primary font-bold'
+                      : 'bg-surface-elevated text-slate-300 border-border'
                   }`}
                 >
                   <span
@@ -279,19 +280,19 @@ export default function ExpensesPage() {
             </div>
           </div>
 
-          {/* 4. PAYMENT METHODS CHIPS (Horizontal Scroll) */}
-          <div className="bg-[#0B192C] border border-[#1E3A5F] p-2 rounded-2xl">
+          {/* 4. PAYMENT METHODS CHIPS */}
+          <div className="bg-surface border border-border p-2 rounded-2xl">
             <div className="flex items-center gap-2 overflow-x-auto scrollbar-none whitespace-nowrap">
               <div className="flex items-center gap-1 text-[11px] text-slate-400 font-semibold px-1 shrink-0">
-                <Wallet className="w-3 h-3 text-cyan-400" />
+                <Wallet className="w-3 h-3 text-accent" />
                 <span>Medios:</span>
               </div>
               <button
                 onClick={() => setSelectedPaymentMethod('ALL')}
                 className={`text-xs px-3 py-1.5 rounded-xl whitespace-nowrap shrink-0 border font-medium transition-colors ${
                   selectedPaymentMethod === 'ALL'
-                    ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 font-bold'
-                    : 'bg-[#102A43] text-slate-400 border-[#243B55]'
+                    ? 'bg-accent/20 text-accent border-accent/50 font-bold'
+                    : 'bg-surface-elevated text-slate-400 border-border'
                 }`}
               >
                 Todos los medios
@@ -302,13 +303,13 @@ export default function ExpensesPage() {
                   onClick={() => setSelectedPaymentMethod(pm.name)}
                   className={`text-xs px-3 py-1.5 rounded-xl whitespace-nowrap shrink-0 border font-medium transition-colors flex items-center gap-1.5 ${
                     selectedPaymentMethod === pm.name
-                      ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 font-bold'
-                      : 'bg-[#102A43] text-slate-400 border-[#243B55]'
+                      ? 'bg-accent/20 text-accent border-accent/50 font-bold'
+                      : 'bg-surface-elevated text-slate-400 border-border'
                   }`}
                 >
                   <span
                     className="w-2 h-2 rounded-full shrink-0"
-                    style={{ backgroundColor: pm.color || '#00ADB5' }}
+                    style={{ backgroundColor: pm.color || 'var(--primary)' }}
                   />
                   <span>{pm.name}</span>
                 </button>
@@ -325,7 +326,7 @@ export default function ExpensesPage() {
               +{formatCOP(totalIncomesAmount)}
             </span>
           </div>
-          <div className="border-x border-[#243B55] px-2">
+          <div className="border-x border-border px-2">
             <span className="block text-[10px] sm:text-[11px] font-semibold text-slate-400 whitespace-nowrap">Egresos Filtrados</span>
             <span className="text-xs sm:text-sm font-black text-rose-400 whitespace-nowrap">
               -{formatCOP(totalExpensesAmount)}
@@ -333,7 +334,7 @@ export default function ExpensesPage() {
           </div>
           <div>
             <span className="block text-[10px] sm:text-[11px] font-semibold text-slate-400 whitespace-nowrap">Balance Neto</span>
-            <span className={`text-xs sm:text-sm font-black whitespace-nowrap ${netBalance >= 0 ? 'text-[#00ADB5]' : 'text-rose-400'}`}>
+            <span className={`text-xs sm:text-sm font-black whitespace-nowrap ${netBalance >= 0 ? 'text-primary' : 'text-rose-400'}`}>
               {netBalance >= 0 ? `+${formatCOP(netBalance)}` : formatCOP(netBalance)}
             </span>
           </div>
@@ -343,15 +344,17 @@ export default function ExpensesPage() {
         <div>
           {totalItems === 0 ? (
             <div className="text-center py-12 text-slate-400">
-              <Receipt className="w-10 h-10 mx-auto mb-2 opacity-30 text-[#00ADB5]" />
+              <Receipt className="w-10 h-10 mx-auto mb-2 opacity-30 text-primary" />
               <p className="text-xs">No hay movimientos que coincidan con estos filtros.</p>
               {selectedMonth !== 'ALL' && (
-                <button
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="mt-3 text-primary"
                   onClick={() => setSelectedMonth('ALL')}
-                  className="mt-3 px-3.5 py-1.5 rounded-xl bg-[#102A43] text-[#00ADB5] border border-[#243B55] text-xs font-bold hover:bg-[#152E4D] transition-colors"
                 >
                   Ver Todo el Historial (todos los meses)
-                </button>
+                </Button>
               )}
             </div>
           ) : (
@@ -363,13 +366,13 @@ export default function ExpensesPage() {
                   <div
                     key={exp.id}
                     onClick={() => setSelectedMovement(exp)}
-                    className="bg-[#102A43] hover:bg-[#152E4D] border border-[#243B55] hover:border-[#00ADB5]/50 rounded-2xl p-3.5 flex items-center justify-between gap-3 transition-all cursor-pointer group"
+                    className="bg-surface-elevated hover:bg-surface-elevated/80 border border-border hover:border-primary/50 rounded-2xl p-3.5 flex items-center justify-between gap-3 transition-all cursor-pointer group"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div
                         className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${
                           isTransfer
-                            ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30'
+                            ? 'bg-accent/15 text-accent border border-accent/30'
                             : isIncome
                             ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
                             : 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
@@ -385,7 +388,7 @@ export default function ExpensesPage() {
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-white group-hover:text-[#00ADB5] transition-colors truncate">
+                          <span className="text-xs font-bold text-foreground group-hover:text-primary transition-colors truncate">
                             {isTransfer
                               ? 'Transferencia entre Cuentas'
                               : isIncome
@@ -393,27 +396,29 @@ export default function ExpensesPage() {
                               : exp.category_name}
                           </span>
                           {isTransfer ? (
-                            <span className="text-[10px] px-2 py-0.5 rounded-md border font-semibold bg-cyan-950/50 text-cyan-300 border-cyan-800/50 whitespace-nowrap shrink-0 flex items-center gap-1">
+                            <Badge variant="accent" size="sm" className="whitespace-nowrap shrink-0 flex items-center gap-1">
                               <span>{exp.payment_method}</span>
-                              <ArrowRight className="w-3 h-3 text-cyan-400 shrink-0" />
+                              <ArrowRight className="w-3 h-3 text-accent shrink-0" />
                               <span>{exp.destination_method || 'Efectivo'}</span>
-                            </span>
+                            </Badge>
                           ) : (
-                            <span className={`text-[10px] px-2 py-0.5 rounded-md border font-medium whitespace-nowrap shrink-0 flex items-center gap-1 ${
-                              isIncome
-                                ? 'bg-emerald-950/40 text-emerald-300 border-emerald-800/40'
-                                : 'bg-[#0B192C] text-slate-300 border-[#243B55]'
-                            }`}>
+                            <Badge
+                              variant={isIncome ? 'success' : 'secondary'}
+                              size="sm"
+                              className="whitespace-nowrap shrink-0 flex items-center gap-1"
+                            >
                               {isIncome ? (
                                 <ArrowUpRight className="w-3 h-3 text-emerald-400 shrink-0" />
                               ) : (
                                 <ArrowDownRight className="w-3 h-3 text-rose-400 shrink-0" />
                               )}
                               <span>{exp.payment_method || (isIncome ? 'Fondo' : 'Efectivo')}</span>
-                            </span>
+                            </Badge>
                           )}
                           {!isIncome && !isTransfer && exp.is_fixed === 1 && (
-                            <span className="text-[9px] text-cyan-400 font-bold uppercase tracking-wider whitespace-nowrap shrink-0">Fijo</span>
+                            <Badge variant="accent" size="sm" className="uppercase tracking-wider">
+                              Fijo
+                            </Badge>
                           )}
                         </div>
                         <p className="text-xs text-slate-400 truncate mt-0.5">
@@ -425,20 +430,22 @@ export default function ExpensesPage() {
 
                     <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                       <span className={`text-sm sm:text-base font-black whitespace-nowrap shrink-0 ${
-                        isTransfer ? 'text-cyan-400' : isIncome ? 'text-emerald-400' : 'text-rose-400'
+                        isTransfer ? 'text-accent' : isIncome ? 'text-emerald-400' : 'text-rose-400'
                       }`}>
                         {isTransfer ? formatCOP(exp.amount) : isIncome ? `+${formatCOP(exp.amount)}` : `-${formatCOP(exp.amount)}`}
                       </span>
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleDeleteExpense(exp.id);
                         }}
-                        className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors shrink-0"
+                        className="text-slate-400 hover:text-rose-400 hover:bg-rose-500/10"
                         title="Eliminar movimiento y actualizar saldo"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 );
@@ -446,42 +453,44 @@ export default function ExpensesPage() {
 
               {/* Pagination Controls */}
               {totalItems > 0 && (
-                <div className="mt-4 pt-3.5 border-t border-[#1E3A5F]/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                <div className="mt-4 pt-3.5 border-t border-border/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
                   <div className="text-slate-400 text-[11px] sm:text-xs">
                     Mostrando{' '}
-                    <span className="font-bold text-white">
+                    <span className="font-bold text-foreground">
                       {(safeCurrentPage - 1) * pageSize + 1}
                     </span>
                     {' '}-{' '}
-                    <span className="font-bold text-white">
+                    <span className="font-bold text-foreground">
                       {Math.min(safeCurrentPage * pageSize, totalItems)}
                     </span>
                     {' '}de{' '}
-                    <span className="font-bold text-[#00ADB5]">{totalItems}</span> movimientos
+                    <span className="font-bold text-primary">{totalItems}</span> movimientos
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <button
+                    <Button
+                      variant="secondary"
+                      size="sm"
                       onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                       disabled={safeCurrentPage <= 1}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl border font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed bg-[#102A43] hover:bg-[#152E4D] border-[#243B55] text-slate-300 hover:text-white"
                     >
                       <ChevronLeft className="w-3.5 h-3.5" />
                       <span>Anterior</span>
-                    </button>
+                    </Button>
 
-                    <div className="px-3 py-1.5 rounded-xl bg-[#0B192C] border border-[#243B55] text-[11px] font-bold text-white whitespace-nowrap">
-                      Página <span className="text-cyan-400">{safeCurrentPage}</span> de <span className="text-slate-300">{totalPages}</span>
+                    <div className="px-3 py-1.5 rounded-xl bg-surface border border-border text-[11px] font-bold text-foreground whitespace-nowrap">
+                      Página <span className="text-accent">{safeCurrentPage}</span> de <span className="text-slate-300">{totalPages}</span>
                     </div>
 
-                    <button
+                    <Button
+                      variant="secondary"
+                      size="sm"
                       onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
                       disabled={safeCurrentPage >= totalPages}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl border font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed bg-[#102A43] hover:bg-[#152E4D] border-[#243B55] text-slate-300 hover:text-white"
                     >
                       <span>Siguiente</span>
                       <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
