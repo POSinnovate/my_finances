@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db/client';
+import { syncUserCurrentCash } from '@/lib/finance-balance';
 
 export async function GET(
   req: NextRequest,
@@ -97,42 +98,131 @@ export async function PUT(
     const { id } = await params;
     const body = await req.json();
 
-    const { borrower_name, borrower_phone, due_date, duration_months, status, notes } = body;
-
     const existing = (await db
-      .prepare(`SELECT id FROM loans WHERE id = ? AND user_id = ?`)
+      .prepare(`SELECT * FROM loans WHERE id = ? AND user_id = ?`)
       .get(id, auth.userId)) as any;
 
     if (!existing) {
       return NextResponse.json({ error: 'Préstamo no encontrado' }, { status: 404 });
     }
 
+    const {
+      borrower_name,
+      initial_amount,
+      interest_rate,
+      expected_interest,
+      duration_months,
+      start_date,
+      due_date,
+      payment_method,
+      loan_type,
+      status,
+      notes,
+    } = body;
+
+    const principal = initial_amount !== undefined ? Math.max(0, Number(initial_amount) || 0) : Number(existing.initial_amount);
+    const rate = interest_rate !== undefined ? Number(interest_rate) || 0 : Number(existing.interest_rate) || 0;
+    const durationMonths = duration_months !== undefined ? Math.max(1, Number(duration_months) || 1) : Number(existing.duration_months) || 1;
+
+    let monthlyInterest = expected_interest !== undefined ? Number(expected_interest) : Number(existing.expected_interest);
+    if (rate > 0) {
+      monthlyInterest = Math.round(principal * (rate / 100));
+    }
+
+    const projectedInterest = rate > 0 ? Math.round(principal * (rate / 100) * durationMonths) : (monthlyInterest * durationMonths);
+    const totalExpected = principal + projectedInterest;
+    const paidCap = Number(existing.paid_capital) || 0;
+    const currentBalance = Math.max(0, principal - paidCap);
+    const calculatedStatus = status || (currentBalance <= 0 ? 'PAID' : 'ACTIVE');
+
+    const startDate = start_date || existing.start_date;
+    const dueDate = due_date !== undefined ? due_date : existing.due_date;
+    const method = payment_method || existing.payment_method || 'Efectivo';
+    const cleanLoanType = (loan_type || existing.loan_type || 'LENT') === 'BORROWED' ? 'BORROWED' : 'LENT';
+    const isBorrowed = cleanLoanType === 'BORROWED';
+    const borrowerName = borrower_name ? borrower_name.trim() : existing.borrower_name;
+    const cleanNotes = notes !== undefined ? (notes?.trim() || null) : existing.notes;
+
+    // 1. Update loan record
     await db
       .prepare(
         `
       UPDATE loans
       SET 
-        borrower_name = COALESCE(?, borrower_name),
-        borrower_phone = COALESCE(?, borrower_phone),
-        due_date = COALESCE(?, due_date),
-        duration_months = COALESCE(?, duration_months),
-        status = COALESCE(?, status),
-        notes = COALESCE(?, notes)
+        borrower_name = ?,
+        initial_amount = ?,
+        interest_rate = ?,
+        expected_interest = ?,
+        total_expected = ?,
+        current_balance = ?,
+        start_date = ?,
+        due_date = ?,
+        duration_months = ?,
+        payment_method = ?,
+        loan_type = ?,
+        notes = ?,
+        status = ?
       WHERE id = ? AND user_id = ?
     `
       )
       .run(
-        borrower_name?.trim() || null,
-        borrower_phone?.trim() || null,
-        due_date || null,
-        duration_months ? Number(duration_months) : null,
-        status || null,
-        notes?.trim() || null,
+        borrowerName,
+        principal,
+        rate,
+        monthlyInterest,
+        totalExpected,
+        currentBalance,
+        startDate,
+        dueDate,
+        durationMonths,
+        method,
+        cleanLoanType,
+        cleanNotes,
+        calculatedStatus,
         id,
         auth.userId
       );
 
-    return NextResponse.json({ success: true, message: 'Préstamo actualizado' });
+    // 2. Synchronize associated disbursement expense/income
+    const movementNote = isBorrowed
+      ? `Ingreso por préstamo recibido de ${borrowerName} (Deuda adquirida) [ID:${id}]${cleanNotes ? ` - ${cleanNotes}` : ''}`
+      : `Desembolso de préstamo a ${borrowerName} [ID:${id}]${cleanNotes ? ` - ${cleanNotes}` : ''}`;
+
+    const existingExpense = (await db
+      .prepare(
+        `SELECT id FROM expenses WHERE user_id = ? AND notes LIKE ? LIMIT 1`
+      )
+      .get(auth.userId, `%[ID:${id}]%`)) as any;
+
+    if (existingExpense) {
+      await db
+        .prepare(
+          `
+        UPDATE expenses
+        SET 
+          amount = ?,
+          payment_method = ?,
+          date = ?,
+          type = ?,
+          notes = ?
+        WHERE id = ? AND user_id = ?
+      `
+        )
+        .run(
+          principal,
+          method,
+          startDate,
+          isBorrowed ? 'INCOME' : 'EXPENSE',
+          movementNote,
+          existingExpense.id,
+          auth.userId
+        );
+    }
+
+    // 3. Sincronizar saldos de cuenta
+    await syncUserCurrentCash(auth.userId);
+
+    return NextResponse.json({ success: true, message: 'Préstamo actualizado exitosamente' });
   } catch (err: unknown) {
     if ((err as Error).message === 'UNAUTHORIZED') {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
@@ -158,17 +248,39 @@ export async function DELETE(
       return NextResponse.json({ error: 'Préstamo no encontrado' }, { status: 404 });
     }
 
-    // Delete loan payments first (or cascade)
+    // 1. Fetch any payment IDs to clean up expenses
+    const payments = (await db
+      .prepare(`SELECT id FROM loan_payments WHERE loan_id = ? AND user_id = ?`)
+      .all(id, auth.userId)) as any[];
+
+    for (const p of payments) {
+      await db
+        .prepare(`DELETE FROM expenses WHERE user_id = ? AND notes LIKE ?`)
+        .run(auth.userId, `%[Abono #${p.id}]%`);
+    }
+
+    // 2. Delete disbursement movement in expenses (returns the capital to user's account)
+    await db
+      .prepare(`DELETE FROM expenses WHERE user_id = ? AND notes LIKE ?`)
+      .run(auth.userId, `%[ID:${id}]%`);
+
+    // 3. Delete loan payments
     await db
       .prepare(`DELETE FROM loan_payments WHERE loan_id = ? AND user_id = ?`)
       .run(id, auth.userId);
 
-    // Delete loan
+    // 4. Delete loan
     await db
       .prepare(`DELETE FROM loans WHERE id = ? AND user_id = ?`)
       .run(id, auth.userId);
 
-    return NextResponse.json({ success: true, message: 'Préstamo eliminado' });
+    // 5. Restore/recalculate user's accounts and current cash immediately
+    await syncUserCurrentCash(auth.userId);
+
+    return NextResponse.json({
+      success: true,
+      message: `Préstamo eliminado y capital devuelto a tu cuenta`,
+    });
   } catch (err: unknown) {
     if ((err as Error).message === 'UNAUTHORIZED') {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
@@ -177,3 +289,4 @@ export async function DELETE(
     return NextResponse.json({ error: 'Error al eliminar préstamo' }, { status: 500 });
   }
 }
+

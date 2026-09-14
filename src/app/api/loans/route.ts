@@ -7,6 +7,43 @@ import { syncUserCurrentCash } from '@/lib/finance-balance';
 export async function GET(req: NextRequest) {
   try {
     const auth = await requireAuth();
+
+    // Limpieza automática de movimientos huérfanos en expenses de préstamos o abonos ya borrados
+    const orphanExpenses = (await db
+      .prepare(
+        `SELECT id, notes FROM expenses WHERE user_id = ? AND (notes LIKE '%[ID:%' OR notes LIKE '%[Abono #%')`
+      )
+      .all(auth.userId)) as any[];
+
+    let hasOrphans = false;
+    for (const exp of orphanExpenses) {
+      const loanMatch = exp.notes?.match(/\[ID:([a-zA-Z0-9-]+)\]/);
+      if (loanMatch && loanMatch[1]) {
+        const loanId = loanMatch[1];
+        const loanExists = await db
+          .prepare(`SELECT id FROM loans WHERE id = ? AND user_id = ?`)
+          .get(loanId, auth.userId);
+        if (!loanExists) {
+          await db.prepare(`DELETE FROM expenses WHERE id = ? AND user_id = ?`).run(exp.id, auth.userId);
+          hasOrphans = true;
+        }
+      }
+      const paymentMatch = exp.notes?.match(/\[Abono #([a-zA-Z0-9-]+)\]/);
+      if (paymentMatch && paymentMatch[1]) {
+        const paymentId = paymentMatch[1];
+        const payExists = await db
+          .prepare(`SELECT id FROM loan_payments WHERE id = ? AND user_id = ?`)
+          .get(paymentId, auth.userId);
+        if (!payExists) {
+          await db.prepare(`DELETE FROM expenses WHERE id = ? AND user_id = ?`).run(exp.id, auth.userId);
+          hasOrphans = true;
+        }
+      }
+    }
+    if (hasOrphans) {
+      await syncUserCurrentCash(auth.userId);
+    }
+
     const searchParams = req.nextUrl.searchParams;
     const search = (searchParams.get('search') || '').trim().toLowerCase();
     const status = searchParams.get('status') || 'ACTIVE'; // 'ACTIVE' | 'PAID' | 'ALL'
@@ -26,9 +63,9 @@ export async function GET(req: NextRequest) {
     }
 
     if (search) {
-      whereClause += ' AND (LOWER(borrower_name) LIKE ? OR LOWER(COALESCE(notes, \'\')) LIKE ? OR LOWER(COALESCE(borrower_phone, \'\')) LIKE ?)';
+      whereClause += ' AND (LOWER(borrower_name) LIKE ? OR LOWER(COALESCE(notes, \'\')) LIKE ?)';
       const pattern = `%${search}%`;
-      params.push(pattern, pattern, pattern);
+      params.push(pattern, pattern);
     }
 
     const query = `
