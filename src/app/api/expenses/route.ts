@@ -25,8 +25,12 @@ export async function GET(req: NextRequest) {
     }
 
     if (type && type !== 'ALL') {
-      whereClause += ` AND e.type = ?`;
-      whereParams.push(type);
+      if (type === 'LOAN') {
+        whereClause += ` AND e.type IN ('LOAN', 'LOAN_DISBURSEMENT', 'LOAN_REPAY', 'LOAN_BORROW', 'LOAN_PAYMENT')`;
+      } else {
+        whereClause += ` AND e.type = ?`;
+        whereParams.push(type);
+      }
     }
 
     if (categoryId && categoryId !== 'ALL') {
@@ -91,9 +95,23 @@ export async function GET(req: NextRequest) {
         strftime('%Y-%m-%d', e.date) as date,
         e.created_at,
         c.id as category_id,
-        COALESCE(c.name, CASE WHEN e.type = 'INCOME' THEN 'Ingreso General' WHEN e.type = 'TRANSFER' THEN 'Transferencia entre Cuentas' ELSE 'Gasto General' END) as category_name,
-        COALESCE(c.icon, CASE WHEN e.type = 'TRANSFER' THEN 'ArrowRightLeft' ELSE 'Tag' END) as category_icon,
-        COALESCE(c.color, CASE WHEN e.type = 'INCOME' THEN '#10B981' WHEN e.type = 'TRANSFER' THEN '#06B6D4' ELSE '#00ADB5' END) as category_color,
+        COALESCE(c.name, CASE 
+          WHEN e.type = 'INCOME' THEN 'Ingreso General' 
+          WHEN e.type = 'TRANSFER' THEN 'Transferencia entre Cuentas' 
+          WHEN e.type IN ('LOAN', 'LOAN_DISBURSEMENT', 'LOAN_REPAY', 'LOAN_BORROW', 'LOAN_PAYMENT') THEN 'Cartera & Préstamos'
+          ELSE 'Gasto General' 
+        END) as category_name,
+        COALESCE(c.icon, CASE 
+          WHEN e.type = 'TRANSFER' THEN 'ArrowRightLeft' 
+          WHEN e.type IN ('LOAN', 'LOAN_DISBURSEMENT', 'LOAN_REPAY', 'LOAN_BORROW', 'LOAN_PAYMENT') THEN 'HandCoins'
+          ELSE 'Tag' 
+        END) as category_icon,
+        COALESCE(c.color, CASE 
+          WHEN e.type = 'INCOME' THEN '#10B981' 
+          WHEN e.type = 'TRANSFER' THEN '#06B6D4' 
+          WHEN e.type IN ('LOAN', 'LOAN_DISBURSEMENT', 'LOAN_REPAY', 'LOAN_BORROW', 'LOAN_PAYMENT') THEN '#8B5CF6'
+          ELSE '#00ADB5' 
+        END) as category_color,
         COALESCE(c.is_fixed, 0) as is_fixed
       FROM expenses e
       LEFT JOIN categories c ON c.id = e.category_id

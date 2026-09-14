@@ -117,79 +117,157 @@ export async function POST(
       )
       .run(newPaidCapital, newPaidInterest, newBalance, newStatus, id, auth.userId);
 
-    // 4. Synchronize cash movements in expenses
-    const expenseId = randomUUID();
-
+    // 4. Synchronize cash movements in expenses with professional accounting standards
     if (!isBorrowed) {
-      // LENT: Money received from debtor -> INCOME to user's account
-      let incomeCategory = (await db
-        .prepare(
-          `
-        SELECT id FROM categories
-        WHERE user_id = ? AND (LOWER(name) LIKE '%cobro%' OR LOWER(name) LIKE '%préstamo%') AND type = 'INCOME'
-        LIMIT 1
-      `
-        )
-        .get(auth.userId)) as any;
+      // LENT: Money received from debtor
+      // A. Capital returned: Asset recovery -> LOAN_REPAY (increases account, does NOT inflate monthly salary/income)
+      if (capAmt > 0) {
+        let loanCategory = (await db
+          .prepare(
+            `
+          SELECT id FROM categories
+          WHERE user_id = ? AND (LOWER(name) LIKE '%préstamo%' OR LOWER(name) LIKE '%cartera%')
+          LIMIT 1
+        `
+          )
+          .get(auth.userId)) as any;
 
-      if (!incomeCategory) {
-        const newCatId = randomUUID();
+        if (!loanCategory) {
+          const newCatId = randomUUID();
+          await db
+            .prepare(
+              `
+            INSERT INTO categories (id, user_id, name, icon, color, monthly_budget, is_fixed, type)
+            VALUES (?, ?, 'Préstamos & Cartera', 'HandCoins', '#8B5CF6', 0, 0, 'EXPENSE')
+          `
+            )
+            .run(newCatId, auth.userId);
+          loanCategory = { id: newCatId };
+        }
+
+        const capMovementNote = `Abono a Capital de ${loan.borrower_name} [Abono #${paymentId}]: Capital $${capAmt}${cleanNotes ? ` (${cleanNotes})` : ''}`;
+
         await db
           .prepare(
             `
-          INSERT INTO categories (id, user_id, name, icon, color, monthly_budget, is_fixed, type)
-          VALUES (?, ?, 'Cobros de Préstamos & Rendimientos', 'CircleDollarSign', '#10B981', 0, 0, 'INCOME')
+          INSERT INTO expenses (id, user_id, category_id, type, amount, payment_method, notes, date)
+          VALUES (?, ?, ?, 'LOAN_REPAY', ?, ?, ?, ?)
         `
           )
-          .run(newCatId, auth.userId);
-        incomeCategory = { id: newCatId };
+          .run(randomUUID(), auth.userId, loanCategory.id, capAmt, method, capMovementNote, payDate);
       }
 
-      const movementNote = `Abono de ${loan.borrower_name} [Abono #${paymentId}]: Capital $${capAmt} + Interés $${intAmt}${cleanNotes ? ` (${cleanNotes})` : ''}`;
+      // B. Interest earned: Real financial gain -> INCOME (increases account AND counts as real profit in monthly income)
+      if (intAmt > 0) {
+        let yieldCategory = (await db
+          .prepare(
+            `
+          SELECT id FROM categories
+          WHERE user_id = ? AND (LOWER(name) LIKE '%rendimiento%' OR LOWER(name) LIKE '%interés%') AND type = 'INCOME'
+          LIMIT 1
+        `
+          )
+          .get(auth.userId)) as any;
 
-      await db
-        .prepare(
+        if (!yieldCategory) {
+          const newCatId = randomUUID();
+          await db
+            .prepare(
+              `
+            INSERT INTO categories (id, user_id, name, icon, color, monthly_budget, is_fixed, type)
+            VALUES (?, ?, 'Rendimientos & Intereses Ganados', 'TrendingUp', '#10B981', 0, 0, 'INCOME')
           `
-        INSERT INTO expenses (id, user_id, category_id, type, amount, payment_method, notes, date)
-        VALUES (?, ?, ?, 'INCOME', ?, ?, ?, ?)
-      `
-        )
-        .run(expenseId, auth.userId, incomeCategory.id, totAmt, method, movementNote, payDate);
+            )
+            .run(newCatId, auth.userId);
+          yieldCategory = { id: newCatId };
+        }
+
+        const intMovementNote = `Rendimiento Interés de ${loan.borrower_name} [Abono #${paymentId}]: Interés $${intAmt}${cleanNotes ? ` (${cleanNotes})` : ''}`;
+
+        await db
+          .prepare(
+            `
+          INSERT INTO expenses (id, user_id, category_id, type, amount, payment_method, notes, date)
+          VALUES (?, ?, ?, 'INCOME', ?, ?, ?, ?)
+        `
+          )
+          .run(randomUUID(), auth.userId, yieldCategory.id, intAmt, method, intMovementNote, payDate);
+      }
     } else {
-      // BORROWED: Money paid by user to lender -> EXPENSE from user's account
-      let payDebtCategory = (await db
-        .prepare(
-          `
-        SELECT id FROM categories
-        WHERE user_id = ? AND (LOWER(name) LIKE '%pago deuda%' OR LOWER(name) LIKE '%amortización%') AND type = 'EXPENSE'
-        LIMIT 1
-      `
-        )
-        .get(auth.userId)) as any;
+      // BORROWED: Money paid by user to lender
+      // A. Capital amortized: Liability reduction -> LOAN_PAYMENT (decreases account, does NOT inflate living expenses)
+      if (capAmt > 0) {
+        let debtCategory = (await db
+          .prepare(
+            `
+          SELECT id FROM categories
+          WHERE user_id = ? AND (LOWER(name) LIKE '%deuda%' OR LOWER(name) LIKE '%amortización%')
+          LIMIT 1
+        `
+          )
+          .get(auth.userId)) as any;
 
-      if (!payDebtCategory) {
-        const newCatId = randomUUID();
+        if (!debtCategory) {
+          const newCatId = randomUUID();
+          await db
+            .prepare(
+              `
+            INSERT INTO categories (id, user_id, name, icon, color, monthly_budget, is_fixed, type)
+            VALUES (?, ?, 'Pago de Deudas & Amortización', 'Landmark', '#EF4444', 0, 0, 'EXPENSE')
+          `
+            )
+            .run(newCatId, auth.userId);
+          debtCategory = { id: newCatId };
+        }
+
+        const capMovementNote = `Amortización Capital deuda a ${loan.borrower_name} [Abono #${paymentId}]: Capital $${capAmt}${cleanNotes ? ` (${cleanNotes})` : ''}`;
+
         await db
           .prepare(
             `
-          INSERT INTO categories (id, user_id, name, icon, color, monthly_budget, is_fixed, type)
-          VALUES (?, ?, 'Pago de Deudas & Amortización', 'Landmark', '#EF4444', 0, 0, 'EXPENSE')
+          INSERT INTO expenses (id, user_id, category_id, type, amount, payment_method, notes, date)
+          VALUES (?, ?, ?, 'LOAN_PAYMENT', ?, ?, ?, ?)
         `
           )
-          .run(newCatId, auth.userId);
-        payDebtCategory = { id: newCatId };
+          .run(randomUUID(), auth.userId, debtCategory.id, capAmt, method, capMovementNote, payDate);
       }
 
-      const movementNote = `Pago de deuda a ${loan.borrower_name} [Abono #${paymentId}]: Capital $${capAmt} + Interés $${intAmt}${cleanNotes ? ` (${cleanNotes})` : ''}`;
+      // B. Interest paid: Real financial cost -> EXPENSE (decreases account AND counts as financial cost)
+      if (intAmt > 0) {
+        let costCategory = (await db
+          .prepare(
+            `
+          SELECT id FROM categories
+          WHERE user_id = ? AND (LOWER(name) LIKE '%interés pagado%' OR LOWER(name) LIKE '%costo financiero%') AND type = 'EXPENSE'
+          LIMIT 1
+        `
+          )
+          .get(auth.userId)) as any;
 
-      await db
-        .prepare(
+        if (!costCategory) {
+          const newCatId = randomUUID();
+          await db
+            .prepare(
+              `
+            INSERT INTO categories (id, user_id, name, icon, color, monthly_budget, is_fixed, type)
+            VALUES (?, ?, 'Intereses & Costo Financiero', 'Percent', '#EF4444', 0, 0, 'EXPENSE')
           `
-        INSERT INTO expenses (id, user_id, category_id, type, amount, payment_method, notes, date)
-        VALUES (?, ?, ?, 'EXPENSE', ?, ?, ?, ?)
-      `
-        )
-        .run(expenseId, auth.userId, payDebtCategory.id, totAmt, method, movementNote, payDate);
+            )
+            .run(newCatId, auth.userId);
+          costCategory = { id: newCatId };
+        }
+
+        const intMovementNote = `Interés pagado por deuda a ${loan.borrower_name} [Abono #${paymentId}]: Interés $${intAmt}${cleanNotes ? ` (${cleanNotes})` : ''}`;
+
+        await db
+          .prepare(
+            `
+          INSERT INTO expenses (id, user_id, category_id, type, amount, payment_method, notes, date)
+          VALUES (?, ?, ?, 'EXPENSE', ?, ?, ?, ?)
+        `
+          )
+          .run(randomUUID(), auth.userId, costCategory.id, intAmt, method, intMovementNote, payDate);
+      }
     }
 
     // 5. Synchronize user's accounts and current cash

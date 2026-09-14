@@ -404,7 +404,7 @@ export async function POST(req: NextRequest) {
         .prepare(
           `
         INSERT INTO expenses (id, user_id, category_id, type, amount, payment_method, pocket_id, notes, date)
-        VALUES (?, ?, ?, 'EXPENSE', ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, 'LOAN', ?, ?, ?, ?, ?)
       `
         )
         .run(
@@ -418,7 +418,7 @@ export async function POST(req: NextRequest) {
           startDate
         );
     } else {
-      // BORROWED: You received borrowed money -> Cash enters your account (INCOME)
+      // BORROWED: You received borrowed money -> Cash enters your account (Liability / LOAN_BORROW)
       let debtCategory = (await db
         .prepare(
           `
@@ -447,7 +447,7 @@ export async function POST(req: NextRequest) {
         .prepare(
           `
         INSERT INTO expenses (id, user_id, category_id, type, amount, payment_method, notes, date)
-        VALUES (?, ?, ?, 'INCOME', ?, ?, ?, ?)
+        VALUES (?, ?, ?, 'LOAN_BORROW', ?, ?, ?, ?)
       `
         )
         .run(

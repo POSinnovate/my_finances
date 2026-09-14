@@ -89,6 +89,26 @@ export async function initDatabaseSchema() {
     ALTER TABLE expenses ADD COLUMN IF NOT EXISTS destination_method TEXT;
   `;
 
+  await sql`
+    ALTER TABLE expenses ALTER COLUMN type TYPE VARCHAR(30);
+  `;
+
+  // Normalize historical loan expenses to professional capital types
+  await sql`
+    UPDATE expenses 
+    SET type = 'LOAN' 
+    WHERE (type = 'EXPENSE' OR type IS NULL) 
+      AND (notes LIKE '%Desembolso de préstamo%' OR notes LIKE '%[ID:%');
+  `;
+
+  await sql`
+    UPDATE expenses 
+    SET type = 'LOAN_REPAY' 
+    WHERE type = 'INCOME' 
+      AND notes LIKE '%Abono de %' 
+      AND notes LIKE '%Capital%';
+  `;
+
   // 4. Goals table
   await sql`
     CREATE TABLE IF NOT EXISTS goals (

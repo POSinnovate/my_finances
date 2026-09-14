@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Trash2, ArrowDownCircle, ArrowUpCircle, Calendar, CreditCard, Tag, FileText, ArrowRightLeft } from 'lucide-react';
+import { Trash2, ArrowDownCircle, ArrowUpCircle, Calendar, CreditCard, Tag, FileText, ArrowRightLeft, HandCoins } from 'lucide-react';
 import { formatCOP } from '@/lib/utils';
 import { formatMovementDetailDate } from '@/lib/dayjs';
 import { toast } from 'sonner';
@@ -9,7 +9,7 @@ import { Modal, Button, Badge } from '@/components/ui';
 
 export interface Movement {
   id: string;
-  type?: 'EXPENSE' | 'INCOME' | 'TRANSFER';
+  type?: 'EXPENSE' | 'INCOME' | 'TRANSFER' | 'LOAN' | 'LOAN_DISBURSEMENT' | 'LOAN_PAYMENT' | 'LOAN_REPAY' | 'LOAN_BORROW' | string;
   amount: number;
   payment_method: string;
   destination_method?: string | null;
@@ -38,10 +38,14 @@ export function MovementDetailModal({
 
   const isIncome = movement.type === 'INCOME';
   const isTransfer = movement.type === 'TRANSFER';
+  const isLoan = movement.type === 'LOAN' || movement.type === 'LOAN_DISBURSEMENT' || movement.type === 'LOAN_PAYMENT' || movement.type === 'LOAN_REPAY' || movement.type === 'LOAN_BORROW';
+  const isLoanOut = movement.type === 'LOAN' || movement.type === 'LOAN_DISBURSEMENT' || movement.type === 'LOAN_PAYMENT';
   const dateInfo = formatMovementDetailDate(movement.date, movement.created_at);
 
   const handleDelete = async () => {
-    const confirmMsg = isTransfer
+    const confirmMsg = isLoan
+      ? '¿Deseas eliminar este registro de préstamo? Se actualizarán los balances contables.'
+      : isTransfer
       ? '¿Deseas eliminar este registro de transferencia entre cuentas?'
       : '¿Deseas eliminar este movimiento? Tu fondo disponible se actualizará automáticamente.';
     if (!confirm(confirmMsg)) {
@@ -52,7 +56,9 @@ export function MovementDetailModal({
       const res = await fetch(`/api/expenses/${movement.id}`, { method: 'DELETE' });
       if (res.ok) {
         toast.success(
-          isTransfer
+          isLoan
+            ? 'Movimiento de cartera eliminado'
+            : isTransfer
             ? 'Transferencia eliminada'
             : isIncome
             ? 'Ingreso eliminado y fondo ajustado'
@@ -70,7 +76,12 @@ export function MovementDetailModal({
 
   const titleNode = (
     <div className="flex items-center gap-2">
-      {isTransfer ? (
+      {isLoan ? (
+        <span className="text-xs font-bold text-purple-400 flex items-center gap-1.5 uppercase tracking-wider whitespace-nowrap">
+          <HandCoins className="w-4 h-4 shrink-0" />
+          {isLoanOut ? 'Desembolso de Préstamo (Cartera)' : 'Abono / Retorno de Capital'}
+        </span>
+      ) : isTransfer ? (
         <span className="text-xs font-bold text-accent flex items-center gap-1.5 uppercase tracking-wider whitespace-nowrap">
           <ArrowRightLeft className="w-4 h-4 shrink-0" />
           Transferencia Entre Cuentas
@@ -94,18 +105,24 @@ export function MovementDetailModal({
       {/* Big Amount Card */}
       <div className="text-center py-4">
         <span className="text-[11px] text-foreground/60 uppercase font-semibold tracking-wider whitespace-nowrap">
-          {isTransfer ? 'Monto Transferido' : 'Impacto en Fondo'}
+          {isLoan ? 'Movimiento de Capital' : isTransfer ? 'Monto Transferido' : 'Impacto en Fondo'}
         </span>
         <p
           className={`text-3xl sm:text-4xl font-black mt-1 whitespace-nowrap ${
-            isTransfer ? 'text-accent' : isIncome ? 'text-success' : 'text-danger'
+            isLoan
+              ? (isLoanOut ? 'text-purple-400' : 'text-success')
+              : isTransfer ? 'text-accent' : isIncome ? 'text-success' : 'text-danger'
           }`}
         >
-          {isTransfer ? formatCOP(movement.amount) : isIncome ? `+${formatCOP(movement.amount)}` : `-${formatCOP(movement.amount)}`}
+          {isLoan
+            ? (isLoanOut ? `-${formatCOP(movement.amount)}` : `+${formatCOP(movement.amount)}`)
+            : isTransfer ? formatCOP(movement.amount) : isIncome ? `+${formatCOP(movement.amount)}` : `-${formatCOP(movement.amount)}`}
         </p>
         <div className="mt-2.5 flex justify-center">
-          <Badge variant={isTransfer ? 'accent' : isIncome ? 'success' : 'danger'}>
-            {isTransfer
+          <Badge variant={isLoan ? 'accent' : isTransfer ? 'accent' : isIncome ? 'success' : 'danger'}>
+            {isLoan
+              ? (isLoanOut ? 'Transferido hacia cartera (No es gasto de consumo)' : 'Recuperado en cuenta (Retorno de activo)')
+              : isTransfer
               ? 'Movimiento interno entre tus cuentas'
               : isIncome
               ? 'Añadido a tu dinero disponible'

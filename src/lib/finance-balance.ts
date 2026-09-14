@@ -172,14 +172,14 @@ export async function calculatePaymentMethodsWithBalances(
         movement_count++;
       }
 
-      // Direct Income into this account
-      if (e.type === 'INCOME' && isSource) {
+      // Direct Income or Capital Inflow into this account
+      if ((e.type === 'INCOME' || e.type === 'LOAN_REPAY' || e.type === 'LOAN_BORROW') && isSource) {
         total_income += amt;
         if (isThisMonth) income_this_month += amt;
       }
 
-      // Direct Expense from this account
-      if ((e.type === 'EXPENSE' || !e.type) && isSource) {
+      // Direct Expense or Capital Outflow from this account
+      if ((e.type === 'EXPENSE' || !e.type || e.type === 'LOAN' || e.type === 'LOAN_DISBURSEMENT' || e.type === 'LOAN_PAYMENT') && isSource) {
         total_expense += amt;
         if (isThisMonth) expense_this_month += amt;
       }
@@ -303,10 +303,10 @@ export async function rebalancePaymentMethod(
     const src = (e.payment_method || '').trim().toLowerCase();
     const dst = (e.destination_method || '').trim().toLowerCase();
 
-    if (e.type === 'INCOME' && src === methodName) {
+    if ((e.type === 'INCOME' || e.type === 'LOAN_REPAY' || e.type === 'LOAN_BORROW') && src === methodName) {
       total_income += amt;
     }
-    if ((e.type === 'EXPENSE' || !e.type) && src === methodName) {
+    if ((e.type === 'EXPENSE' || !e.type || e.type === 'LOAN' || e.type === 'LOAN_DISBURSEMENT' || e.type === 'LOAN_PAYMENT') && src === methodName) {
       total_expense += amt;
     }
     if (e.type === 'TRANSFER' && dst === methodName) {

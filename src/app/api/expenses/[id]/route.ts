@@ -22,10 +22,20 @@ export async function DELETE(
     // If expense was tied to a pocket, refund/reverse pocket balance
     if (expense.pocket_id) {
       const amt = Number(expense.amount) || 0;
-      if (expense.type === 'EXPENSE' || expense.type === 'TRANSFER') {
+      if (
+        expense.type === 'EXPENSE' || 
+        expense.type === 'TRANSFER' || 
+        expense.type === 'LOAN' || 
+        expense.type === 'LOAN_DISBURSEMENT' || 
+        expense.type === 'LOAN_PAYMENT'
+      ) {
         await db.prepare('UPDATE account_pockets SET current_balance = current_balance + ?, updated_at = NOW() WHERE id = ?')
           .run(amt, expense.pocket_id);
-      } else if (expense.type === 'INCOME') {
+      } else if (
+        expense.type === 'INCOME' || 
+        expense.type === 'LOAN_REPAY' || 
+        expense.type === 'LOAN_BORROW'
+      ) {
         await db.prepare('UPDATE account_pockets SET current_balance = current_balance - ?, updated_at = NOW() WHERE id = ?')
           .run(amt, expense.pocket_id);
       }

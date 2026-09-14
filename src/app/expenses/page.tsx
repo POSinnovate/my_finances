@@ -31,7 +31,8 @@ import {
   ArrowUpRight,
   ArrowRight,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  HandCoins
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -44,7 +45,7 @@ export default function ExpensesPage() {
 
   // Filters State
   const [selectedMonth, setSelectedMonth] = useState<string>('ALL');
-  const [selectedType, setSelectedType] = useState<'ALL' | 'EXPENSE' | 'INCOME' | 'TRANSFER'>('ALL');
+  const [selectedType, setSelectedType] = useState<'ALL' | 'EXPENSE' | 'INCOME' | 'TRANSFER' | 'LOAN'>('ALL');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -240,6 +241,17 @@ export default function ExpensesPage() {
                 <ArrowRightLeft className="w-3.5 h-3.5" />
                 <span>Transferencias</span>
               </button>
+              <button
+                onClick={() => setSelectedType('LOAN')}
+                className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
+                  selectedType === 'LOAN'
+                    ? 'bg-purple-600 text-white shadow'
+                    : 'text-slate-400 hover:text-purple-400'
+                }`}
+              >
+                <HandCoins className="w-3.5 h-3.5" />
+                <span>Préstamos</span>
+              </button>
             </div>
           </div>
 
@@ -362,6 +374,8 @@ export default function ExpensesPage() {
               {paginatedExpenses.map((exp: any) => {
                 const isIncome = exp.type === 'INCOME';
                 const isTransfer = exp.type === 'TRANSFER';
+                const isLoan = exp.type === 'LOAN' || exp.type === 'LOAN_DISBURSEMENT' || exp.type === 'LOAN_PAYMENT' || exp.type === 'LOAN_REPAY' || exp.type === 'LOAN_BORROW';
+                const isLoanOut = exp.type === 'LOAN' || exp.type === 'LOAN_DISBURSEMENT' || exp.type === 'LOAN_PAYMENT';
                 return (
                   <div
                     key={exp.id}
@@ -371,14 +385,18 @@ export default function ExpensesPage() {
                     <div className="flex items-center gap-3 min-w-0">
                       <div
                         className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${
-                          isTransfer
+                          isLoan
+                            ? 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
+                            : isTransfer
                             ? 'bg-accent/15 text-accent border border-accent/30'
                             : isIncome
                             ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
                             : 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
                         }`}
                       >
-                        {isTransfer ? (
+                        {isLoan ? (
+                          <HandCoins className="w-4 h-4" />
+                        ) : isTransfer ? (
                           <ArrowRightLeft className="w-4 h-4" />
                         ) : isIncome ? (
                           <ArrowUpCircle className="w-4 h-4" />
@@ -389,13 +407,20 @@ export default function ExpensesPage() {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-bold text-foreground group-hover:text-primary transition-colors truncate">
-                            {isTransfer
+                            {isLoan
+                              ? (exp.category_name || (isLoanOut ? 'Desembolso de Préstamo' : 'Abono / Retorno de Capital'))
+                              : isTransfer
                               ? 'Transferencia entre Cuentas'
                               : isIncome
                               ? (exp.category_name || 'Ingreso de Dinero')
                               : exp.category_name}
                           </span>
-                          {isTransfer ? (
+                          {isLoan ? (
+                            <Badge variant="accent" size="sm" className="whitespace-nowrap shrink-0 flex items-center gap-1 bg-purple-500/15 text-purple-300 border-purple-500/30">
+                              <HandCoins className="w-3 h-3 text-purple-400 shrink-0" />
+                              <span>{exp.payment_method || 'Cuenta'}</span>
+                            </Badge>
+                          ) : isTransfer ? (
                             <Badge variant="accent" size="sm" className="whitespace-nowrap shrink-0 flex items-center gap-1">
                               <span>{exp.payment_method}</span>
                               <ArrowRight className="w-3 h-3 text-accent shrink-0" />
@@ -415,7 +440,7 @@ export default function ExpensesPage() {
                               <span>{exp.payment_method || (isIncome ? 'Fondo' : 'Efectivo')}</span>
                             </Badge>
                           )}
-                          {!isIncome && !isTransfer && exp.is_fixed === 1 && (
+                          {!isIncome && !isTransfer && !isLoan && exp.is_fixed === 1 && (
                             <Badge variant="accent" size="sm" className="uppercase tracking-wider">
                               Fijo
                             </Badge>
@@ -430,9 +455,21 @@ export default function ExpensesPage() {
 
                     <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                       <span className={`text-sm sm:text-base font-black whitespace-nowrap shrink-0 ${
-                        isTransfer ? 'text-accent' : isIncome ? 'text-emerald-400' : 'text-rose-400'
+                        isLoan
+                          ? (isLoanOut ? 'text-purple-400' : 'text-emerald-400')
+                          : isTransfer 
+                          ? 'text-accent' 
+                          : isIncome 
+                          ? 'text-emerald-400' 
+                          : 'text-rose-400'
                       }`}>
-                        {isTransfer ? formatCOP(exp.amount) : isIncome ? `+${formatCOP(exp.amount)}` : `-${formatCOP(exp.amount)}`}
+                        {isLoan
+                          ? (isLoanOut ? `-${formatCOP(exp.amount)}` : `+${formatCOP(exp.amount)}`)
+                          : isTransfer 
+                          ? formatCOP(exp.amount) 
+                          : isIncome 
+                          ? `+${formatCOP(exp.amount)}` 
+                          : `-${formatCOP(exp.amount)}`}
                       </span>
                       <Button
                         variant="ghost"
