@@ -431,7 +431,7 @@ export function Header({ user }: HeaderProps) {
         {/* Footer Navigation to Detailed Accounts Management */}
         <div className="pt-4 border-t border-border flex items-center justify-between gap-2 mt-3">
           <Link
-            href="/budgets?tab=PAYMENT_METHODS"
+            href="/accounts"
             onClick={() => {
               setIsEditingCash(false);
               setCalibratingMethodId(null);
