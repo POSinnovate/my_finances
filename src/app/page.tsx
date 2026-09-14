@@ -75,7 +75,7 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-background flex flex-col">
       <Header user={user} onUserUpdate={invalidateFinance} />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-5 space-y-5">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 pt-5 pb-28 sm:pb-32 space-y-5">
         {/* Welcome & Quick Action Header */}
         <Card variant="glass" padding="md" className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>

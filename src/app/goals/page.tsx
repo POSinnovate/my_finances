@@ -242,7 +242,7 @@ export default function GoalsPage() {
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <Header user={user} onUserUpdate={invalidateFinance} />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-5 space-y-5">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 pt-5 pb-28 sm:pb-32 space-y-5">
         {/* Top Header Banner */}
         <PageBanner
           icon={<Target className="w-5 h-5" />}

@@ -128,7 +128,7 @@ export default function AdminUsersPage() {
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <Header user={currentUser} onUserUpdate={loadData} />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-5 space-y-4">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 pt-5 pb-28 sm:pb-32 space-y-4">
         {/* Top Header Banner */}
         <PageBanner
           icon={<Users className="w-5 h-5" />}

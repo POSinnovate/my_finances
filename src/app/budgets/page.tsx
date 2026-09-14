@@ -272,7 +272,7 @@ export default function BudgetsPage() {
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <Header user={user} onUserUpdate={invalidateFinance} />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-5 space-y-5">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 pt-5 pb-28 sm:pb-32 space-y-5">
         {/* Tab Switcher: Gastos vs Ingresos */}
         <div className="flex items-center gap-2 bg-surface border border-border p-1.5 rounded-2xl overflow-x-auto scrollbar-none whitespace-nowrap">
           <Button

@@ -413,7 +413,7 @@ export default function AccountsPage() {
     <div className="min-h-screen bg-background flex flex-col pb-24">
       <Header user={user} onUserUpdate={invalidateFinance} />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-4 py-5 space-y-4">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-4 pt-5 pb-28 sm:pb-32 space-y-4">
         {/* Top Header Banner */}
         <PageBanner
           icon={<Wallet className="w-5 h-5" />}
@@ -669,15 +669,13 @@ export default function AccountsPage() {
       <Modal
         isOpen={isAddMethodOpen}
         onClose={() => setIsAddMethodOpen(false)}
-        title="Nueva Cuenta o Medio de Pago"
+        title="Nueva Cuenta"
         icon={<Wallet className="w-5 h-5" />}
       >
         <form onSubmit={handleCreateMethod} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-foreground/80 mb-1">
-              Nombre de la Cuenta *
-            </label>
             <Input
+              label="Nombre de la Cuenta"
               type="text"
               required
               value={newMethodName}
@@ -687,10 +685,8 @@ export default function AccountsPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-foreground/80 mb-1">
-              Tipo de Cuenta
-            </label>
             <Select
+              label="Tipo de Cuenta"
               value={newMethodType}
               onChange={(e) => setNewMethodType(e.target.value)}
             >
@@ -703,10 +699,8 @@ export default function AccountsPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-foreground/80 mb-1">
-              Saldo Inicial en esta cuenta ($ COP)
-            </label>
             <Input
+              label="Saldo Inicial"
               type="number"
               step="1000"
               value={newMethodInitialBalance}
@@ -736,25 +730,14 @@ export default function AccountsPage() {
               ))}
             </div>
           </div>
-
-          <div className="flex gap-2 pt-2">
-            <Button
-              type="button"
-              variant="secondary"
-              fullWidth
-              onClick={() => setIsAddMethodOpen(false)}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              fullWidth
-              disabled={isCreatingMethod}
-            >
-              {isCreatingMethod ? 'Creando...' : 'Crear Cuenta'}
-            </Button>
-          </div>
+          <Button
+            type="submit"
+            variant="primary"
+            fullWidth
+            disabled={isCreatingMethod}
+          >
+            {isCreatingMethod ? 'Creando...' : 'Crear Cuenta'}
+          </Button>
         </form>
       </Modal>
 
@@ -915,10 +898,10 @@ export default function AccountsPage() {
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-xs font-semibold text-foreground/80">
-                  Monto Inicial a Asignar ($ COP)
+                  Monto Inicial
                 </label>
                 <span className="text-[10px] text-primary font-mono font-bold">
-                  Libre en cuenta: {formatCOP(pocketTargetMethod.free_balance !== undefined ? pocketTargetMethod.free_balance : (pocketTargetMethod.net_balance || 0))}
+                  Libre: {formatCOP(pocketTargetMethod.free_balance !== undefined ? pocketTargetMethod.free_balance : (pocketTargetMethod.net_balance || 0))}
                 </span>
               </div>
               <Input

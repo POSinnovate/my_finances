@@ -1,6 +1,7 @@
 import React from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from './button';
 
 export interface PaginationProps {
   currentPage: number;
@@ -23,21 +24,24 @@ export function Pagination({
 }: PaginationProps) {
   if (totalItems <= 0) return null;
 
-  const startItem = (currentPage - 1) * itemsPerPage + 1;
-  const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+  const validTotalPages = Math.max(1, totalPages || 1);
+  const validCurrentPage = Math.min(Math.max(1, currentPage || 1), validTotalPages);
+
+  const startItem = (validCurrentPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(validCurrentPage * itemsPerPage, totalItems);
 
   // Generate page numbers to show (e.g. 1, 2, 3, 4, 5)
   const getPageNumbers = () => {
     const pages: (number | string)[] = [];
-    if (totalPages <= 5) {
-      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    if (validTotalPages <= 5) {
+      for (let i = 1; i <= validTotalPages; i++) pages.push(i);
     } else {
-      if (currentPage <= 3) {
-        pages.push(1, 2, 3, 4, '...', totalPages);
-      } else if (currentPage >= totalPages - 2) {
-        pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+      if (validCurrentPage <= 3) {
+        pages.push(1, 2, 3, 4, '...', validTotalPages);
+      } else if (validCurrentPage >= validTotalPages - 2) {
+        pages.push(1, '...', validTotalPages - 3, validTotalPages - 2, validTotalPages - 1, validTotalPages);
       } else {
-        pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+        pages.push(1, '...', validCurrentPage - 1, validCurrentPage, validCurrentPage + 1, '...', validTotalPages);
       }
     }
     return pages;
@@ -61,66 +65,68 @@ export function Pagination({
         de <strong className="text-primary font-mono">{totalItems}</strong> {label}
       </div>
 
-      {/* Pagination Controls */}
-      {totalPages > 1 && (
-        <div className="flex items-center gap-1.5 select-none">
-          {/* Previous Page Button */}
-          <button
-            type="button"
-            onClick={() => onPageChange(Math.max(1, currentPage - 1))}
-            disabled={currentPage === 1}
-            className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-surface-elevated hover:bg-secondary/60 border border-border hover:border-primary/40 text-foreground/80 hover:text-foreground text-xs font-bold transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer flex items-center gap-1"
-            title="Página anterior"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">Anterior</span>
-          </button>
+      {/* Pagination Action Controls (Always visible when items exist) */}
+      <div className="flex items-center gap-1.5 select-none">
+        {/* Previous Page Button */}
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() => onPageChange(Math.max(1, validCurrentPage - 1))}
+          disabled={validCurrentPage <= 1}
+          icon={ChevronLeft}
+          title="Página anterior"
+          className="px-2.5 sm:px-3"
+        >
+          <span className="hidden sm:inline">Anterior</span>
+        </Button>
 
-          {/* Page Numbers */}
-          <div className="flex items-center gap-1">
-            {pages.map((p, idx) => {
-              if (p === '...') {
-                return (
-                  <span key={`ellipsis-${idx}`} className="px-1.5 text-xs text-foreground/40 font-bold">
-                    ...
-                  </span>
-                );
-              }
-
-              const pageNum = p as number;
-              const isActive = pageNum === currentPage;
-
+        {/* Page Numbers */}
+        <div className="flex items-center gap-1">
+          {pages.map((p, idx) => {
+            if (p === '...') {
               return (
-                <button
-                  key={pageNum}
-                  type="button"
-                  onClick={() => onPageChange(pageNum)}
-                  className={cn(
-                    'w-8 h-8 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center font-mono',
-                    isActive
-                      ? 'bg-primary text-background shadow-md shadow-primary/20 font-black scale-105'
-                      : 'bg-surface-elevated hover:bg-secondary/60 text-foreground/70 hover:text-foreground border border-border hover:border-primary/40'
-                  )}
-                >
-                  {pageNum}
-                </button>
+                <span key={`ellipsis-${idx}`} className="px-1.5 text-xs text-foreground/40 font-bold">
+                  ...
+                </span>
               );
-            })}
-          </div>
+            }
 
-          {/* Next Page Button */}
-          <button
-            type="button"
-            onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
-            disabled={currentPage === totalPages}
-            className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-surface-elevated hover:bg-secondary/60 border border-border hover:border-primary/40 text-foreground/80 hover:text-foreground text-xs font-bold transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer flex items-center gap-1"
-            title="Página siguiente"
-          >
-            <span className="hidden sm:inline">Siguiente</span>
-            <ChevronRight className="w-4 h-4" />
-          </button>
+            const pageNum = p as number;
+            const isActive = pageNum === validCurrentPage;
+
+            return (
+              <Button
+                key={pageNum}
+                type="button"
+                variant={isActive ? 'primary' : 'outline'}
+                size="sm"
+                onClick={() => onPageChange(pageNum)}
+                className={cn(
+                  'w-8 h-8 p-0 font-mono text-xs font-bold',
+                  isActive && 'shadow-md shadow-primary/20 scale-105'
+                )}
+              >
+                {pageNum}
+              </Button>
+            );
+          })}
         </div>
-      )}
+
+        {/* Next Page Button */}
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() => onPageChange(Math.min(validTotalPages, validCurrentPage + 1))}
+          disabled={validCurrentPage >= validTotalPages}
+          title="Página siguiente"
+          className="px-2.5 sm:px-3"
+        >
+          <span className="hidden sm:inline">Siguiente</span>
+          <ChevronRight className="w-4 h-4 ml-0.5" />
+        </Button>
+      </div>
     </div>
   );
 }

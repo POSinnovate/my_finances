@@ -36,7 +36,7 @@ import {
 import Link from 'next/link';
 import { toast } from 'sonner';
 
-import { Button, Badge } from '@/components/ui';
+import { Button, Badge, Pagination } from '@/components/ui';
 
 export default function ExpensesPage() {
   const router = useRouter();
@@ -117,7 +117,7 @@ export default function ExpensesPage() {
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <Header user={user} onUserUpdate={invalidateFinance} />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-5 space-y-4">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 pt-5 pb-28 sm:pb-32 space-y-4">
         <div>
           <h1 className="text-xl font-black text-foreground">Libro de Movimientos</h1>
           <p className="text-xs text-slate-400">Historial completo de entradas y salidas de dinero</p>
@@ -452,48 +452,16 @@ export default function ExpensesPage() {
               })}
 
               {/* Pagination Controls */}
-              {totalItems > 0 && (
-                <div className="mt-4 pt-3.5 border-t border-border/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-                  <div className="text-slate-400 text-[11px] sm:text-xs">
-                    Mostrando{' '}
-                    <span className="font-bold text-foreground">
-                      {(safeCurrentPage - 1) * pageSize + 1}
-                    </span>
-                    {' '}-{' '}
-                    <span className="font-bold text-foreground">
-                      {Math.min(safeCurrentPage * pageSize, totalItems)}
-                    </span>
-                    {' '}de{' '}
-                    <span className="font-bold text-primary">{totalItems}</span> movimientos
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                      disabled={safeCurrentPage <= 1}
-                    >
-                      <ChevronLeft className="w-3.5 h-3.5" />
-                      <span>Anterior</span>
-                    </Button>
-
-                    <div className="px-3 py-1.5 rounded-xl bg-surface border border-border text-[11px] font-bold text-foreground whitespace-nowrap">
-                      Página <span className="text-accent">{safeCurrentPage}</span> de <span className="text-slate-300">{totalPages}</span>
-                    </div>
-
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                      disabled={safeCurrentPage >= totalPages}
-                    >
-                      <span>Siguiente</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              )}
+              <div className="mt-4">
+                <Pagination
+                  currentPage={safeCurrentPage}
+                  totalPages={totalPages}
+                  totalItems={totalItems}
+                  itemsPerPage={pageSize}
+                  onPageChange={setCurrentPage}
+                  label="movimientos"
+                />
+              </div>
             </div>
           )}
         </div>
