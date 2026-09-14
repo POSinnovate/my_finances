@@ -126,7 +126,7 @@ export async function GET(req: NextRequest) {
 
         // Projected interest for the entire duration of the loan
         const projectedInterest =
-          rate > 0 ? Math.round(initAmt * (rate / 100) * durationMonths) : expInt * durationMonths;
+          rate > 0 ? Math.round(initAmt * (rate / 100) * durationMonths) : expInt;
         // Total money to collect (Principal + Projected Interest)
         const totalToCollect = initAmt + projectedInterest;
         // Money collected so far (Capital returned + Interest collected)
@@ -288,7 +288,7 @@ export async function POST(req: NextRequest) {
     }
 
     const durationMonths = Math.max(1, Number(duration_months) || 1);
-    const projectedInterest = rate > 0 ? Math.round(principal * (rate / 100) * durationMonths) : (monthlyInterest * durationMonths);
+    const projectedInterest = rate > 0 ? Math.round(principal * (rate / 100) * durationMonths) : monthlyInterest;
     const totalExpected = principal + projectedInterest;
     const currentBalance = principal;
     const startDate = start_date || new Date().toISOString().split('T')[0];

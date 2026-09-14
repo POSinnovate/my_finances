@@ -99,6 +99,7 @@ export default function LoansPage() {
   const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
   const [payNotes, setPayNotes] = useState('');
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+  const [activePaymentShortcut, setActivePaymentShortcut] = useState<'INTEREST_ONLY' | 'SETTLE_ALL' | 'HALF_CAPITAL' | null>(null);
 
   // Group loans by debtor (borrower_name)
   const groupedDebtors = useMemo(() => {
@@ -241,9 +242,12 @@ export default function LoansPage() {
   }, [formInitialAmount, formInterestType, formInterestRate, formFixedInterest]);
 
   const calculatedFormProjectedInterest = useMemo(() => {
+    if (formInterestType === 'FIXED') {
+      return Number(formFixedInterest) || 0;
+    }
     const months = Number(formDurationMonths) || 1;
     return calculatedFormInterest * months;
-  }, [calculatedFormInterest, formDurationMonths]);
+  }, [calculatedFormInterest, formDurationMonths, formInterestType, formFixedInterest]);
 
   const calculatedFormTotal = (Number(formInitialAmount) || 0) + calculatedFormProjectedInterest;
   const calculatedTotalPayment = (Number(payCapital) || 0) + (Number(payInterest) || 0);
@@ -372,6 +376,7 @@ export default function LoansPage() {
       (loan.interest_rate > 0 ? Math.round(remCap * (loan.interest_rate / 100)) : Number(loan.expected_interest) || 0);
     setPayCapital('');
     setPayInterest(String(monthlyFee > 0 ? monthlyFee : ''));
+    setActivePaymentShortcut(monthlyFee > 0 ? 'INTEREST_ONLY' : null);
     setPayMethod(paymentMethods[0]?.name || 'Nequi');
     setPayDate(new Date().toISOString().split('T')[0]);
     setPayNotes('');
@@ -1074,7 +1079,7 @@ export default function LoansPage() {
 
       {/* UNIFIED MODAL: REGISTRAR / EDITAR PRÉSTAMO */}
       {isLoanModalOpen && (
-        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
+        <div className="fixed inset-0 z-70 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
           <div className="w-full max-w-lg bg-[#0B192C] border-t sm:border border-[#1E3A5F] rounded-t-3xl sm:rounded-3xl shadow-2xl animate-in slide-in-from-bottom duration-200 max-h-[92vh] sm:max-h-[90vh] flex flex-col overflow-hidden">
             <form onSubmit={handleSaveLoan} className="flex flex-col h-full max-h-[92vh] sm:max-h-[90vh]">
               {/* Modal Header */}
@@ -1234,9 +1239,8 @@ export default function LoansPage() {
                     {formInterestType === 'PERCENT' ? (
                       <div className="relative">
                         <input
-                          type="number"
-                          min="0"
-                          step="0.5"
+                          type="text"
+                          inputMode="decimal"
                           value={formInterestRate}
                           onChange={(e) => setFormInterestRate(e.target.value)}
                           placeholder="10"
@@ -1247,9 +1251,8 @@ export default function LoansPage() {
                     ) : (
                       <div className="relative">
                         <input
-                          type="number"
-                          min="0"
-                          step="500"
+                          type="text"
+                          inputMode='numeric'
                           value={formFixedInterest}
                           onChange={(e) => setFormFixedInterest(e.target.value)}
                           placeholder="Ej: 50000"
@@ -1261,7 +1264,7 @@ export default function LoansPage() {
 
                     <div className="bg-[#0B192C]/80 border border-[#243B55]/60 rounded-xl px-3 py-1.5 flex items-center justify-between text-xs">
                       <span className="text-slate-400">Interés:</span>
-                      <span className="text-cyan-300 font-mono font-bold">+{formatCOP(calculatedFormInterest)}/mes</span>
+                      <span className="text-cyan-300 font-mono font-bold">+{formatCOP(calculatedFormInterest)}{formInterestType === 'PERCENT' ? '/mes' : ''}</span>
                     </div>
                   </div>
 
@@ -1346,7 +1349,7 @@ export default function LoansPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div>
                     <label className="block text-xs font-semibold text-slate-400 mb-1">
-                      {formLoanType === 'LENT' ? 'Cuenta de Desembolso (-)' : 'Cuenta Receptora (+)'}
+                      {formLoanType === 'LENT' ? 'Cuenta de Desembolso' : 'Cuenta Receptora'}
                     </label>
                     <select
                       value={formPaymentMethod}
@@ -1411,7 +1414,7 @@ export default function LoansPage() {
 
       {/* MODAL 2: REGISTRAR ABONO */}
       {selectedLoanForPayment && (
-        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
+        <div className="fixed inset-0 z-70 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
           <div className="w-full max-w-md bg-[#0B192C] border-t sm:border border-[#1E3A5F] rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl animate-in slide-in-from-bottom duration-200 max-h-[92vh] sm:max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-[#1E3A5F] mb-3">
               <div>
@@ -1464,18 +1467,28 @@ export default function LoansPage() {
                       onClick={() => {
                         setPayCapital('');
                         setPayInterest(String(monthlyFee > 0 ? monthlyFee : ''));
+                        setActivePaymentShortcut('INTEREST_ONLY');
                       }}
-                      className="flex-1 py-1.5 rounded-lg bg-[#102A43] border border-[#243B55] text-[11px] font-bold text-emerald-300 hover:bg-[#152E4D] cursor-pointer"
+                      className={`flex-1 py-1.5 px-2 rounded-lg border text-[11px] font-bold transition-all text-center cursor-pointer ${
+                        activePaymentShortcut === 'INTEREST_ONLY'
+                          ? 'bg-emerald-500/25 border-emerald-400 text-emerald-300 ring-1 ring-emerald-400/60 shadow-sm shadow-emerald-500/20'
+                          : 'bg-[#102A43] border-[#243B55] text-emerald-400/80 hover:bg-[#152E4D] hover:text-emerald-300'
+                      }`}
                     >
-                      Solo Interés ({formatCOP(monthlyFee)})
+                      Solo Interés
                     </button>
                     <button
                       type="button"
                       onClick={() => {
                         setPayCapital(String(remCap));
                         setPayInterest(String(monthlyFee > 0 ? monthlyFee : ''));
+                        setActivePaymentShortcut('SETTLE_ALL');
                       }}
-                      className="flex-1 py-1.5 rounded-lg bg-[#102A43] border border-[#243B55] text-[11px] font-bold text-cyan-300 hover:bg-[#152E4D] cursor-pointer"
+                      className={`flex-1 py-1.5 px-2 rounded-lg border text-[11px] font-bold transition-all text-center cursor-pointer ${
+                        activePaymentShortcut === 'SETTLE_ALL'
+                          ? 'bg-cyan-500/25 border-cyan-400 text-cyan-300 ring-1 ring-cyan-400/60 shadow-sm shadow-cyan-500/20'
+                          : 'bg-[#102A43] border-[#243B55] text-cyan-400/80 hover:bg-[#152E4D] hover:text-cyan-300'
+                      }`}
                     >
                       Saldar Todo
                     </button>
@@ -1485,8 +1498,13 @@ export default function LoansPage() {
                         const half = Math.round(remCap / 2);
                         setPayCapital(String(half));
                         setPayInterest(String(monthlyFee > 0 ? monthlyFee : ''));
+                        setActivePaymentShortcut('HALF_CAPITAL');
                       }}
-                      className="flex-1 py-1.5 rounded-lg bg-[#102A43] border border-[#243B55] text-[11px] font-bold text-slate-300 hover:bg-[#152E4D] cursor-pointer"
+                      className={`flex-1 py-1.5 px-2 rounded-lg border text-[11px] font-bold transition-all text-center cursor-pointer ${
+                        activePaymentShortcut === 'HALF_CAPITAL'
+                          ? 'bg-amber-500/25 border-amber-400 text-amber-300 ring-1 ring-amber-400/60 shadow-sm shadow-amber-500/20'
+                          : 'bg-[#102A43] border-[#243B55] text-slate-300 hover:bg-[#152E4D] hover:text-white'
+                      }`}
                     >
                       50% Capital
                     </button>
@@ -1506,21 +1524,27 @@ export default function LoansPage() {
                     min="0"
                     step="500"
                     value={payCapital}
-                    onChange={(e) => setPayCapital(e.target.value)}
+                    onChange={(e) => {
+                      setPayCapital(e.target.value);
+                      setActivePaymentShortcut(null);
+                    }}
                     placeholder="0"
                     className="w-full bg-[#102A43] border border-[#243B55] rounded-xl px-2.5 py-1.5 text-xs font-mono text-white outline-none"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-emerald-300 mb-1">
-                    Interés del Mes ($)
+                    Interés del Mes
                   </label>
                   <input
                     type="number"
                     min="0"
                     step="500"
                     value={payInterest}
-                    onChange={(e) => setPayInterest(e.target.value)}
+                    onChange={(e) => {
+                      setPayInterest(e.target.value);
+                      setActivePaymentShortcut(null);
+                    }}
                     placeholder="0"
                     className="w-full bg-[#102A43] border border-[#243B55] rounded-xl px-2.5 py-1.5 text-xs font-mono text-white outline-none"
                   />
@@ -1535,7 +1559,7 @@ export default function LoansPage() {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    {selectedLoanForPayment.loan_type === 'BORROWED' ? 'Cuenta de Pago (-)' : 'Cuenta Receptora (+)'}
+                    {selectedLoanForPayment.loan_type === 'BORROWED' ? 'Cuenta de Pago' : 'Cuenta Receptora'}
                   </label>
                   <select
                     value={payMethod}

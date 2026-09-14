@@ -129,7 +129,7 @@ export async function PUT(
       monthlyInterest = Math.round(principal * (rate / 100));
     }
 
-    const projectedInterest = rate > 0 ? Math.round(principal * (rate / 100) * durationMonths) : (monthlyInterest * durationMonths);
+    const projectedInterest = rate > 0 ? Math.round(principal * (rate / 100) * durationMonths) : monthlyInterest;
     const totalExpected = principal + projectedInterest;
     const paidCap = Number(existing.paid_capital) || 0;
     const currentBalance = Math.max(0, principal - paidCap);
