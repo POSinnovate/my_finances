@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { 
   LogOut, 
@@ -41,6 +42,22 @@ export function Header({ user }: HeaderProps) {
   const [isEditingCash, setIsEditingCash] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isMobileMenuOpen]);
 
   // TanStack Query hooks for real-time payment methods and invalidation
   const { data: paymentMethods = [], refetch: refetchPaymentMethods } = usePaymentMethods();
@@ -438,8 +455,8 @@ export function Header({ user }: HeaderProps) {
       </Modal>
 
       {/* Mobile Drawer Menu */}
-      {isMobileMenuOpen && user && (
-        <div className="fixed inset-0 z-50 flex justify-end animate-in fade-in duration-200 sm:hidden">
+      {mounted && isMobileMenuOpen && user && createPortal(
+        <div className="fixed inset-0 z-[100] flex justify-end animate-in fade-in duration-200 sm:hidden">
           <div 
             onClick={() => setIsMobileMenuOpen(false)}
             className="fixed inset-0 bg-black/80 backdrop-blur-sm"
@@ -546,7 +563,8 @@ export function Header({ user }: HeaderProps) {
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </header>
   );
