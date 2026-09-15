@@ -28,6 +28,13 @@ export async function GET() {
       return NextResponse.json({ user: null }, { status: 401 });
     }
 
+    // Refresh last active timestamp asynchronously (throttled)
+    db.prepare(`
+      UPDATE users 
+      SET last_active_at = NOW() 
+      WHERE id = ? AND (last_active_at IS NULL OR last_active_at < NOW() - INTERVAL '15 minutes')
+    `).run(user.id).catch?.(() => {});
+
     return NextResponse.json({
       user: {
         ...user,

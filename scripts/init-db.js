@@ -31,6 +31,14 @@ export async function initDatabaseSchema() {
     );
   `;
 
+  await sql`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
+  `;
+
+  await sql`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ;
+  `;
+
   // 2. Categories table
   await sql`
     CREATE TABLE IF NOT EXISTS categories (

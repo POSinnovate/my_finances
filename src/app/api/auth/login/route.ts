@@ -36,6 +36,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Credenciales inválidas' }, { status: 401 });
     }
 
+    // Update last login timestamp and active timestamp
+    await db.prepare('UPDATE users SET last_login_at = NOW(), last_active_at = NOW() WHERE id = ?').run(user.id);
+
     const token = await signToken({
       userId: user.id,
       email: user.email,
