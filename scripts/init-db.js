@@ -224,6 +224,10 @@ export async function initDatabaseSchema() {
     ALTER TABLE loans 
     ADD COLUMN IF NOT EXISTS installment_amount NUMERIC DEFAULT 0;
   `;
+  await sql`
+    ALTER TABLE loans 
+    ADD COLUMN IF NOT EXISTS installments_schedule TEXT;
+  `;
 
   // 8. Loan payments (audit table)
   await sql`

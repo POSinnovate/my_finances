@@ -90,8 +90,9 @@ export default function LoansPage() {
   const [formInterestRate, setFormInterestRate] = useState('10');
   const [formFixedInterest, setFormFixedInterest] = useState('');
   const [formHasInstallments, setFormHasInstallments] = useState(false);
-  const [formInstallmentCount, setFormInstallmentCount] = useState('2');
+  const [formInstallmentCount, setFormInstallmentCount] = useState('3');
   const [formInstallmentFrequency, setFormInstallmentFrequency] = useState<'DAILY' | 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY'>('MONTHLY');
+  const [formInstallmentSchedule, setFormInstallmentSchedule] = useState<Array<{ number: number; amount: string; date: string }>>([]);
   const [formStartDate, setFormStartDate] = useState(getTodayColombiaDate());
   const [formDueDate, setFormDueDate] = useState('');
   const [formPaymentMethod, setFormPaymentMethod] = useState('');
@@ -295,6 +296,30 @@ export default function LoansPage() {
     return Array.from(names);
   }, [loans]);
 
+  // Helper to build or resize installment schedule with default divided amounts & progressive dates
+  const buildDefaultInstallmentSchedule = (
+    count: number,
+    total: number,
+    startDateStr: string,
+    existingSchedule?: Array<{ number: number; amount: any; date: string }>
+  ) => {
+    const n = Math.max(1, Math.min(120, count));
+    const baseAmt = Math.round(total / n);
+    const sDate = startDateStr ? dayjs(startDateStr) : dayjs();
+
+    const result: Array<{ number: number; amount: string; date: string }> = [];
+    for (let i = 1; i <= n; i++) {
+      const prev = existingSchedule && existingSchedule[i - 1];
+      const defaultDate = sDate.add(i, 'month').format('YYYY-MM-DD');
+      result.push({
+        number: i,
+        amount: prev && prev.amount !== undefined && prev.amount !== '' ? String(prev.amount) : String(baseAmt),
+        date: prev && prev.date ? prev.date : defaultDate,
+      });
+    }
+    return result;
+  };
+
   // Open Create Loan Modal
   const handleOpenCreateLoan = (presetType?: 'LENT' | 'BORROWED', prefillDebtor?: string) => {
     setLoanModalMode('create');
@@ -308,8 +333,9 @@ export default function LoansPage() {
     setFormInterestRate('10');
     setFormFixedInterest('');
     setFormHasInstallments(false);
-    setFormInstallmentCount('2');
+    setFormInstallmentCount('3');
     setFormInstallmentFrequency('MONTHLY');
+    setFormInstallmentSchedule([]);
     const today = getTodayColombiaDate();
     setFormStartDate(today);
     // Auto-calculate due date: +1 month
@@ -341,11 +367,42 @@ export default function LoansPage() {
       setFormFixedInterest('');
     }
     setFormHasInstallments(Boolean(loan.has_installments));
-    setFormInstallmentCount(String(loan.installment_count || 2));
+    const iCount = Math.max(1, Number(loan.installment_count) || 3);
+    setFormInstallmentCount(String(iCount));
     setFormInstallmentFrequency(loan.installment_frequency || 'MONTHLY');
+    
+    // Parse custom schedule if stored
+    let loadedSchedule: Array<{ number: number; amount: any; date: string }> = [];
+    if (loan.installments_schedule) {
+      try {
+        const parsed = typeof loan.installments_schedule === 'string'
+          ? JSON.parse(loan.installments_schedule)
+          : loan.installments_schedule;
+        if (Array.isArray(parsed)) {
+          loadedSchedule = parsed.map((item: any, idx: number) => ({
+            number: item.number || idx + 1,
+            amount: String(item.amount || ''),
+            date: item.date || '',
+          }));
+        }
+      } catch {
+        loadedSchedule = [];
+      }
+    }
+    
     const sDate = loan.start_date ? loan.start_date.split('T')[0] : getTodayColombiaDate();
     setFormStartDate(sDate);
     setFormDueDate(loan.due_date || '');
+    
+    if (loadedSchedule.length > 0) {
+      setFormInstallmentSchedule(loadedSchedule);
+    } else if (loan.has_installments) {
+      const tot = (Number(loan.initial_amount) || 0) + (Number(loan.expected_interest) || 0);
+      setFormInstallmentSchedule(buildDefaultInstallmentSchedule(iCount, tot, sDate));
+    } else {
+      setFormInstallmentSchedule([]);
+    }
+
     setFormPaymentMethod(loan.payment_method || paymentMethods[0]?.name || 'Efectivo');
     setFormPocketId(loan.pocket_id || null);
     setShowLoanPockets(Boolean(loan.pocket_id));
@@ -373,8 +430,14 @@ export default function LoansPage() {
     if (!isFixed) {
       // Percentage loan: due date is strictly start_date + duration_months
       finalDueDate = dayjs(formStartDate).add(durationM, 'month').format('YYYY-MM-DD');
+    } else if (formHasInstallments && formInstallmentSchedule.length > 0) {
+      // If has custom installments schedule, due date is the latest installment date
+      const sortedDates = [...formInstallmentSchedule].filter(item => item.date).map(item => item.date).sort();
+      if (sortedDates.length > 0) {
+        finalDueDate = sortedDates[sortedDates.length - 1];
+      }
     } else if (!finalDueDate) {
-      // Fixed interest without date: default to 1 month or today + 15 days
+      // Fixed interest without date: default to 1 month
       finalDueDate = dayjs(formStartDate).add(1, 'month').format('YYYY-MM-DD');
     }
 
@@ -389,6 +452,15 @@ export default function LoansPage() {
     const instAmt = formHasInstallments && isFixed
       ? Math.round(calculatedFormTotal / instCount)
       : 0;
+
+    // Clean schedule data if active
+    const cleanSchedule = formHasInstallments && isFixed && formInstallmentSchedule.length > 0
+      ? formInstallmentSchedule.map((item, idx) => ({
+          number: idx + 1,
+          amount: Number(item.amount) > 0 ? Number(item.amount) : instAmt,
+          date: item.date || dayjs(formStartDate).add(idx + 1, 'month').format('YYYY-MM-DD'),
+        }))
+      : null;
 
     setIsSavingLoan(true);
     try {
@@ -409,6 +481,7 @@ export default function LoansPage() {
         installment_count: isFixed && formHasInstallments ? instCount : 1,
         installment_frequency: isFixed && formHasInstallments ? formInstallmentFrequency : 'MONTHLY',
         installment_amount: instAmt,
+        installments_schedule: cleanSchedule,
         start_date: formStartDate,
         due_date: finalDueDate,
         payment_method: formPaymentMethod || paymentMethods[0]?.name || 'Efectivo',
@@ -1240,7 +1313,46 @@ export default function LoansPage() {
 
                             {/* Abonos Accordion */}
                             {isLoanExpanded && (
-                              <div className="p-2.5 bg-surface border border-border rounded-xl space-y-1.5 mt-1.5">
+                              <div className="p-2.5 bg-surface border border-border rounded-xl space-y-2 mt-1.5">
+                                {/* Installments Schedule breakdown if has installments */}
+                                {loan.has_installments && loan.installments_schedule && Array.isArray(loan.installments_schedule) && loan.installments_schedule.length > 0 && (
+                                  <div className="bg-surface-elevated/80 border border-border rounded-xl p-2.5 space-y-1.5">
+                                    <div className="flex items-center justify-between text-[11px] font-bold text-slate-300">
+                                      <span>Cronograma de Cuotas Pactadas:</span>
+                                      <span className="text-accent font-mono text-[10px]">
+                                        {loan.paid_installments || 0} de {loan.installment_count || 1} canceladas
+                                      </span>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 pt-0.5">
+                                      {loan.installments_schedule.map((item: any, iIdx: number) => {
+                                        const isCuotaPaid = (loan.paid_installments || 0) > iIdx;
+                                        const isCuotaOverdue = !isCuotaPaid && item.date && new Date(item.date).getTime() < new Date().setHours(0, 0, 0, 0);
+                                        return (
+                                          <div
+                                            key={iIdx}
+                                            className={`border rounded-lg px-2 py-1.5 flex items-center justify-between gap-1.5 text-xs ${
+                                              isCuotaPaid
+                                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                                                : isCuotaOverdue
+                                                ? 'bg-rose-500/15 border-rose-500/30 text-rose-300'
+                                                : 'bg-surface border-border/80 text-slate-300'
+                                            }`}
+                                          >
+                                            <div className="flex items-center gap-1.5 min-w-0">
+                                              <span className="font-mono font-bold text-[10px]">C{item.number || iIdx + 1}</span>
+                                              <span className="truncate text-[11px]">{formatShortDateSpanish(item.date)}</span>
+                                            </div>
+                                            <div className="text-right shrink-0 font-mono font-bold">
+                                              <span>{formatCOP(item.amount)}</span>
+                                              {isCuotaPaid && <span className="ml-1 text-[9px]">✓</span>}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+
                                 <div className="flex items-center justify-between text-xs">
                                   <span className="font-bold text-foreground uppercase text-[10px] tracking-wider">
                                     Historial de Abonos ({loan.payments?.length || 0})
@@ -1638,14 +1750,21 @@ export default function LoansPage() {
                         </div>
                       </div>
 
-                      {/* Dividir en Cuotas Toggle */}
-                      <div className="bg-surface/60 border border-border rounded-xl p-2.5 space-y-2">
+                      {/* Dividir en Cuotas Toggle & Dynamic Schedule Inputs */}
+                      <div className="bg-surface/60 border border-border rounded-xl p-2.5 space-y-2.5">
                         <div className="flex items-center justify-between">
                           <label className="flex items-center gap-2 cursor-pointer">
                             <input
                               type="checkbox"
                               checked={formHasInstallments}
-                              onChange={(e) => setFormHasInstallments(e.target.checked)}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                setFormHasInstallments(checked);
+                                if (checked && formInstallmentSchedule.length === 0) {
+                                  const c = Math.max(1, Number(formInstallmentCount) || 3);
+                                  setFormInstallmentSchedule(buildDefaultInstallmentSchedule(c, calculatedFormTotal, formStartDate));
+                                }
+                              }}
                               className="w-4 h-4 rounded border-border text-primary focus:ring-primary/40 bg-surface"
                             />
                             <span className="text-xs font-bold text-foreground">
@@ -1654,41 +1773,119 @@ export default function LoansPage() {
                           </label>
                           {formHasInstallments && (
                             <span className="text-[11px] font-mono font-bold text-accent">
-                              {formInstallmentCount} cuotas de {formatCOP(Math.round(calculatedFormTotal / Math.max(1, Number(formInstallmentCount) || 1)))}
+                              {formInstallmentCount} cuotas • Total: {formatCOP(calculatedFormTotal)}
                             </span>
                           )}
                         </div>
 
                         {formHasInstallments && (
-                          <div className="grid grid-cols-2 gap-2 pt-1">
-                            <div>
-                              <label className="block text-[11px] text-slate-400 mb-1">
-                                Número de Cuotas
+                          <div className="space-y-2 pt-1 border-t border-border/60">
+                            <div className="flex items-center justify-between gap-2">
+                              <label className="text-[11px] font-semibold text-slate-400">
+                                Número de Cuotas:
                               </label>
-                              <input
-                                type="number"
-                                min="2"
-                                max="120"
-                                value={formInstallmentCount}
-                                onChange={(e) => setFormInstallmentCount(e.target.value)}
-                                className="w-full bg-surface border border-border focus:border-primary rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-white outline-none"
-                              />
+                              <div className="flex items-center gap-1.5">
+                                {[2, 3, 4, 5, 6].map((num) => (
+                                  <Button
+                                    key={num}
+                                    type="button"
+                                    size="xs"
+                                    variant={Number(formInstallmentCount) === num ? 'primary' : 'outline'}
+                                    onClick={() => {
+                                      setFormInstallmentCount(String(num));
+                                      setFormInstallmentSchedule(buildDefaultInstallmentSchedule(num, calculatedFormTotal, formStartDate, formInstallmentSchedule));
+                                    }}
+                                    className="py-0.5 px-2 text-[10px] h-auto font-mono"
+                                  >
+                                    {num}
+                                  </Button>
+                                ))}
+                                <input
+                                  type="number"
+                                  min="2"
+                                  max="60"
+                                  value={formInstallmentCount}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setFormInstallmentCount(val);
+                                    const num = Number(val);
+                                    if (num >= 1 && num <= 60) {
+                                      setFormInstallmentSchedule(buildDefaultInstallmentSchedule(num, calculatedFormTotal, formStartDate, formInstallmentSchedule));
+                                    }
+                                  }}
+                                  className="w-12 bg-surface border border-border focus:border-primary rounded-lg px-1.5 py-0.5 text-center text-xs font-mono font-bold text-white outline-none"
+                                />
+                              </div>
                             </div>
-                            <div>
-                              <label className="block text-[11px] text-slate-400 mb-1">
-                                Frecuencia de Cobro
-                              </label>
-                              <select
-                                value={formInstallmentFrequency}
-                                onChange={(e: any) => setFormInstallmentFrequency(e.target.value)}
-                                className="w-full bg-surface border border-border focus:border-primary rounded-xl px-2.5 py-1.5 text-xs text-white outline-none"
-                              >
-                                <option value="DAILY">Diaria</option>
-                                <option value="WEEKLY">Semanal</option>
-                                <option value="BIWEEKLY">Quincenal</option>
-                                <option value="MONTHLY">Mensual</option>
-                              </select>
+
+                            {/* Dynamic list of custom installment inputs (Amount + Date) */}
+                            <div className="space-y-1.5 pt-1">
+                              <div className="flex items-center justify-between text-[10px] text-slate-400 px-1 font-semibold">
+                                <span># Cuota</span>
+                                <span className="flex-1 text-center">Monto de la Cuota ($)</span>
+                                <span className="w-32 text-right">Fecha Límite</span>
+                              </div>
+
+                              {formInstallmentSchedule.map((inst, idx) => (
+                                <div
+                                  key={idx}
+                                  className="bg-surface border border-border/80 rounded-xl p-1.5 flex items-center justify-between gap-2 text-xs"
+                                >
+                                  <span className="font-mono font-bold text-accent text-[11px] px-1 shrink-0">
+                                    C{inst.number}
+                                  </span>
+
+                                  {/* Monto de la cuota (prefilled with total/N, editable) */}
+                                  <div className="relative flex-1">
+                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 font-mono font-bold">$</span>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="500"
+                                      value={inst.amount}
+                                      onChange={(e) => {
+                                        const newAmt = e.target.value;
+                                        setFormInstallmentSchedule(prev => {
+                                          const next = [...prev];
+                                          if (next[idx]) {
+                                            next[idx] = { ...next[idx], amount: newAmt };
+                                          }
+                                          return next;
+                                        });
+                                      }}
+                                      placeholder="0"
+                                      className="w-full bg-surface-elevated border border-border focus:border-primary rounded-lg pl-5 pr-2 py-1 text-xs font-mono font-bold text-white outline-none"
+                                    />
+                                  </div>
+
+                                  {/* Fecha de pago de la cuota (editable) */}
+                                  <input
+                                    type="date"
+                                    min={getTodayColombiaDate()}
+                                    value={inst.date}
+                                    onChange={(e) => {
+                                      const newDate = e.target.value;
+                                      setFormInstallmentSchedule(prev => {
+                                        const next = [...prev];
+                                        if (next[idx]) {
+                                          next[idx] = { ...next[idx], date: newDate };
+                                        }
+                                        return next;
+                                      });
+                                      // If this is the last installment, also update formDueDate
+                                      if (idx === formInstallmentSchedule.length - 1) {
+                                        setFormDueDate(newDate);
+                                      }
+                                    }}
+                                    className="w-32 bg-surface-elevated border border-border focus:border-primary rounded-lg px-2 py-1 text-xs text-white outline-none shrink-0"
+                                  />
+                                </div>
+                              ))}
                             </div>
+
+                            <p className="text-[10px] text-slate-400 italic pt-0.5">
+                              * Por defecto cada cuota divide el total equitativamente, pero puedes ajustar tanto el valor como el día exacto de cada una libremente.
+                            </p>
                           </div>
                         )}
                       </div>
@@ -1911,12 +2108,36 @@ export default function LoansPage() {
                         <span className="font-mono font-bold text-emerald-400">+{formatCOP(monthlyFee)}</span>
                       </div>
                     ) : (
-                      <div className="flex justify-between text-slate-300">
-                        <span>{hasInst ? `Valor por Cuota (${selectedLoanForPayment.installment_count} cuotas):` : 'Ganancia Fija acordada:'}</span>
-                        <span className="font-mono font-bold text-emerald-400">
-                          {hasInst ? formatCOP(instAmt) : `+${formatCOP(monthlyFee)}`}
-                        </span>
-                      </div>
+                      <>
+                        <div className="flex justify-between text-slate-300">
+                          <span>Ganancia Fija acordada:</span>
+                          <span className="font-mono font-bold text-emerald-400">
+                            +{formatCOP(Number(selectedLoanForPayment.expected_interest) || 0)}
+                          </span>
+                        </div>
+                        {hasInst && (
+                          <div className="flex justify-between text-slate-300 pt-1 border-t border-border/40">
+                            <span>Progreso de Cuotas:</span>
+                            <span className="font-mono font-bold text-accent">
+                              {selectedLoanForPayment.paid_installments || 0} de {selectedLoanForPayment.installment_count || 1} pagadas
+                            </span>
+                          </div>
+                        )}
+                        {hasInst && selectedLoanForPayment.installments_schedule && Array.isArray(selectedLoanForPayment.installments_schedule) && (
+                          (() => {
+                            const nextInst = selectedLoanForPayment.installments_schedule[selectedLoanForPayment.paid_installments || 0];
+                            if (!nextInst) return null;
+                            return (
+                              <div className="flex justify-between text-slate-300">
+                                <span>Próxima Cuota (#{nextInst.number}):</span>
+                                <span className="font-mono font-bold text-white">
+                                  {formatCOP(nextInst.amount)} {nextInst.date ? `(${formatShortDateSpanish(nextInst.date)})` : ''}
+                                </span>
+                              </div>
+                            );
+                          })()
+                        )}
+                      </>
                     )}
 
                     {selectedLoanForPayment.is_overdue && amountToActivate > 0 && (
@@ -1934,14 +2155,22 @@ export default function LoansPage() {
 
                   {/* Shortcuts */}
                   <div className="flex items-center gap-1.5 mb-3 flex-wrap">
-                    {hasInst && instAmt > 0 && (
+                    {hasInst && (
                       <Button
                         type="button"
                         size="xs"
                         variant={activePaymentShortcut === 'INSTALLMENT' ? 'success' : 'outline'}
                         onClick={() => {
-                          // Installment splits into interest proportion and capital proportion if applicable, or all capital
-                          const totalInst = instAmt;
+                          // Check if custom schedule defines the current installment amount
+                          let nextInstAmt = instAmt;
+                          const scheduleList = selectedLoanForPayment.installments_schedule;
+                          if (Array.isArray(scheduleList) && scheduleList.length > 0) {
+                            const curIdx = selectedLoanForPayment.paid_installments || 0;
+                            if (scheduleList[curIdx] && Number(scheduleList[curIdx].amount) > 0) {
+                              nextInstAmt = Number(scheduleList[curIdx].amount);
+                            }
+                          }
+                          const totalInst = nextInstAmt;
                           const unpaidInt = Math.max(0, (Number(selectedLoanForPayment.expected_interest) || 0) - (Number(selectedLoanForPayment.paid_interest) || 0));
                           const intShare = Math.min(totalInst, Math.round(unpaidInt / Math.max(1, Number(selectedLoanForPayment.installment_count) || 1)));
                           const capShare = Math.max(0, totalInst - intShare);

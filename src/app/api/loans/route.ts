@@ -115,6 +115,7 @@ export async function GET(req: NextRequest) {
         COALESCE(installment_count, 1) as installment_count,
         COALESCE(installment_frequency, 'MONTHLY') as installment_frequency,
         COALESCE(installment_amount, 0) as installment_amount,
+        installments_schedule,
         tag,
         pocket_id,
         notes,
@@ -172,9 +173,38 @@ export async function GET(req: NextRequest) {
         // Remaining to collect in total
         const remainingToCollect = Math.max(0, totalToCollect - totalCollected);
 
+        // Parse custom installments schedule if provided
+        let customSchedule: Array<{ number: number; amount: number; date: string }> = [];
+        if (l.installments_schedule) {
+          try {
+            customSchedule = typeof l.installments_schedule === 'string'
+              ? JSON.parse(l.installments_schedule)
+              : l.installments_schedule;
+          } catch {
+            customSchedule = [];
+          }
+        }
+
         // Installment metrics if installments enabled
         const instAmt = Number(l.installment_amount) > 0 ? Number(l.installment_amount) : Math.round(totalToCollect / instCount);
-        const paidInstallments = instAmt > 0 ? Math.min(instCount, Math.floor(totalCollected / instAmt)) : 0;
+        
+        // Count paid installments based on schedule amounts or average
+        let paidInstallments = 0;
+        if (hasInst) {
+          if (customSchedule.length > 0) {
+            let runningCollected = totalCollected;
+            for (const item of customSchedule) {
+              if (runningCollected >= item.amount) {
+                paidInstallments++;
+                runningCollected -= item.amount;
+              } else {
+                break;
+              }
+            }
+          } else {
+            paidInstallments = instAmt > 0 ? Math.min(instCount, Math.floor(totalCollected / instAmt)) : 0;
+          }
+        }
 
         // Progress reflects total collection
         const progressPercentage =
@@ -199,38 +229,62 @@ export async function GET(req: NextRequest) {
           // A. Term expiration check (due_date passed and still capital remaining)
           const isTermExpired = l.due_date && new Date(l.due_date).getTime() < todayMs;
 
-          if (hasInst && instAmt > 0) {
-            // Case 2 with Installments: Check overdue installments according to schedule
-            const sDate = l.start_date ? new Date(l.start_date) : new Date();
-            let dueInstallmentsCount = 0;
-
-            for (let i = 1; i <= instCount; i++) {
-              let cuotaDate = new Date(sDate);
-              if (instFreq === 'DAILY') {
-                cuotaDate.setDate(cuotaDate.getDate() + i);
-              } else if (instFreq === 'WEEKLY') {
-                cuotaDate.setDate(cuotaDate.getDate() + i * 7);
-              } else if (instFreq === 'BIWEEKLY') {
-                cuotaDate.setDate(cuotaDate.getDate() + i * 15);
-              } else {
-                cuotaDate.setMonth(cuotaDate.getMonth() + i);
+          if (hasInst) {
+            // Case 2 with Installments: Check overdue installments according to custom schedule or frequency
+            if (customSchedule.length > 0) {
+              let expectedPaidByNow = 0;
+              let dueInstallmentsCount = 0;
+              for (const item of customSchedule) {
+                const itemDateMs = item.date ? new Date(item.date).getTime() : 0;
+                if (itemDateMs && itemDateMs <= todayMs) {
+                  dueInstallmentsCount++;
+                  expectedPaidByNow += Number(item.amount) || 0;
+                }
               }
-              if (cuotaDate.getTime() <= todayMs) {
-                dueInstallmentsCount++;
-              }
-            }
 
-            const pendingInstallments = Math.max(0, dueInstallmentsCount - paidInstallments);
-            if (pendingInstallments > 0) {
-              isOverdue = true;
-              overdueReason = 'INSTALLMENT_OVERDUE';
-              overdueInstallmentsCount = pendingInstallments;
-              const expectedPaidByNow = dueInstallmentsCount * instAmt;
-              amountToActivate = Math.max(0, expectedPaidByNow - totalCollected);
-            } else if (isTermExpired) {
-              isOverdue = true;
-              overdueReason = 'TERM_EXPIRED';
-              amountToActivate = remainingToCollect;
+              const pendingInstallments = Math.max(0, dueInstallmentsCount - paidInstallments);
+              if (pendingInstallments > 0 && totalCollected < expectedPaidByNow) {
+                isOverdue = true;
+                overdueReason = 'INSTALLMENT_OVERDUE';
+                overdueInstallmentsCount = pendingInstallments;
+                amountToActivate = Math.max(0, expectedPaidByNow - totalCollected);
+              } else if (isTermExpired) {
+                isOverdue = true;
+                overdueReason = 'TERM_EXPIRED';
+                amountToActivate = remainingToCollect;
+              }
+            } else if (instAmt > 0) {
+              const sDate = l.start_date ? new Date(l.start_date) : new Date();
+              let dueInstallmentsCount = 0;
+
+              for (let i = 1; i <= instCount; i++) {
+                let cuotaDate = new Date(sDate);
+                if (instFreq === 'DAILY') {
+                  cuotaDate.setDate(cuotaDate.getDate() + i);
+                } else if (instFreq === 'WEEKLY') {
+                  cuotaDate.setDate(cuotaDate.getDate() + i * 7);
+                } else if (instFreq === 'BIWEEKLY') {
+                  cuotaDate.setDate(cuotaDate.getDate() + i * 15);
+                } else {
+                  cuotaDate.setMonth(cuotaDate.getMonth() + i);
+                }
+                if (cuotaDate.getTime() <= todayMs) {
+                  dueInstallmentsCount++;
+                }
+              }
+
+              const pendingInstallments = Math.max(0, dueInstallmentsCount - paidInstallments);
+              if (pendingInstallments > 0) {
+                isOverdue = true;
+                overdueReason = 'INSTALLMENT_OVERDUE';
+                overdueInstallmentsCount = pendingInstallments;
+                const expectedPaidByNow = dueInstallmentsCount * instAmt;
+                amountToActivate = Math.max(0, expectedPaidByNow - totalCollected);
+              } else if (isTermExpired) {
+                isOverdue = true;
+                overdueReason = 'TERM_EXPIRED';
+                amountToActivate = remainingToCollect;
+              }
             }
           } else if (isPercent && monthlyInterest > 0) {
             // Case 1: Monthly percentage interest
@@ -292,6 +346,7 @@ export async function GET(req: NextRequest) {
           installment_count: instCount,
           installment_frequency: instFreq,
           installment_amount: instAmt,
+          installments_schedule: customSchedule,
           paid_installments: paidInstallments,
           initial_amount: initAmt,
           interest_rate: rate,
@@ -437,6 +492,7 @@ export async function POST(req: NextRequest) {
       installment_count,
       installment_frequency,
       installment_amount,
+      installments_schedule,
       start_date,
       due_date,
       payment_method,
@@ -510,6 +566,9 @@ export async function POST(req: NextRequest) {
     const instAmt = withInstallments
       ? (installment_amount ? Number(installment_amount) : Math.round(totalExpected / instCount))
       : 0;
+    const scheduleStr = withInstallments && installments_schedule
+      ? (typeof installments_schedule === 'string' ? installments_schedule : JSON.stringify(installments_schedule))
+      : null;
 
     const loanId = randomUUID();
 
@@ -537,6 +596,7 @@ export async function POST(req: NextRequest) {
         installment_count,
         installment_frequency,
         installment_amount,
+        installments_schedule,
         payment_method,
         status,
         loan_type,
@@ -564,6 +624,7 @@ export async function POST(req: NextRequest) {
         instCount,
         instFreq,
         instAmt,
+        scheduleStr,
         method,
         cleanLoanType,
         tag?.trim() || null,

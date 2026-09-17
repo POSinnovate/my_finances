@@ -32,6 +32,12 @@ export async function GET(
         status,
         COALESCE(loan_type, 'LENT') as loan_type,
         COALESCE(duration_months, 1) as duration_months,
+        COALESCE(interest_type, 'PERCENT') as interest_type,
+        COALESCE(has_installments, FALSE) as has_installments,
+        COALESCE(installment_count, 1) as installment_count,
+        COALESCE(installment_frequency, 'MONTHLY') as installment_frequency,
+        COALESCE(installment_amount, 0) as installment_amount,
+        installments_schedule,
         tag,
         pocket_id,
         notes,
@@ -120,6 +126,7 @@ export async function PUT(
       installment_count,
       installment_frequency,
       installment_amount,
+      installments_schedule,
       start_date,
       due_date,
       payment_method,
@@ -182,6 +189,9 @@ export async function PUT(
     const borrowerName = borrower_name ? borrower_name.trim() : existing.borrower_name;
     const cleanTag = tag !== undefined ? (tag ? tag.trim() : null) : existing.tag;
     const cleanNotes = notes !== undefined ? (notes?.trim() || null) : existing.notes;
+    const scheduleStr = installments_schedule !== undefined
+      ? (installments_schedule ? (typeof installments_schedule === 'string' ? installments_schedule : JSON.stringify(installments_schedule)) : null)
+      : existing.installments_schedule;
 
     // 1. Update loan record
     await db
@@ -203,6 +213,7 @@ export async function PUT(
         installment_count = ?,
         installment_frequency = ?,
         installment_amount = ?,
+        installments_schedule = ?,
         payment_method = ?,
         loan_type = ?,
         tag = ?,
@@ -226,6 +237,7 @@ export async function PUT(
         instCount,
         instFreq,
         instAmt,
+        scheduleStr,
         method,
         cleanLoanType,
         cleanTag,
