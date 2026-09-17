@@ -403,7 +403,7 @@ export default function LoansPage() {
     const iCount = Math.max(1, Number(loan.installment_count) || 3);
     setFormInstallmentCount(String(iCount));
     setFormInstallmentFrequency(loan.installment_frequency || 'MONTHLY');
-    
+
     // Parse custom schedule if stored
     let loadedSchedule: Array<{ number: number; amount: any; date: string }> = [];
     if (loan.installments_schedule) {
@@ -422,11 +422,11 @@ export default function LoansPage() {
         loadedSchedule = [];
       }
     }
-    
+
     const sDate = loan.start_date ? loan.start_date.split('T')[0] : getTodayColombiaDate();
     setFormStartDate(sDate);
     setFormDueDate(loan.due_date || '');
-    
+
     if (loadedSchedule.length > 0) {
       setFormInstallmentSchedule(loadedSchedule);
     } else if (loan.has_installments) {
@@ -489,10 +489,10 @@ export default function LoansPage() {
     // Clean schedule data if active
     const cleanSchedule = formHasInstallments && isFixed && formInstallmentSchedule.length > 0
       ? formInstallmentSchedule.map((item, idx) => ({
-          number: idx + 1,
-          amount: Number(item.amount) > 0 ? Number(item.amount) : instAmt,
-          date: item.date || dayjs(formStartDate).add(idx + 1, 'month').format('YYYY-MM-DD'),
-        }))
+        number: idx + 1,
+        amount: Number(item.amount) > 0 ? Number(item.amount) : instAmt,
+        date: item.date || dayjs(formStartDate).add(idx + 1, 'month').format('YYYY-MM-DD'),
+      }))
       : null;
 
     setIsSavingLoan(true);
@@ -1363,13 +1363,12 @@ export default function LoansPage() {
                                         return (
                                           <div
                                             key={iIdx}
-                                            className={`border rounded-lg px-2 py-1.5 flex items-center justify-between gap-1.5 text-xs ${
-                                              isCuotaPaid
-                                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                                                : isCuotaOverdue
+                                            className={`border rounded-lg px-2 py-1.5 flex items-center justify-between gap-1.5 text-xs ${isCuotaPaid
+                                              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                                              : isCuotaOverdue
                                                 ? 'bg-rose-500/15 border-rose-500/30 text-rose-300'
                                                 : 'bg-surface border-border/80 text-slate-300'
-                                            }`}
+                                              }`}
                                           >
                                             <div className="flex items-center gap-1.5 min-w-0">
                                               <span className="font-mono font-bold text-[10px]">C{item.number || iIdx + 1}</span>
@@ -1807,28 +1806,23 @@ export default function LoansPage() {
                               }}
                               className="w-4 h-4 rounded border-border text-primary focus:ring-primary/40 bg-surface"
                             />
-                            <span className="text-xs font-bold text-foreground">
+                            <span className="text-xs font-bold text-foreground text-nowrap">
                               Dividir en Cuotas
                             </span>
                           </label>
                           {formHasInstallments && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-[11px] font-mono font-bold text-accent">
-                                {formInstallmentCount} cuotas • Total: {formatCOP(calculatedFormTotal)}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const c = Math.max(1, Number(formInstallmentCount) || 1);
-                                  setFormInstallmentSchedule(buildDefaultInstallmentSchedule(c, calculatedFormTotal, formStartDate, formDueDate, formInstallmentSchedule, true, true));
-                                  toast.success('Cuotas recalculadas');
-                                }}
-                                className="text-[10px] text-accent hover:underline font-semibold bg-accent/10 px-1.5 py-0.5 rounded transition-colors"
-                                title="Recalcular montos de las cuotas equitativamente según el total"
-                              >
-                                Reajustar
-                              </button>
-                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const c = Math.max(1, Number(formInstallmentCount) || 1);
+                                setFormInstallmentSchedule(buildDefaultInstallmentSchedule(c, calculatedFormTotal, formStartDate, formDueDate, formInstallmentSchedule, true, true));
+                                toast.success('Cuotas recalculadas');
+                              }}
+                              className="text-[10px] text-accent hover:underline font-semibold bg-accent/10 px-1.5 py-0.5 rounded transition-colors"
+                              title="Recalcular montos de las cuotas equitativamente según el total"
+                            >
+                              Reajustar
+                            </button>
                           )}
                         </div>
 
