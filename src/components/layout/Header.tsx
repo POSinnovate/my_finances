@@ -273,7 +273,6 @@ export function Header({ user }: HeaderProps) {
         {/* Accounts List (Scrollable) */}
         <div className="overflow-y-auto space-y-2.5 pr-1 min-h-[140px] max-h-[300px]">
           {paymentMethods.map((pm: any) => {
-            const isCalibrating = calibratingMethodId === pm.id;
             const IconComponent =
               pm.type === 'WALLET'
                 ? Smartphone
