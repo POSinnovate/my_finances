@@ -45,6 +45,25 @@ export async function GET(req: NextRequest) {
       await syncUserCurrentCash(auth.userId);
     }
 
+    // Auto-heal loan status: ensure any loan with full capital returned is marked PAID,
+    // so overdue checks never flag settled loans.
+    await db.prepare(`
+      UPDATE loans 
+      SET status = 'PAID' 
+      WHERE user_id = ? 
+        AND status != 'PAID' 
+        AND COALESCE(initial_amount, 0) > 0 
+        AND COALESCE(paid_capital, 0) >= COALESCE(initial_amount, 0)
+    `).run(auth.userId);
+
+    await db.prepare(`
+      UPDATE loans 
+      SET status = 'ACTIVE' 
+      WHERE user_id = ? 
+        AND status = 'PAID' 
+        AND COALESCE(paid_capital, 0) < COALESCE(initial_amount, 0)
+    `).run(auth.userId);
+
     const searchParams = req.nextUrl.searchParams;
     const search = (searchParams.get('search') || '').trim().toLowerCase();
     const status = searchParams.get('status') || 'ACTIVE'; // 'ACTIVE' | 'PAID' | 'ALL'

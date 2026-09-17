@@ -128,13 +128,12 @@ export default function LoansPage() {
 
     loans.forEach((loan: any) => {
       const key = (loan.borrower_name || 'Sin Nombre').trim().toLowerCase();
-      const isPaid = loan.status === 'PAID';
+      const remainingCap = Number(loan.remaining_capital) || Number(loan.current_balance) || 0;
+      const isPaid = loan.status === 'PAID' || remainingCap <= 0;
       const isOverdue =
         !isPaid &&
         loan.due_date &&
         new Date(loan.due_date).getTime() < new Date().setHours(0, 0, 0, 0);
-
-      const remainingCap = Number(loan.remaining_capital) || Number(loan.current_balance) || 0;
       const loanMonthly =
         loan.monthly_interest ||
         (loan.interest_rate > 0
@@ -665,12 +664,13 @@ export default function LoansPage() {
             )}
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 bg-surface-elevated p-1 rounded-xl border border-border shrink-0">
+          <div className="flex items-center gap-1 bg-surface-elevated p-1 rounded-xl border border-border shrink-0 overflow-x-auto no-scrollbar whitespace-nowrap">
             <Button
               type="button"
               size="xs"
               variant={statusFilter === 'ACTIVE' ? 'primary' : 'ghost'}
               onClick={() => setStatusFilter('ACTIVE')}
+              className="shrink-0"
             >
               Activos
             </Button>
@@ -679,7 +679,7 @@ export default function LoansPage() {
               size="xs"
               variant={statusFilter === 'OVERDUE' ? 'danger' : 'ghost'}
               onClick={() => setStatusFilter('OVERDUE')}
-              className={statusFilter !== 'OVERDUE' ? 'text-rose-400 hover:text-rose-300 hover:bg-rose-500/15' : ''}
+              className={`shrink-0 ${statusFilter !== 'OVERDUE' ? 'text-rose-400 hover:text-rose-300 hover:bg-rose-500/15' : ''}`}
             >
               <span>Vencidos</span>
               {((isLentMode ? summary.overdue_lent_count : summary.overdue_borrowed_count) ?? 0) > 0 && (
@@ -695,6 +695,7 @@ export default function LoansPage() {
               size="xs"
               variant={statusFilter === 'PAID' ? 'primary' : 'ghost'}
               onClick={() => setStatusFilter('PAID')}
+              className="shrink-0"
             >
               Pagados
             </Button>
@@ -703,6 +704,7 @@ export default function LoansPage() {
               size="xs"
               variant={statusFilter === 'ALL' ? 'primary' : 'ghost'}
               onClick={() => setStatusFilter('ALL')}
+              className="shrink-0"
             >
               Todos
             </Button>
@@ -917,7 +919,7 @@ export default function LoansPage() {
                   {isDebtorExpanded && (
                     <div className="divide-y divide-border border-t border-border">
                       {debtor.loans.map((loan: any) => {
-                        const isLoanPaid = loan.status === 'PAID';
+                        const isLoanPaid = loan.status === 'PAID' || (Number(loan.remaining_capital) <= 0);
                         const isLoanExpanded = expandedLoanId === loan.id;
                         const isLoanOverdue =
                           !isLoanPaid &&
@@ -1014,32 +1016,32 @@ export default function LoansPage() {
                               </div>
                             </div>
 
-                            {/* Progress Bar with Percentage */}
+                            {/* Progress Bar with Percentage (Recorrido de Capital) */}
                             <div className="space-y-1.5 pt-1">
                               <div className="flex items-center justify-between text-xs font-mono">
                                 <div className="flex items-center gap-1.5 text-[11px] truncate text-slate-400">
-                                  <span className="text-slate-500">Recogido:</span>
+                                  <span className="text-slate-500">{isLentMode ? 'Capital devuelto:' : 'Capital pagado:'}</span>
                                   <span className="text-emerald-400 font-bold">
-                                    {formatCOP(loan.total_collected)}
+                                    {formatCOP(loan.paid_capital)}
                                   </span>
                                   <span className="text-slate-600">/</span>
-                                  <span className="text-amber-300 font-semibold">
-                                    {formatCOP(loan.total_to_collect)}
+                                  <span className="text-slate-200 font-semibold">
+                                    {formatCOP(loan.initial_amount)}
                                   </span>
                                 </div>
                                 <div className="flex items-center gap-1.5 shrink-0 ml-2">
                                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">
-                                    Progreso
+                                    Progreso Capital
                                   </span>
                                   <span className="text-xs font-extrabold font-mono text-accent shadow-xs">
-                                    {Math.min(100, Math.max(0, loan.progress_percentage || 0))}%
+                                    {Math.min(100, Math.max(0, loan.capital_progress ?? Math.round(((loan.paid_capital || 0) / (loan.initial_amount || 1)) * 100)))}%
                                   </span>
                                 </div>
                               </div>
                               <div className="w-full h-1.5 bg-surface-elevated rounded-full overflow-hidden border border-border">
                                 <div
                                   className="h-full rounded-full bg-linear-to-r from-primary to-emerald-400 transition-all duration-500"
-                                  style={{ width: `${Math.min(100, Math.max(0, loan.progress_percentage || 0))}%` }}
+                                  style={{ width: `${Math.min(100, Math.max(0, loan.capital_progress ?? Math.round(((loan.paid_capital || 0) / (loan.initial_amount || 1)) * 100)))}%` }}
                                 />
                               </div>
                             </div>
