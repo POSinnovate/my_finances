@@ -301,19 +301,24 @@ export default function LoansPage() {
     count: number,
     total: number,
     startDateStr: string,
-    existingSchedule?: Array<{ number: number; amount: any; date: string }>
+    existingSchedule?: Array<{ number: number; amount: any; date: string }>,
+    recalculateAmounts: boolean = true
   ) => {
     const n = Math.max(1, Math.min(120, count));
-    const baseAmt = Math.round(total / n);
+    const baseAmt = Math.floor(total / n);
+    const remainder = total - (baseAmt * n);
     const sDate = startDateStr ? dayjs(startDateStr) : dayjs();
 
     const result: Array<{ number: number; amount: string; date: string }> = [];
     for (let i = 1; i <= n; i++) {
       const prev = existingSchedule && existingSchedule[i - 1];
       const defaultDate = sDate.add(i, 'month').format('YYYY-MM-DD');
+      const calculatedAmt = baseAmt + (i <= remainder ? 1 : 0);
       result.push({
         number: i,
-        amount: prev && prev.amount !== undefined && prev.amount !== '' ? String(prev.amount) : String(baseAmt),
+        amount: recalculateAmounts
+          ? String(calculatedAmt)
+          : (prev && prev.amount !== undefined && prev.amount !== '' ? String(prev.amount) : String(calculatedAmt)),
         date: prev && prev.date ? prev.date : defaultDate,
       });
     }
@@ -1760,9 +1765,9 @@ export default function LoansPage() {
                               onChange={(e) => {
                                 const checked = e.target.checked;
                                 setFormHasInstallments(checked);
-                                if (checked && formInstallmentSchedule.length === 0) {
+                                if (checked) {
                                   const c = Math.max(1, Number(formInstallmentCount) || 3);
-                                  setFormInstallmentSchedule(buildDefaultInstallmentSchedule(c, calculatedFormTotal, formStartDate));
+                                  setFormInstallmentSchedule(buildDefaultInstallmentSchedule(c, calculatedFormTotal, formStartDate, formInstallmentSchedule, true));
                                 }
                               }}
                               className="w-4 h-4 rounded border-border text-primary focus:ring-primary/40 bg-surface"
@@ -1772,9 +1777,23 @@ export default function LoansPage() {
                             </span>
                           </label>
                           {formHasInstallments && (
-                            <span className="text-[11px] font-mono font-bold text-accent">
-                              {formInstallmentCount} cuotas • Total: {formatCOP(calculatedFormTotal)}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] font-mono font-bold text-accent">
+                                {formInstallmentCount} cuotas • Total: {formatCOP(calculatedFormTotal)}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const c = Math.max(1, Number(formInstallmentCount) || 1);
+                                  setFormInstallmentSchedule(buildDefaultInstallmentSchedule(c, calculatedFormTotal, formStartDate, formInstallmentSchedule, true));
+                                  toast.success('Cuotas recalculadas');
+                                }}
+                                className="text-[10px] text-accent hover:underline font-semibold bg-accent/10 px-1.5 py-0.5 rounded transition-colors"
+                                title="Recalcular montos de las cuotas equitativamente según el total"
+                              >
+                                Reajustar
+                              </button>
+                            </div>
                           )}
                         </div>
 
@@ -1793,7 +1812,7 @@ export default function LoansPage() {
                                     variant={Number(formInstallmentCount) === num ? 'primary' : 'outline'}
                                     onClick={() => {
                                       setFormInstallmentCount(String(num));
-                                      setFormInstallmentSchedule(buildDefaultInstallmentSchedule(num, calculatedFormTotal, formStartDate, formInstallmentSchedule));
+                                      setFormInstallmentSchedule(buildDefaultInstallmentSchedule(num, calculatedFormTotal, formStartDate, formInstallmentSchedule, true));
                                     }}
                                     className="py-0.5 px-2 text-[10px] h-auto font-mono"
                                   >
@@ -1810,7 +1829,7 @@ export default function LoansPage() {
                                     setFormInstallmentCount(val);
                                     const num = Number(val);
                                     if (num >= 1 && num <= 60) {
-                                      setFormInstallmentSchedule(buildDefaultInstallmentSchedule(num, calculatedFormTotal, formStartDate, formInstallmentSchedule));
+                                      setFormInstallmentSchedule(buildDefaultInstallmentSchedule(num, calculatedFormTotal, formStartDate, formInstallmentSchedule, true));
                                     }
                                   }}
                                   className="w-12 bg-surface border border-border focus:border-primary rounded-lg px-1.5 py-0.5 text-center text-xs font-mono font-bold text-white outline-none"

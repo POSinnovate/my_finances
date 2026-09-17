@@ -603,7 +603,7 @@ export async function POST(req: NextRequest) {
         tag,
         pocket_id,
         notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?, ?)
     `
       )
       .run(
@@ -620,7 +620,7 @@ export async function POST(req: NextRequest) {
         startDate,
         dueDate,
         durationMonths,
-        withInstallments,
+        withInstallments ? 1 : 0,
         instCount,
         instFreq,
         instAmt,
