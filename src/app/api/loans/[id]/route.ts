@@ -114,6 +114,12 @@ export async function PUT(
       interest_rate,
       expected_interest,
       duration_months,
+      extend_months,
+      interest_type,
+      has_installments,
+      installment_count,
+      installment_frequency,
+      installment_amount,
       start_date,
       due_date,
       payment_method,
@@ -125,21 +131,51 @@ export async function PUT(
 
     const principal = initial_amount !== undefined ? Math.max(0, Number(initial_amount) || 0) : Number(existing.initial_amount);
     const rate = interest_rate !== undefined ? Number(interest_rate) || 0 : Number(existing.interest_rate) || 0;
-    const durationMonths = duration_months !== undefined ? Math.max(1, Number(duration_months) || 1) : Number(existing.duration_months) || 1;
+    
+    let durationMonths = duration_months !== undefined ? Math.max(1, Number(duration_months) || 1) : Number(existing.duration_months) || 1;
+    if (extend_months && Number(extend_months) > 0) {
+      durationMonths += Number(extend_months);
+    }
+
+    const cleanIntType = interest_type !== undefined ? (interest_type === 'FIXED' ? 'FIXED' : 'PERCENT') : (existing.interest_type || (rate > 0 ? 'PERCENT' : 'FIXED'));
+    const isPercent = cleanIntType === 'PERCENT';
+    const hasInst = has_installments !== undefined ? Boolean(has_installments) : Boolean(existing.has_installments);
+    const instCount = installment_count !== undefined ? Math.max(1, Number(installment_count) || 1) : Math.max(1, Number(existing.installment_count) || 1);
+    const instFreq = installment_frequency !== undefined ? installment_frequency : (existing.installment_frequency || 'MONTHLY');
 
     let monthlyInterest = expected_interest !== undefined ? Number(expected_interest) : Number(existing.expected_interest);
-    if (rate > 0) {
+    if (isPercent && rate > 0) {
       monthlyInterest = Math.round(principal * (rate / 100));
     }
 
-    const projectedInterest = rate > 0 ? Math.round(principal * (rate / 100) * durationMonths) : monthlyInterest;
+    const projectedInterest = isPercent
+      ? (rate > 0 ? Math.round(principal * (rate / 100) * durationMonths) : monthlyInterest)
+      : monthlyInterest;
+      
     const totalExpected = principal + projectedInterest;
+    const instAmt = installment_amount !== undefined && Number(installment_amount) > 0 
+      ? Number(installment_amount) 
+      : (hasInst ? Math.round(totalExpected / instCount) : 0);
+
     const paidCap = Number(existing.paid_capital) || 0;
     const currentBalance = Math.max(0, principal - paidCap);
     const calculatedStatus = status || (currentBalance <= 0 ? 'PAID' : 'ACTIVE');
 
     const startDate = start_date || existing.start_date;
-    const dueDate = due_date !== undefined ? due_date : existing.due_date;
+    
+    // If extending months, automatically advance due_date by extend_months
+    let dueDate = due_date !== undefined ? due_date : existing.due_date;
+    if (extend_months && Number(extend_months) > 0) {
+      const baseDate = dueDate ? new Date(dueDate) : new Date();
+      baseDate.setMonth(baseDate.getMonth() + Number(extend_months));
+      dueDate = baseDate.toISOString().split('T')[0];
+    } else if (isPercent && (!dueDate || duration_months !== undefined)) {
+      // For percentage loan, recalculate due_date from start_date + durationMonths
+      const s = startDate ? new Date(startDate) : new Date();
+      s.setMonth(s.getMonth() + durationMonths);
+      dueDate = s.toISOString().split('T')[0];
+    }
+
     const method = payment_method || existing.payment_method || 'Efectivo';
     const cleanLoanType = (loan_type || existing.loan_type || 'LENT') === 'BORROWED' ? 'BORROWED' : 'LENT';
     const isBorrowed = cleanLoanType === 'BORROWED';
@@ -162,6 +198,11 @@ export async function PUT(
         start_date = ?,
         due_date = ?,
         duration_months = ?,
+        interest_type = ?,
+        has_installments = ?,
+        installment_count = ?,
+        installment_frequency = ?,
+        installment_amount = ?,
         payment_method = ?,
         loan_type = ?,
         tag = ?,
@@ -180,6 +221,11 @@ export async function PUT(
         startDate,
         dueDate,
         durationMonths,
+        cleanIntType,
+        hasInst ? 1 : 0,
+        instCount,
+        instFreq,
+        instAmt,
         method,
         cleanLoanType,
         cleanTag,

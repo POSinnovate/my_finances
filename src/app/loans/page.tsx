@@ -89,6 +89,9 @@ export default function LoansPage() {
   const [formInterestType, setFormInterestType] = useState<'PERCENT' | 'FIXED'>('PERCENT');
   const [formInterestRate, setFormInterestRate] = useState('10');
   const [formFixedInterest, setFormFixedInterest] = useState('');
+  const [formHasInstallments, setFormHasInstallments] = useState(false);
+  const [formInstallmentCount, setFormInstallmentCount] = useState('2');
+  const [formInstallmentFrequency, setFormInstallmentFrequency] = useState<'DAILY' | 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY'>('MONTHLY');
   const [formStartDate, setFormStartDate] = useState(getTodayColombiaDate());
   const [formDueDate, setFormDueDate] = useState('');
   const [formPaymentMethod, setFormPaymentMethod] = useState('');
@@ -96,6 +99,7 @@ export default function LoansPage() {
   const [showLoanPockets, setShowLoanPockets] = useState(false);
   const [formNotes, setFormNotes] = useState('');
   const [isSavingLoan, setIsSavingLoan] = useState(false);
+  const [isExtendingLoanId, setIsExtendingLoanId] = useState<string | null>(null);
 
   // Payment Form State
   const [payCapital, setPayCapital] = useState('');
@@ -104,7 +108,7 @@ export default function LoansPage() {
   const [payDate, setPayDate] = useState(getTodayColombiaDate());
   const [payNotes, setPayNotes] = useState('');
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
-  const [activePaymentShortcut, setActivePaymentShortcut] = useState<'INTEREST_ONLY' | 'SETTLE_ALL' | 'HALF_CAPITAL' | null>(null);
+  const [activePaymentShortcut, setActivePaymentShortcut] = useState<'INTEREST_ONLY' | 'SETTLE_ALL' | 'HALF_CAPITAL' | 'INSTALLMENT' | null>(null);
 
   // Group loans by debtor (borrower_name)
   const groupedDebtors = useMemo(() => {
@@ -303,8 +307,13 @@ export default function LoansPage() {
     setFormInterestType('PERCENT');
     setFormInterestRate('10');
     setFormFixedInterest('');
-    setFormStartDate(getTodayColombiaDate());
-    setFormDueDate('');
+    setFormHasInstallments(false);
+    setFormInstallmentCount('2');
+    setFormInstallmentFrequency('MONTHLY');
+    const today = getTodayColombiaDate();
+    setFormStartDate(today);
+    // Auto-calculate due date: +1 month
+    setFormDueDate(dayjs(today).add(1, 'month').format('YYYY-MM-DD'));
     setFormPaymentMethod(paymentMethods[0]?.name || 'Efectivo');
     setFormPocketId(null);
     setShowLoanPockets(false);
@@ -321,16 +330,21 @@ export default function LoansPage() {
     setFormTag(loan.tag || '');
     setFormInitialAmount(String(loan.initial_amount || ''));
     setFormDurationMonths(String(loan.duration_months || 1));
-    if (Number(loan.interest_rate) > 0) {
-      setFormInterestType('PERCENT');
-      setFormInterestRate(String(loan.interest_rate));
-      setFormFixedInterest('');
-    } else {
+    const isFixed = loan.interest_type === 'FIXED' || (Number(loan.interest_rate) === 0 && Number(loan.expected_interest) > 0);
+    if (isFixed) {
       setFormInterestType('FIXED');
       setFormFixedInterest(String(loan.expected_interest || ''));
       setFormInterestRate('0');
+    } else {
+      setFormInterestType('PERCENT');
+      setFormInterestRate(String(loan.interest_rate || 10));
+      setFormFixedInterest('');
     }
-    setFormStartDate(loan.start_date ? loan.start_date.split('T')[0] : getTodayColombiaDate());
+    setFormHasInstallments(Boolean(loan.has_installments));
+    setFormInstallmentCount(String(loan.installment_count || 2));
+    setFormInstallmentFrequency(loan.installment_frequency || 'MONTHLY');
+    const sDate = loan.start_date ? loan.start_date.split('T')[0] : getTodayColombiaDate();
+    setFormStartDate(sDate);
     setFormDueDate(loan.due_date || '');
     setFormPaymentMethod(loan.payment_method || paymentMethods[0]?.name || 'Efectivo');
     setFormPocketId(loan.pocket_id || null);
@@ -352,6 +366,30 @@ export default function LoansPage() {
       return;
     }
 
+    const isFixed = formInterestType === 'FIXED';
+    let durationM = isFixed ? 1 : Math.max(1, Number(formDurationMonths) || 1);
+    let finalDueDate = formDueDate;
+
+    if (!isFixed) {
+      // Percentage loan: due date is strictly start_date + duration_months
+      finalDueDate = dayjs(formStartDate).add(durationM, 'month').format('YYYY-MM-DD');
+    } else if (!finalDueDate) {
+      // Fixed interest without date: default to 1 month or today + 15 days
+      finalDueDate = dayjs(formStartDate).add(1, 'month').format('YYYY-MM-DD');
+    }
+
+    // Validate that due_date cannot be in the past
+    const todayStr = getTodayColombiaDate();
+    if (finalDueDate < todayStr) {
+      toast.error('La fecha de vencimiento no puede ser anterior al día de hoy');
+      return;
+    }
+
+    const instCount = Math.max(1, Number(formInstallmentCount) || 1);
+    const instAmt = formHasInstallments && isFixed
+      ? Math.round(calculatedFormTotal / instCount)
+      : 0;
+
     setIsSavingLoan(true);
     try {
       const isEditing = loanModalMode === 'edit' && selectedLoanForEdit;
@@ -363,11 +401,16 @@ export default function LoansPage() {
         borrower_name: formBorrowerName.trim(),
         tag: formTag.trim() || null,
         initial_amount: principal,
-        duration_months: Math.max(1, Number(formDurationMonths) || 1),
-        interest_rate: formInterestType === 'PERCENT' ? Number(formInterestRate) || 0 : 0,
+        interest_type: formInterestType,
+        duration_months: durationM,
+        interest_rate: !isFixed ? Number(formInterestRate) || 0 : 0,
         expected_interest: calculatedFormInterest,
+        has_installments: isFixed ? formHasInstallments : false,
+        installment_count: isFixed && formHasInstallments ? instCount : 1,
+        installment_frequency: isFixed && formHasInstallments ? formInstallmentFrequency : 'MONTHLY',
+        installment_amount: instAmt,
         start_date: formStartDate,
-        due_date: formDueDate || null,
+        due_date: finalDueDate,
         payment_method: formPaymentMethod || paymentMethods[0]?.name || 'Efectivo',
         pocket_id: formPocketId || null,
         notes: formNotes.trim() || null,
@@ -402,6 +445,33 @@ export default function LoansPage() {
       toast.error('Error de conexión');
     } finally {
       setIsSavingLoan(false);
+    }
+  };
+
+  // Extend Term 1-Click Action (+1 Month)
+  const handleExtendTerm = async (loan: any, monthsToAdd = 1) => {
+    setIsExtendingLoanId(loan.id);
+    try {
+      const res = await fetch(`/api/loans/${loan.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          extend_months: monthsToAdd,
+          status: 'ACTIVE',
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(`Plazo extendido +${monthsToAdd} mes(es). El acuerdo vuelve a estar Activo.`);
+        refetchLoans();
+        invalidateFinance();
+      } else {
+        toast.error(data.error || 'Error al extender plazo');
+      }
+    } catch {
+      toast.error('Error de conexión al extender plazo');
+    } finally {
+      setIsExtendingLoanId(null);
     }
   };
 
@@ -921,17 +991,87 @@ export default function LoansPage() {
                       {debtor.loans.map((loan: any) => {
                         const isLoanPaid = loan.status === 'PAID' || (Number(loan.remaining_capital) <= 0);
                         const isLoanExpanded = expandedLoanId === loan.id;
-                        const isLoanOverdue =
-                          !isLoanPaid &&
-                          loan.due_date &&
-                          new Date(loan.due_date).getTime() < new Date().setHours(0, 0, 0, 0);
+                        const isLoanOverdue = Boolean(loan.is_overdue);
 
                         return (
-                          <div key={loan.id} className="p-3 sm:p-3.5 space-y-2 bg-background/40">
+                          <div key={loan.id} className="p-3 sm:p-3.5 space-y-2.5 bg-background/40">
+                            {/* Overdue Alert Banner if loan is overdue */}
+                            {isLoanOverdue && !isLoanPaid && (
+                              <div className="bg-rose-500/15 border border-rose-500/40 rounded-xl p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                                <div className="flex items-start gap-2">
+                                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                                  <div>
+                                    <span className="font-bold text-rose-300 block">
+                                      {loan.overdue_reason === 'INTEREST_OVERDUE' && (
+                                        <>Interés en Mora ({loan.overdue_months_count} {loan.overdue_months_count === 1 ? 'mes' : 'meses'})</>
+                                      )}
+                                      {loan.overdue_reason === 'INSTALLMENT_OVERDUE' && (
+                                        <>Cuotas Atrasadas ({loan.overdue_installments_count} {loan.overdue_installments_count === 1 ? 'cuota' : 'cuotas'})</>
+                                      )}
+                                      {loan.overdue_reason === 'TERM_EXPIRED' && (
+                                        <>Plazo Vencido sin Retorno de Capital</>
+                                      )}
+                                      {(!loan.overdue_reason || loan.overdue_reason === 'NONE') && 'Préstamo Vencido'}
+                                    </span>
+                                    <p className="text-[11px] text-rose-200/90 mt-0.5">
+                                      {loan.overdue_reason === 'INTEREST_OVERDUE' && (
+                                        <>Debe abonar <strong>{formatCOP(loan.amount_to_activate)}</strong> en intereses acumulados para volver a estar al día.</>
+                                      )}
+                                      {loan.overdue_reason === 'INSTALLMENT_OVERDUE' && (
+                                        <>Debe pagar <strong>{formatCOP(loan.amount_to_activate)}</strong> para ponerse al día con las cuotas vencidas.</>
+                                      )}
+                                      {loan.overdue_reason === 'TERM_EXPIRED' && (
+                                        <>El plazo pactado finalizó. Puedes saldar el capital o extender el plazo un mes más.</>
+                                      )}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                                  {/* 1-Click Extend Term */}
+                                  <Button
+                                    type="button"
+                                    size="xs"
+                                    variant="outline"
+                                    disabled={isExtendingLoanId === loan.id}
+                                    isLoading={isExtendingLoanId === loan.id}
+                                    onClick={() => handleExtendTerm(loan, 1)}
+                                    className="text-amber-300 border-amber-500/40 hover:bg-amber-500/20 text-[10px] font-bold"
+                                    title="Extender plazo por 1 mes más para volver a Activos"
+                                  >
+                                    Extender Plazo (+1 mes)
+                                  </Button>
+
+                                  <Button
+                                    type="button"
+                                    size="xs"
+                                    variant="danger"
+                                    onClick={() => handleOpenPayment(loan)}
+                                    className="text-[10px] font-bold"
+                                  >
+                                    Poner al Día
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+
                             {/* Meta row & Icon-only actions */}
                             <div className="flex items-center justify-between gap-2 flex-wrap">
-                              <div className="flex flex-col gap-2 flex-wrap text-xs text-slate-400">
-                                <section className='flex gap-2 flex-wrap items-center'>
+                              <div className="flex flex-col gap-1.5 flex-wrap text-xs text-slate-400">
+                                <section className='flex gap-1.5 flex-wrap items-center'>
+                                  {/* Mode Badge */}
+                                  <Badge variant={loan.interest_type === 'FIXED' ? 'secondary' : 'primary'} size="sm" className="font-semibold text-[10px]">
+                                    {loan.interest_type === 'FIXED'
+                                      ? (loan.has_installments ? `Fijo en ${loan.installment_count} Cuotas` : 'Interés Fijo')
+                                      : `${loan.interest_rate}% Mensual`}
+                                  </Badge>
+
+                                  {loan.has_installments && (
+                                    <Badge variant="accent" size="sm" className="font-mono text-[10px]">
+                                      Cuota {loan.paid_installments || 0}/{loan.installment_count || 1} pagada
+                                    </Badge>
+                                  )}
+
                                   {loan.tag && (
                                     <Badge variant="accent" size="sm" className="flex items-center gap-1">
                                       <Tag className="w-2.5 h-2.5 text-accent" />
@@ -947,7 +1087,7 @@ export default function LoansPage() {
                                     Plazo: {loan.duration_months || 1} {Number(loan.duration_months) === 1 ? 'mes' : 'meses'}
                                   </Badge>
                                 </section>
-                                <section className='flex gap-2'>
+                                <section className='flex gap-2 items-center flex-wrap'>
                                   <span className="flex items-center gap-1 text-[10px] text-slate-400">
                                     <Calendar className="w-2.5 h-2.5 text-slate-500" />
                                     <span>{formatShortDateSpanish(loan.start_date)}</span>
@@ -1334,13 +1474,13 @@ export default function LoansPage() {
                   </div>
                 </div>
 
-                {/* Interest calculation */}
-                <div className="bg-surface-elevated/70 border border-border rounded-2xl p-3 space-y-2">
+                {/* Case 1 vs Case 2: Interest & Model configuration */}
+                <div className="bg-surface-elevated/70 border border-border rounded-2xl p-3 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <BadgePercent className="w-3.5 h-3.5 text-primary" />
                       <span className="text-xs font-bold text-foreground/80">
-                        Interés Mensual
+                        Modelo de Cobro
                       </span>
                     </div>
                     <div className="flex items-center bg-surface p-0.5 rounded-xl border border-border gap-1">
@@ -1348,54 +1488,218 @@ export default function LoansPage() {
                         type="button"
                         size="xs"
                         variant={formInterestType === 'PERCENT' ? 'primary' : 'ghost'}
-                        onClick={() => setFormInterestType('PERCENT')}
+                        onClick={() => {
+                          setFormInterestType('PERCENT');
+                          setFormHasInstallments(false);
+                          const m = Math.max(1, Number(formDurationMonths) || 1);
+                          setFormDueDate(dayjs(formStartDate).add(m, 'month').format('YYYY-MM-DD'));
+                        }}
                       >
-                        % Mensual
+                        % Mensual (Caso 1)
                       </Button>
                       <Button
                         type="button"
                         size="xs"
                         variant={formInterestType === 'FIXED' ? 'primary' : 'ghost'}
-                        onClick={() => setFormInterestType('FIXED')}
+                        onClick={() => {
+                          setFormInterestType('FIXED');
+                          if (!formDueDate) {
+                            setFormDueDate(dayjs(formStartDate).add(15, 'day').format('YYYY-MM-DD'));
+                          }
+                        }}
                       >
-                        $ Fijo
+                        $ Fijo (Caso 2)
                       </Button>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-center">
-                    {formInterestType === 'PERCENT' ? (
-                      <div className="relative">
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={formInterestRate}
-                          onChange={(e) => setFormInterestRate(e.target.value)}
-                          placeholder="10"
-                          className="w-full bg-surface border border-border focus:border-primary rounded-xl px-3 py-1.5 text-sm font-mono font-bold text-white outline-none pr-14"
-                        />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-accent font-bold">% mes</span>
-                      </div>
-                    ) : (
-                      <div className="relative">
-                        <input
-                          type="text"
-                          inputMode='numeric'
-                          value={formFixedInterest}
-                          onChange={(e) => setFormFixedInterest(e.target.value)}
-                          placeholder="Ej: 50000"
-                          className="w-full bg-surface border border-border focus:border-primary rounded-xl px-3 py-1.5 text-sm font-mono font-bold text-white outline-none pr-12"
-                        />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-bold">COP</span>
-                      </div>
-                    )}
+                  {/* Case 1: Interés Porcentual por Meses */}
+                  {formInterestType === 'PERCENT' ? (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-center">
+                        <div className="relative">
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={formInterestRate}
+                            onChange={(e) => setFormInterestRate(e.target.value)}
+                            placeholder="10"
+                            className="w-full bg-surface border border-border focus:border-primary rounded-xl px-3 py-1.5 text-sm font-mono font-bold text-white outline-none pr-14"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-accent font-bold">% mes</span>
+                        </div>
 
-                    <div className="bg-surface/80 border border-border/60 rounded-xl px-3 py-1.5 flex items-center justify-between text-xs">
-                      <span className="text-slate-400">Interés:</span>
-                      <span className="text-primary font-mono font-bold">+{formatCOP(calculatedFormInterest)}{formInterestType === 'PERCENT' ? '/mes' : ''}</span>
+                        <div className="bg-surface/80 border border-border/60 rounded-xl px-3 py-1.5 flex items-center justify-between text-xs">
+                          <span className="text-slate-400">Interés mensual:</span>
+                          <span className="text-primary font-mono font-bold">+{formatCOP(calculatedFormInterest)}/mes</span>
+                        </div>
+                      </div>
+
+                      {/* Plazo & Dates for Percentage Loan */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-400 mb-1">
+                            Plazo (Meses mínimo 1) *
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            required
+                            value={formDurationMonths}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setFormDurationMonths(val);
+                              const m = Math.max(1, Number(val) || 1);
+                              setFormDueDate(dayjs(formStartDate).add(m, 'month').format('YYYY-MM-DD'));
+                            }}
+                            placeholder="1"
+                            className="w-full bg-surface border border-border focus:border-primary rounded-xl px-3 py-1.5 text-xs sm:text-sm font-mono font-bold text-white outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-400 mb-1">
+                            Fecha Inicio *
+                          </label>
+                          <input
+                            type="date"
+                            required
+                            value={formStartDate}
+                            onChange={(e) => {
+                              const s = e.target.value;
+                              setFormStartDate(s);
+                              const m = Math.max(1, Number(formDurationMonths) || 1);
+                              setFormDueDate(dayjs(s).add(m, 'month').format('YYYY-MM-DD'));
+                            }}
+                            className="w-full bg-surface border border-border focus:border-primary rounded-xl px-2.5 py-1.5 text-xs sm:text-sm text-white outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-400 mb-1">
+                            Fecha Fin (Calculada)
+                          </label>
+                          <input
+                            type="date"
+                            readOnly
+                            disabled
+                            value={formDueDate}
+                            className="w-full bg-surface/50 border border-border rounded-xl px-2.5 py-1.5 text-xs sm:text-sm text-slate-400 outline-none cursor-not-allowed"
+                          />
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-slate-400 italic">
+                        * En interés porcentual el plazo mínimo es 1 mes. El sistema calcula automáticamente la fecha de fin y acumulará el interés mensual si no se abona oportunamente.
+                      </p>
                     </div>
-                  </div>
+                  ) : (
+                    /* Case 2: Interés Fijo + Cuotas Opcionales */
+                    <div className="space-y-2.5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-center">
+                        <div className="relative">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={formFixedInterest}
+                            onChange={(e) => setFormFixedInterest(e.target.value)}
+                            placeholder="Ej: 50000"
+                            className="w-full bg-surface border border-border focus:border-primary rounded-xl px-3 py-1.5 text-sm font-mono font-bold text-white outline-none pr-12"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-bold">COP</span>
+                        </div>
 
+                        <div className="bg-surface/80 border border-border/60 rounded-xl px-3 py-1.5 flex items-center justify-between text-xs">
+                          <span className="text-slate-400">Ganancia Fija:</span>
+                          <span className="text-emerald-400 font-mono font-bold">+{formatCOP(calculatedFormInterest)}</span>
+                        </div>
+                      </div>
+
+                      {/* Flexible Date Picker (>= today) */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-400 mb-1">
+                            Fecha Inicio *
+                          </label>
+                          <input
+                            type="date"
+                            required
+                            value={formStartDate}
+                            onChange={(e) => setFormStartDate(e.target.value)}
+                            className="w-full bg-surface border border-border focus:border-primary rounded-xl px-2.5 py-1.5 text-xs sm:text-sm text-white outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-400 mb-1">
+                            Fecha de Pago Acordada *
+                          </label>
+                          <input
+                            type="date"
+                            required
+                            min={getTodayColombiaDate()}
+                            value={formDueDate}
+                            onChange={(e) => setFormDueDate(e.target.value)}
+                            className="w-full bg-surface border border-border focus:border-primary rounded-xl px-2.5 py-1.5 text-xs sm:text-sm text-white outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Dividir en Cuotas Toggle */}
+                      <div className="bg-surface/60 border border-border rounded-xl p-2.5 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={formHasInstallments}
+                              onChange={(e) => setFormHasInstallments(e.target.checked)}
+                              className="w-4 h-4 rounded border-border text-primary focus:ring-primary/40 bg-surface"
+                            />
+                            <span className="text-xs font-bold text-foreground">
+                              Dividir en Cuotas
+                            </span>
+                          </label>
+                          {formHasInstallments && (
+                            <span className="text-[11px] font-mono font-bold text-accent">
+                              {formInstallmentCount} cuotas de {formatCOP(Math.round(calculatedFormTotal / Math.max(1, Number(formInstallmentCount) || 1)))}
+                            </span>
+                          )}
+                        </div>
+
+                        {formHasInstallments && (
+                          <div className="grid grid-cols-2 gap-2 pt-1">
+                            <div>
+                              <label className="block text-[11px] text-slate-400 mb-1">
+                                Número de Cuotas
+                              </label>
+                              <input
+                                type="number"
+                                min="2"
+                                max="120"
+                                value={formInstallmentCount}
+                                onChange={(e) => setFormInstallmentCount(e.target.value)}
+                                className="w-full bg-surface border border-border focus:border-primary rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-white outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] text-slate-400 mb-1">
+                                Frecuencia de Cobro
+                              </label>
+                              <select
+                                value={formInstallmentFrequency}
+                                onChange={(e: any) => setFormInstallmentFrequency(e.target.value)}
+                                className="w-full bg-surface border border-border focus:border-primary rounded-xl px-2.5 py-1.5 text-xs text-white outline-none"
+                              >
+                                <option value="DAILY">Diaria</option>
+                                <option value="WEEKLY">Semanal</option>
+                                <option value="BIWEEKLY">Quincenal</option>
+                                <option value="MONTHLY">Mensual</option>
+                              </select>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Summary Footer */}
                   <div className="pt-2 border-t border-border/70 grid grid-cols-2 gap-2 text-xs">
                     <div className="bg-surface/50 p-2 rounded-xl border border-border/40">
                       <span className="text-[10px] text-slate-400 block">
@@ -1413,59 +1717,6 @@ export default function LoansPage() {
                         {formatCOP(calculatedFormTotal)}
                       </span>
                     </div>
-                  </div>
-                </div>
-
-                {/* Plazo & Dates */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1">
-                      Plazo (Meses)
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      step="1"
-                      value={formDurationMonths}
-                      onChange={(e) => {
-                        const m = e.target.value;
-                        setFormDurationMonths(m);
-                        if (formStartDate && Number(m) > 0) {
-                          setFormDueDate(dayjs(formStartDate).add(Number(m), 'month').format('YYYY-MM-DD'));
-                        }
-                      }}
-                      placeholder="1"
-                      className="w-full bg-surface-elevated border border-border focus:border-primary rounded-xl px-3 py-1.5 text-xs sm:text-sm font-mono font-bold text-white outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1">
-                      Fecha Inicio *
-                    </label>
-                    <input
-                      type="date"
-                      required
-                      value={formStartDate}
-                      onChange={(e) => {
-                        const start = e.target.value;
-                        setFormStartDate(start);
-                        if (start && Number(formDurationMonths) > 0) {
-                          setFormDueDate(dayjs(start).add(Number(formDurationMonths), 'month').format('YYYY-MM-DD'));
-                        }
-                      }}
-                      className="w-full bg-surface-elevated border border-border focus:border-primary rounded-xl px-2.5 py-1.5 text-xs sm:text-sm text-white outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1">
-                      Fecha Vencimiento
-                    </label>
-                    <input
-                      type="date"
-                      value={formDueDate}
-                      onChange={(e) => setFormDueDate(e.target.value)}
-                      className="w-full bg-surface-elevated border border-border focus:border-primary rounded-xl px-2.5 py-1.5 text-xs sm:text-sm text-white outline-none"
-                    />
                   </div>
                 </div>
 
@@ -1646,6 +1897,9 @@ export default function LoansPage() {
                 (selectedLoanForPayment.interest_rate > 0
                   ? Math.round(remCap * (selectedLoanForPayment.interest_rate / 100))
                   : Number(selectedLoanForPayment.expected_interest) || 0);
+              const hasInst = Boolean(selectedLoanForPayment.has_installments);
+              const instAmt = Number(selectedLoanForPayment.installment_amount) || 0;
+              const amountToActivate = Number(selectedLoanForPayment.amount_to_activate) || 0;
 
               return (
                 <>
@@ -1654,31 +1908,95 @@ export default function LoansPage() {
                       <span>Capital adeudado:</span>
                       <span className="font-mono font-bold text-white">{formatCOP(remCap)}</span>
                     </div>
-                    <div className="flex justify-between text-slate-300">
-                      <span>Cobro de interés ({selectedLoanForPayment.interest_rate > 0 ? `${selectedLoanForPayment.interest_rate}%` : 'fijo'}):</span>
-                      <span className="font-mono font-bold text-emerald-400">+{formatCOP(monthlyFee)}</span>
-                    </div>
+
+                    {selectedLoanForPayment.interest_type === 'PERCENT' ? (
+                      <div className="flex justify-between text-slate-300">
+                        <span>Interés del Mes ({selectedLoanForPayment.interest_rate}%):</span>
+                        <span className="font-mono font-bold text-emerald-400">+{formatCOP(monthlyFee)}</span>
+                      </div>
+                    ) : (
+                      <div className="flex justify-between text-slate-300">
+                        <span>{hasInst ? `Valor por Cuota (${selectedLoanForPayment.installment_count} cuotas):` : 'Ganancia Fija acordada:'}</span>
+                        <span className="font-mono font-bold text-emerald-400">
+                          {hasInst ? formatCOP(instAmt) : `+${formatCOP(monthlyFee)}`}
+                        </span>
+                      </div>
+                    )}
+
+                    {selectedLoanForPayment.is_overdue && amountToActivate > 0 && (
+                      <div className="flex justify-between text-rose-300 bg-rose-500/10 p-1.5 rounded-lg border border-rose-500/25">
+                        <span className="font-semibold">Monto para ponerse al día:</span>
+                        <span className="font-mono font-bold">{formatCOP(amountToActivate)}</span>
+                      </div>
+                    )}
+
                     <div className="flex justify-between font-bold pt-1 border-t border-border text-amber-300">
                       <span>Total para saldar hoy:</span>
-                      <span className="font-mono">{formatCOP(remCap + monthlyFee)}</span>
+                      <span className="font-mono">{formatCOP(remCap + (selectedLoanForPayment.interest_type === 'PERCENT' ? monthlyFee : Math.max(0, (selectedLoanForPayment.expected_interest || 0) - (selectedLoanForPayment.paid_interest || 0))))}</span>
                     </div>
                   </div>
 
                   {/* Shortcuts */}
-                  <div className="flex items-center gap-1.5 mb-3">
-                    <Button
-                      type="button"
-                      size="xs"
-                      variant={activePaymentShortcut === 'INTEREST_ONLY' ? 'success' : 'outline'}
-                      onClick={() => {
-                        setPayCapital('');
-                        setPayInterest(String(monthlyFee > 0 ? monthlyFee : ''));
-                        setActivePaymentShortcut('INTEREST_ONLY');
-                      }}
-                      className="flex-1"
-                    >
-                      Solo Interés
-                    </Button>
+                  <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+                    {hasInst && instAmt > 0 && (
+                      <Button
+                        type="button"
+                        size="xs"
+                        variant={activePaymentShortcut === 'INSTALLMENT' ? 'success' : 'outline'}
+                        onClick={() => {
+                          // Installment splits into interest proportion and capital proportion if applicable, or all capital
+                          const totalInst = instAmt;
+                          const unpaidInt = Math.max(0, (Number(selectedLoanForPayment.expected_interest) || 0) - (Number(selectedLoanForPayment.paid_interest) || 0));
+                          const intShare = Math.min(totalInst, Math.round(unpaidInt / Math.max(1, Number(selectedLoanForPayment.installment_count) || 1)));
+                          const capShare = Math.max(0, totalInst - intShare);
+                          setPayCapital(String(capShare));
+                          setPayInterest(String(intShare));
+                          setActivePaymentShortcut('INSTALLMENT');
+                        }}
+                        className="flex-1 min-w-[100px]"
+                      >
+                        Pagar 1 Cuota ({formatCOP(instAmt)})
+                      </Button>
+                    )}
+
+                    {selectedLoanForPayment.is_overdue && amountToActivate > 0 && (
+                      <Button
+                        type="button"
+                        size="xs"
+                        variant="danger"
+                        onClick={() => {
+                          if (selectedLoanForPayment.overdue_reason === 'INTEREST_OVERDUE') {
+                            setPayCapital('');
+                            setPayInterest(String(amountToActivate));
+                          } else {
+                            // Installment overdue: assign to interest/capital
+                            setPayCapital(String(amountToActivate));
+                            setPayInterest('');
+                          }
+                          setActivePaymentShortcut(null);
+                        }}
+                        className="flex-1 min-w-[120px]"
+                      >
+                        Poner al Día ({formatCOP(amountToActivate)})
+                      </Button>
+                    )}
+
+                    {selectedLoanForPayment.interest_type === 'PERCENT' && (
+                      <Button
+                        type="button"
+                        size="xs"
+                        variant={activePaymentShortcut === 'INTEREST_ONLY' ? 'success' : 'outline'}
+                        onClick={() => {
+                          setPayCapital('');
+                          setPayInterest(String(monthlyFee > 0 ? monthlyFee : ''));
+                          setActivePaymentShortcut('INTEREST_ONLY');
+                        }}
+                        className="flex-1 min-w-[90px]"
+                      >
+                        Solo Interés
+                      </Button>
+                    )}
+
                     <Button
                       type="button"
                       size="xs"
@@ -1688,10 +2006,11 @@ export default function LoansPage() {
                         setPayInterest(String(monthlyFee > 0 ? monthlyFee : ''));
                         setActivePaymentShortcut('SETTLE_ALL');
                       }}
-                      className="flex-1"
+                      className="flex-1 min-w-[90px]"
                     >
                       Saldar Todo
                     </Button>
+
                     <Button
                       type="button"
                       size="xs"
@@ -1702,7 +2021,7 @@ export default function LoansPage() {
                         setPayInterest(String(monthlyFee > 0 ? monthlyFee : ''));
                         setActivePaymentShortcut('HALF_CAPITAL');
                       }}
-                      className="flex-1"
+                      className="flex-1 min-w-[90px]"
                     >
                       50% Capital
                     </Button>

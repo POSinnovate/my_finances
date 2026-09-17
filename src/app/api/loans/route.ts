@@ -77,13 +77,12 @@ export async function GET(req: NextRequest) {
       params.push(type);
     }
 
-    if (status && status !== 'ALL') {
-      if (status === 'OVERDUE') {
-        whereClause += " AND status = 'ACTIVE' AND due_date IS NOT NULL AND due_date < CURRENT_DATE";
-      } else {
-        whereClause += ' AND status = ?';
-        params.push(status);
-      }
+    if (status && status !== 'ALL' && status !== 'OVERDUE') {
+      whereClause += ' AND status = ?';
+      params.push(status);
+    } else if (status === 'OVERDUE') {
+      // OVERDUE loans are active loans with overdue conditions (interest, installments or term)
+      whereClause += " AND status = 'ACTIVE'";
     }
 
     if (search) {
@@ -111,6 +110,11 @@ export async function GET(req: NextRequest) {
         status,
         COALESCE(loan_type, 'LENT') as loan_type,
         COALESCE(duration_months, 1) as duration_months,
+        COALESCE(interest_type, 'PERCENT') as interest_type,
+        COALESCE(has_installments, FALSE) as has_installments,
+        COALESCE(installment_count, 1) as installment_count,
+        COALESCE(installment_frequency, 'MONTHLY') as installment_frequency,
+        COALESCE(installment_amount, 0) as installment_amount,
         tag,
         pocket_id,
         notes,
@@ -150,9 +154,17 @@ export async function GET(req: NextRequest) {
           if (m > 1) durationMonths = m;
         }
 
-        // Projected interest for the entire duration of the loan
-        const projectedInterest =
-          rate > 0 ? Math.round(initAmt * (rate / 100) * durationMonths) : expInt;
+        const cleanIntType = l.interest_type || (rate > 0 ? 'PERCENT' : 'FIXED');
+        const isPercent = cleanIntType === 'PERCENT';
+        const hasInst = Boolean(l.has_installments);
+        const instCount = Math.max(1, Number(l.installment_count) || 1);
+        const instFreq = l.installment_frequency || 'MONTHLY';
+
+        // Projected interest for the loan agreement
+        const projectedInterest = isPercent
+          ? (rate > 0 ? Math.round(initAmt * (rate / 100) * durationMonths) : expInt)
+          : expInt;
+
         // Total money to collect (Principal + Projected Interest)
         const totalToCollect = initAmt + projectedInterest;
         // Money collected so far (Capital returned + Interest collected)
@@ -160,12 +172,98 @@ export async function GET(req: NextRequest) {
         // Remaining to collect in total
         const remainingToCollect = Math.max(0, totalToCollect - totalCollected);
 
+        // Installment metrics if installments enabled
+        const instAmt = Number(l.installment_amount) > 0 ? Number(l.installment_amount) : Math.round(totalToCollect / instCount);
+        const paidInstallments = instAmt > 0 ? Math.min(instCount, Math.floor(totalCollected / instAmt)) : 0;
+
         // Progress reflects total collection
         const progressPercentage =
           totalToCollect > 0 ? Math.min(100, Math.round((totalCollected / totalToCollect) * 100)) : 100;
         // Capital amortization progress
         const capitalProgress =
           initAmt > 0 ? Math.min(100, Math.round((paidCap / initAmt) * 100)) : 100;
+
+        // Smart Overdue Detection:
+        // 1. Is already paid in full?
+        const isPaidInFull = l.status === 'PAID' || remainingCapital <= 0;
+        let isOverdue = false;
+        let overdueReason: 'NONE' | 'INTEREST_OVERDUE' | 'INSTALLMENT_OVERDUE' | 'TERM_EXPIRED' = 'NONE';
+        let overdueMonthsCount = 0;
+        let overdueInstallmentsCount = 0;
+        let amountToActivate = 0; // Amount needed to return to ACTIVE status
+
+        const now = new Date();
+        const todayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+        if (!isPaidInFull) {
+          // A. Term expiration check (due_date passed and still capital remaining)
+          const isTermExpired = l.due_date && new Date(l.due_date).getTime() < todayMs;
+
+          if (hasInst && instAmt > 0) {
+            // Case 2 with Installments: Check overdue installments according to schedule
+            const sDate = l.start_date ? new Date(l.start_date) : new Date();
+            let dueInstallmentsCount = 0;
+
+            for (let i = 1; i <= instCount; i++) {
+              let cuotaDate = new Date(sDate);
+              if (instFreq === 'DAILY') {
+                cuotaDate.setDate(cuotaDate.getDate() + i);
+              } else if (instFreq === 'WEEKLY') {
+                cuotaDate.setDate(cuotaDate.getDate() + i * 7);
+              } else if (instFreq === 'BIWEEKLY') {
+                cuotaDate.setDate(cuotaDate.getDate() + i * 15);
+              } else {
+                cuotaDate.setMonth(cuotaDate.getMonth() + i);
+              }
+              if (cuotaDate.getTime() <= todayMs) {
+                dueInstallmentsCount++;
+              }
+            }
+
+            const pendingInstallments = Math.max(0, dueInstallmentsCount - paidInstallments);
+            if (pendingInstallments > 0) {
+              isOverdue = true;
+              overdueReason = 'INSTALLMENT_OVERDUE';
+              overdueInstallmentsCount = pendingInstallments;
+              const expectedPaidByNow = dueInstallmentsCount * instAmt;
+              amountToActivate = Math.max(0, expectedPaidByNow - totalCollected);
+            } else if (isTermExpired) {
+              isOverdue = true;
+              overdueReason = 'TERM_EXPIRED';
+              amountToActivate = remainingToCollect;
+            }
+          } else if (isPercent && monthlyInterest > 0) {
+            // Case 1: Monthly percentage interest
+            // Calculate how many months have elapsed since start_date
+            const sDate = l.start_date ? new Date(l.start_date) : new Date();
+            const diffDays = Math.max(0, (todayMs - sDate.getTime()) / (1000 * 60 * 60 * 24));
+            const elapsedMonths = Math.floor(diffDays / 30);
+
+            if (elapsedMonths >= 1) {
+              const expectedInterestByNow = elapsedMonths * monthlyInterest;
+              if (paidInt < expectedInterestByNow) {
+                isOverdue = true;
+                overdueReason = 'INTEREST_OVERDUE';
+                const unpaidInterest = expectedInterestByNow - paidInt;
+                overdueMonthsCount = Math.ceil(unpaidInterest / monthlyInterest);
+                amountToActivate = unpaidInterest;
+              }
+            }
+
+            if (!isOverdue && isTermExpired) {
+              isOverdue = true;
+              overdueReason = 'TERM_EXPIRED';
+              amountToActivate = remainingCapital + Math.max(0, monthlyInterest - (paidInt % (monthlyInterest || 1)));
+            }
+          } else {
+            // Standard loan without installments or percentage: overdue only if due_date passed
+            if (isTermExpired) {
+              isOverdue = true;
+              overdueReason = 'TERM_EXPIRED';
+              amountToActivate = remainingToCollect;
+            }
+          }
+        }
 
         // Fetch recent payments for audit preview
         const recentPayments = (await db
@@ -189,6 +287,12 @@ export async function GET(req: NextRequest) {
 
         return {
           ...l,
+          interest_type: cleanIntType,
+          has_installments: hasInst,
+          installment_count: instCount,
+          installment_frequency: instFreq,
+          installment_amount: instAmt,
+          paid_installments: paidInstallments,
           initial_amount: initAmt,
           interest_rate: rate,
           duration_months: durationMonths,
@@ -207,6 +311,11 @@ export async function GET(req: NextRequest) {
           capital_progress: capitalProgress,
           remaining_capital: remainingCapital,
           remaining_interest: monthlyInterest,
+          is_overdue: isOverdue,
+          overdue_reason: overdueReason,
+          overdue_months_count: overdueMonthsCount,
+          overdue_installments_count: overdueInstallmentsCount,
+          amount_to_activate: amountToActivate,
           payment_count: recentPayments.length,
           payments: recentPayments.map((p) => ({
             ...p,
@@ -217,6 +326,11 @@ export async function GET(req: NextRequest) {
         };
       })
     );
+
+    // Apply OVERDUE filter in-memory if requested (since overdue status depends on dynamic interest/installment calculations)
+    const filteredLoans = status === 'OVERDUE'
+      ? loansWithDetails.filter((l) => l.is_overdue)
+      : loansWithDetails;
 
     // Global summary metrics across active loans
     const activeLoans = loansWithDetails.filter((l) => l.status === 'ACTIVE');
@@ -252,29 +366,23 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Query overdue counts
-    const overdueCounts = (await db
-      .prepare(
-        `
-      SELECT 
-        COALESCE(loan_type, 'LENT') as l_type,
-        COUNT(*) as cnt
-      FROM loans
-      WHERE user_id = ? AND status = 'ACTIVE' AND due_date IS NOT NULL AND due_date < CURRENT_DATE
-      GROUP BY COALESCE(loan_type, 'LENT')
-    `
-      )
-      .all(auth.userId)) as any[];
-
+    // Overdue counts accurately calculated from the processed active loans list
+    // Note: if user filtered by type (e.g. LENT), we should still know overall overdue counts
+    // Let's compute overdue counts across all active loans for the user:
+    // Any loan where is_overdue is true
     let overdueLentCount = 0;
     let overdueBorrowedCount = 0;
-    for (const oc of overdueCounts) {
-      if (oc.l_type === 'BORROWED') {
-        overdueBorrowedCount = Number(oc.cnt) || 0;
-      } else {
-        overdueLentCount += Number(oc.cnt) || 0;
+
+    // We can count directly from loansWithDetails if all types were loaded or calculate:
+    loansWithDetails.forEach((l) => {
+      if (l.is_overdue) {
+        if (l.loan_type === 'BORROWED') {
+          overdueBorrowedCount++;
+        } else {
+          overdueLentCount++;
+        }
       }
-    }
+    });
 
     const netCapitalTotal = totalActiveLentCapital - totalActiveBorrowedCapital;
 
@@ -300,7 +408,7 @@ export async function GET(req: NextRequest) {
     };
 
     return NextResponse.json({
-      loans: loansWithDetails,
+      loans: filteredLoans,
       summary,
     });
   } catch (err: unknown) {
@@ -321,9 +429,14 @@ export async function POST(req: NextRequest) {
       borrower_name,
       borrower_phone,
       initial_amount,
+      interest_type,
       interest_rate,
       expected_interest,
       duration_months,
+      has_installments,
+      installment_count,
+      installment_frequency,
+      installment_amount,
       start_date,
       due_date,
       payment_method,
@@ -373,20 +486,30 @@ export async function POST(req: NextRequest) {
         .run(principal, pocket_id);
     }
 
-    const rate = Number(interest_rate) || 0;
+    const cleanInterestType = interest_type === 'FIXED' ? 'FIXED' : 'PERCENT';
+    const rate = cleanInterestType === 'PERCENT' ? (Number(interest_rate) || 0) : 0;
     let monthlyInterest = Number(expected_interest);
     if (isNaN(monthlyInterest) || monthlyInterest <= 0) {
       monthlyInterest = rate > 0 ? Math.round(principal * (rate / 100)) : 0;
     }
 
     const durationMonths = Math.max(1, Number(duration_months) || 1);
-    const projectedInterest = rate > 0 ? Math.round(principal * (rate / 100) * durationMonths) : monthlyInterest;
+    const projectedInterest = cleanInterestType === 'PERCENT'
+      ? (rate > 0 ? Math.round(principal * (rate / 100) * durationMonths) : monthlyInterest)
+      : monthlyInterest;
     const totalExpected = principal + projectedInterest;
     const currentBalance = principal;
     const startDate = start_date || getTodayColombiaDate();
     const dueDate = due_date || null;
     const method = payment_method || 'Efectivo';
     const cleanNotes = notes?.trim() || null;
+
+    const withInstallments = Boolean(has_installments);
+    const instCount = withInstallments ? Math.max(1, Number(installment_count) || 1) : 1;
+    const instFreq = installment_frequency || 'MONTHLY';
+    const instAmt = withInstallments
+      ? (installment_amount ? Number(installment_amount) : Math.round(totalExpected / instCount))
+      : 0;
 
     const loanId = randomUUID();
 
@@ -400,6 +523,7 @@ export async function POST(req: NextRequest) {
         borrower_name,
         borrower_phone,
         initial_amount,
+        interest_type,
         interest_rate,
         expected_interest,
         total_expected,
@@ -409,13 +533,17 @@ export async function POST(req: NextRequest) {
         start_date,
         due_date,
         duration_months,
+        has_installments,
+        installment_count,
+        installment_frequency,
+        installment_amount,
         payment_method,
         status,
         loan_type,
         tag,
         pocket_id,
         notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?, ?)
     `
       )
       .run(
@@ -424,6 +552,7 @@ export async function POST(req: NextRequest) {
         borrower_name.trim(),
         borrower_phone?.trim() || null,
         principal,
+        cleanInterestType,
         rate,
         monthlyInterest,
         totalExpected,
@@ -431,6 +560,10 @@ export async function POST(req: NextRequest) {
         startDate,
         dueDate,
         durationMonths,
+        withInstallments,
+        instCount,
+        instFreq,
+        instAmt,
         method,
         cleanLoanType,
         tag?.trim() || null,

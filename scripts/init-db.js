@@ -204,6 +204,26 @@ export async function initDatabaseSchema() {
     ALTER TABLE loans 
     ADD COLUMN IF NOT EXISTS tag VARCHAR(50);
   `;
+  await sql`
+    ALTER TABLE loans 
+    ADD COLUMN IF NOT EXISTS interest_type VARCHAR(20) NOT NULL DEFAULT 'PERCENT';
+  `;
+  await sql`
+    ALTER TABLE loans 
+    ADD COLUMN IF NOT EXISTS has_installments BOOLEAN DEFAULT FALSE;
+  `;
+  await sql`
+    ALTER TABLE loans 
+    ADD COLUMN IF NOT EXISTS installment_count INTEGER DEFAULT 1;
+  `;
+  await sql`
+    ALTER TABLE loans 
+    ADD COLUMN IF NOT EXISTS installment_frequency VARCHAR(20) DEFAULT 'MONTHLY';
+  `;
+  await sql`
+    ALTER TABLE loans 
+    ADD COLUMN IF NOT EXISTS installment_amount NUMERIC DEFAULT 0;
+  `;
 
   // 8. Loan payments (audit table)
   await sql`
