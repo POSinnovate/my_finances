@@ -8,8 +8,11 @@ export async function GET(req: NextRequest) {
     const auth = await requireAuth();
     const { searchParams } = new URL(req.url);
     const filterType = searchParams.get('type'); // 'EXPENSE' | 'INCOME' | undefined
-    const currentMonth = new Date().toISOString().slice(0, 7);
-    const currentYear = new Date().toISOString().slice(0, 4);
+    const now = new Date();
+    const currentMonth = now.toISOString().slice(0, 7);
+    const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonth = prevMonthDate.toISOString().slice(0, 7);
+    const currentYear = now.toISOString().slice(0, 4);
     const thirtyFiveDaysAgo = new Date(Date.now() - 35 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
     let query = `
@@ -26,6 +29,7 @@ export async function GET(req: NextRequest) {
         COALESCE(c.frequency, 'MONTHLY') as frequency,
         COALESCE(c.has_multiple_items, 0) as has_multiple_items,
         COALESCE(SUM(CASE WHEN (e.type IS NULL OR e.type = 'EXPENSE') AND strftime('%Y-%m', e.date) = ? THEN e.amount ELSE 0 END), 0) as spent_this_month,
+        COALESCE(SUM(CASE WHEN (e.type IS NULL OR e.type = 'EXPENSE') AND strftime('%Y-%m', e.date) = ? THEN e.amount ELSE 0 END), 0) as spent_last_month,
         COALESCE(SUM(CASE WHEN e.type = 'INCOME' AND strftime('%Y-%m', e.date) = ? THEN e.amount ELSE 0 END), 0) as earned_this_month,
         COALESCE(SUM(CASE WHEN e.type = 'INCOME' AND e.date >= ? THEN e.amount ELSE 0 END), 0) as earned_recent,
         COALESCE(SUM(CASE WHEN e.type = 'INCOME' AND strftime('%Y', e.date) = ? THEN e.amount ELSE 0 END), 0) as earned_this_year,
@@ -35,7 +39,7 @@ export async function GET(req: NextRequest) {
       WHERE c.user_id = ?
     `;
 
-    const params: any[] = [currentMonth, currentMonth, thirtyFiveDaysAgo, currentYear, auth.userId];
+    const params: any[] = [currentMonth, lastMonth, currentMonth, thirtyFiveDaysAgo, currentYear, auth.userId];
 
     if (filterType && (filterType === 'EXPENSE' || filterType === 'INCOME')) {
       query += ` AND c.type = ?`;
@@ -78,6 +82,7 @@ export async function GET(req: NextRequest) {
       const hasMultiple = Number(cat.has_multiple_items) === 1 || catItems.length > 1;
       const budget = Number(cat.monthly_budget) || 0;
       const spent = Number(cat.spent_this_month) || 0;
+      const spentLastMonth = Number(cat.spent_last_month) || 0;
       const earnedMonthRaw = Number(cat.earned_this_month) || 0;
       const earnedRecent = Number(cat.earned_recent) || 0;
       const earnedMonth = earnedMonthRaw > 0 ? earnedMonthRaw : earnedRecent;
@@ -102,6 +107,7 @@ export async function GET(req: NextRequest) {
         items: catItems,
         monthly_budget: budget,
         spent_this_month: spent,
+        spent_last_month: spentLastMonth,
         earned_this_month: earnedMonth,
         earned_this_year: earnedYear,
         remaining_budget: remaining,

@@ -198,13 +198,14 @@ export async function GET(req: NextRequest) {
     // Global summary metrics across active loans
     const activeLoans = loansWithDetails.filter((l) => l.status === 'ACTIVE');
 
-    // Count totals by type across user's entire portfolio (for tab counters)
+    // Count totals and capital by type across user's entire portfolio (for tab counters & global capital KPI)
     const counts = (await db
       .prepare(
         `
       SELECT 
         COALESCE(loan_type, 'LENT') as l_type,
-        COUNT(*) as cnt
+        COUNT(*) as cnt,
+        COALESCE(SUM(initial_amount - paid_capital), 0) as remaining_capital
       FROM loans
       WHERE user_id = ? AND status = 'ACTIVE'
       GROUP BY COALESCE(loan_type, 'LENT')
@@ -214,10 +215,21 @@ export async function GET(req: NextRequest) {
 
     let activeLentCount = 0;
     let activeBorrowedCount = 0;
+    let totalActiveLentCapital = 0;
+    let totalActiveBorrowedCapital = 0;
+
     for (const c of counts) {
-      if (c.l_type === 'BORROWED') activeBorrowedCount = Number(c.cnt) || 0;
-      else activeLentCount += Number(c.cnt) || 0;
+      const rem = Math.max(0, Number(c.remaining_capital) || 0);
+      if (c.l_type === 'BORROWED') {
+        activeBorrowedCount = Number(c.cnt) || 0;
+        totalActiveBorrowedCapital = rem;
+      } else {
+        activeLentCount += Number(c.cnt) || 0;
+        totalActiveLentCapital += rem;
+      }
     }
+
+    const netCapitalTotal = totalActiveLentCapital - totalActiveBorrowedCapital;
 
     const summary = {
       active_loans_count: activeLoans.length,
@@ -229,6 +241,10 @@ export async function GET(req: NextRequest) {
       total_collected_overall: loansWithDetails.reduce((acc, l) => acc + l.total_collected, 0),
       monthly_projected_interest: activeLoans.reduce((acc, l) => acc + (l.monthly_interest || 0), 0),
       total_balance_due: activeLoans.reduce((acc, l) => acc + l.remaining_capital, 0),
+      // Global Capital Total (Capital por cobrar - Capital por pagar sin intereses)
+      total_active_lent_capital: totalActiveLentCapital,
+      total_active_borrowed_capital: totalActiveBorrowedCapital,
+      net_capital_total: netCapitalTotal,
       // Counts for UI tabs
       active_lent_count: activeLentCount,
       active_borrowed_count: activeBorrowedCount,

@@ -188,8 +188,8 @@ export async function PUT(req: NextRequest) {
     }
     console.error('Payment methods PUT error:', err);
     return NextResponse.json(
-      { error: 'Error al actualizar método de pago' },
-      { status: 500 }
+      { error: (err as Error).message || 'Error al actualizar método de pago' },
+      { status: 400 }
     );
   }
 }

@@ -318,9 +318,22 @@ export async function rebalancePaymentMethod(
   }
 
   const net_movements = total_income - total_expense;
+
+  if (targetBalance < 0) {
+    throw new Error('El saldo no puede ser un valor negativo');
+  }
+
+  // Prevent erasing registered income without registering expenses
+  if (net_movements > 0 && targetBalance < net_movements) {
+    const formattedNet = `$${net_movements.toLocaleString('es-CO')}`;
+    throw new Error(
+      `No puedes calibrar la cuenta por debajo de ${formattedNet} (el saldo neto generado por tus ingresos registrados). Si ya gastaste este dinero, registra el gasto en tus movimientos para conservar la auditoría exacta.`
+    );
+  }
+
   // targetBalance = initial_balance + net_movements
   // => initial_balance = targetBalance - net_movements
-  const newInitialBalance = targetBalance - net_movements;
+  const newInitialBalance = Math.max(0, targetBalance - net_movements);
 
   await db
     .prepare(

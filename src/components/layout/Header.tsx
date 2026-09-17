@@ -3,14 +3,13 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { 
-  LogOut, 
-  Wallet, 
-  SlidersHorizontal, 
-  Smartphone, 
-  Building2, 
-  CreditCard, 
-  Banknote, 
+import {
+  LogOut,
+  Wallet,
+  Smartphone,
+  Building2,
+  CreditCard,
+  Banknote,
   ArrowRight,
   Users,
   Menu,
@@ -19,7 +18,7 @@ import {
 } from 'lucide-react';
 import { formatCOP } from '@/lib/utils';
 import { toast } from 'sonner';
-import { InstallPwaButton } from './InstallPwaButton';
+import { InstallPwaButton, InstallPwaModal } from './InstallPwaButton';
 import { NotificationCenter } from './NotificationCenter';
 import { usePaymentMethods, useInvalidateFinance } from '@/lib/api-hooks';
 import { Modal, Button, Badge, Input } from '@/components/ui';
@@ -42,6 +41,7 @@ export function Header({ user }: HeaderProps) {
   const [isEditingCash, setIsEditingCash] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -61,7 +61,6 @@ export function Header({ user }: HeaderProps) {
 
   // TanStack Query hooks for real-time payment methods and invalidation
   const { data: paymentMethods = [], refetch: refetchPaymentMethods } = usePaymentMethods();
-  const invalidateFinance = useInvalidateFinance();
 
   // Inline Calibration / Rebalance state for individual accounts
   const [calibratingMethodId, setCalibratingMethodId] = useState<string | null>(null);
@@ -94,51 +93,6 @@ export function Header({ user }: HeaderProps) {
     }
   };
 
-  // Start inline calibration for a method
-  const handleStartCalibrate = (pm: any) => {
-    setCalibratingMethodId(pm.id);
-    setCalibratingValue(
-      pm.net_balance !== undefined ? String(pm.net_balance) : (pm.initial_balance ? String(pm.initial_balance) : '0')
-    );
-  };
-
-  // Save the new calibrated balance of a payment method
-  const handleSaveRebalance = async (pmId: string, pmName: string) => {
-    const parsed = Number(calibratingValue);
-    if (isNaN(parsed)) {
-      toast.error('Ingresa un monto numérico válido');
-      return;
-    }
-
-    setIsSavingRebalance(true);
-    try {
-      const res = await fetch(`/api/payment-methods/${pmId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          current_balance: parsed,
-        }),
-      });
-
-      if (!res.ok) {
-        throw new Error('Error al actualizar el saldo de la cuenta');
-      }
-
-      toast.success(`Saldo de "${pmName}" equilibrado correctamente.`);
-      setCalibratingMethodId(null);
-
-      // Invalidate all TanStack Query caches across the app
-      await Promise.all([
-        refetchPaymentMethods(),
-        invalidateFinance(),
-      ]);
-    } catch (err: any) {
-      toast.error(err.message || 'Error de conexión');
-    } finally {
-      setIsSavingRebalance(false);
-    }
-  };
-
   // Calculate dynamic cash fund from the actual accounts
   const totalCalculatedCash =
     paymentMethods.length > 0
@@ -164,7 +118,7 @@ export function Header({ user }: HeaderProps) {
         {/* Right Section: Mobile App Install, Available Fund Pill & Logout */}
         <div className="flex items-center gap-1.5 sm:gap-2.5">
           <div className="hidden sm:block">
-            <InstallPwaButton />
+            <InstallPwaButton onRequestModal={() => setIsInstallModalOpen(true)} />
           </div>
 
           {user ? (
@@ -324,10 +278,10 @@ export function Header({ user }: HeaderProps) {
               pm.type === 'WALLET'
                 ? Smartphone
                 : pm.type === 'CASH'
-                ? Banknote
-                : pm.type === 'CARD'
-                ? CreditCard
-                : Building2;
+                  ? Banknote
+                  : pm.type === 'CARD'
+                    ? CreditCard
+                    : Building2;
 
             return (
               <div
@@ -348,81 +302,23 @@ export function Header({ user }: HeaderProps) {
                         {pm.type === 'WALLET'
                           ? 'Billetera'
                           : pm.type === 'CASH'
-                          ? 'Efectivo'
-                          : pm.type === 'CARD'
-                          ? 'Tarjeta'
-                          : 'Banco'}
+                            ? 'Efectivo'
+                            : pm.type === 'CARD'
+                              ? 'Tarjeta'
+                              : 'Banco'}
                       </span>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2.5">
                     <span
-                      className={`text-xs sm:text-sm font-black font-mono ${
-                        (pm.net_balance ?? 0) >= 0 ? 'text-accent' : 'text-danger'
-                      }`}
+                      className={`text-xs sm:text-sm font-black font-mono ${(pm.net_balance ?? 0) >= 0 ? 'text-accent' : 'text-danger'
+                        }`}
                     >
                       {formatCOP(pm.net_balance ?? 0)}
                     </span>
-
-                    {!isCalibrating && (
-                      <Button
-                        variant="secondary"
-                        size="xs"
-                        onClick={() => handleStartCalibrate(pm)}
-                        className="gap-1"
-                        title="Equilibrar o calibrar saldo"
-                      >
-                        <SlidersHorizontal className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">Calibrar</span>
-                      </Button>
-                    )}
                   </div>
                 </div>
-
-                {/* Inline Calibration Form */}
-                {isCalibrating && (
-                  <div className="pt-2 border-t border-border/60 space-y-2 animate-in fade-in duration-150">
-                    <div className="flex items-center justify-between">
-                      <label className="text-[10px] font-bold text-accent">
-                        ¿Cuál es tu saldo real en {pm.name} hoy?
-                      </label>
-                      {calibratingValue !== '' && !isNaN(Number(calibratingValue)) && (
-                        <span className="text-[10px] text-accent font-mono font-bold">
-                          {formatCOP(Number(calibratingValue))}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        value={calibratingValue}
-                        onChange={(e) => setCalibratingValue(e.target.value)}
-                        placeholder="0"
-                        autoFocus
-                        className="flex-1 font-mono font-bold text-xs"
-                      />
-                      <Button
-                        variant="accent"
-                        size="sm"
-                        onClick={() => handleSaveRebalance(pm.id, pm.name)}
-                        disabled={isSavingRebalance}
-                        className="gap-1 font-black"
-                      >
-                        <Check className="w-3.5 h-3.5 stroke-[3px]" />
-                        <span>{isSavingRebalance ? 'Guardando...' : 'Aplicar'}</span>
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() => setCalibratingMethodId(null)}
-                        disabled={isSavingRebalance}
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
               </div>
             );
           })}
@@ -457,12 +353,12 @@ export function Header({ user }: HeaderProps) {
       {/* Mobile Drawer Menu */}
       {mounted && isMobileMenuOpen && user && createPortal(
         <div className="fixed inset-0 z-[100] flex justify-end animate-in fade-in duration-200 sm:hidden">
-          <div 
+          <div
             onClick={() => setIsMobileMenuOpen(false)}
             className="fixed inset-0 bg-black/80 backdrop-blur-sm"
           />
 
-          <div 
+          <div
             onClick={(e) => e.stopPropagation()}
             className="relative w-[82%] max-w-xs h-full bg-surface border-l border-border shadow-2xl flex flex-col p-5 overflow-y-auto animate-in slide-in-from-right duration-300 z-10"
           >
@@ -500,9 +396,13 @@ export function Header({ user }: HeaderProps) {
               </span>
 
               {/* Botón de Descargar App Móvil */}
-              <InstallPwaButton 
-                variant="full" 
-                onClicked={() => setIsMobileMenuOpen(false)} 
+              <InstallPwaButton
+                variant="full"
+                onRequestModal={() => {
+                  setIsMobileMenuOpen(false);
+                  setIsInstallModalOpen(true);
+                }}
+                onClicked={() => setIsMobileMenuOpen(false)}
               />
 
               {/* Botón de Usuarios (Exclusivo Administrador) */}
@@ -566,6 +466,12 @@ export function Header({ user }: HeaderProps) {
         </div>,
         document.body
       )}
+
+      {/* Standalone PWA Guide / Install Modal */}
+      <InstallPwaModal
+        isOpen={isInstallModalOpen}
+        onClose={() => setIsInstallModalOpen(false)}
+      />
     </header>
   );
 }

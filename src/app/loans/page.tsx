@@ -609,16 +609,16 @@ export default function LoansPage() {
           <div className="bg-surface border border-amber-500/30 rounded-2xl p-3 shadow-sm flex flex-col justify-between">
             <div className="flex items-center justify-between gap-1 mb-1">
               <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider truncate">
-                {isLentMode ? 'Total a Recoger' : 'Total a Pagar'}
+                Capital Total
               </span>
               <CircleDollarSign className="w-3.5 h-3.5 text-amber-400 shrink-0" />
             </div>
             <div className="min-w-0">
               <div className="text-sm sm:text-base lg:text-lg font-black text-amber-300 font-mono truncate">
-                {formatCOP(summary.total_expected_return || summary.total_balance_due)}
+                {formatCOP(summary.net_capital_total ?? (summary.total_active_capital_lent - (summary.total_active_borrowed_capital || 0)))}
               </div>
               <p className="text-[10px] text-amber-400/80 mt-0.5 truncate">
-                Capital + Ganancia
+                Cobrar: {formatCOP(summary.total_active_lent_capital ?? summary.total_active_capital_lent)} | Pagar: {formatCOP(summary.total_active_borrowed_capital ?? 0)}
               </p>
             </div>
           </div>

@@ -355,6 +355,18 @@ export default function AccountsPage() {
       toast.error('Ingresa un valor numérico válido');
       return;
     }
+    if (parsed < 0) {
+      toast.error('El saldo no puede ser negativo');
+      return;
+    }
+
+    const netMovements = (adjustingMethod.total_income || 0) - (adjustingMethod.total_expense || 0);
+    if (netMovements > 0 && parsed < netMovements) {
+      toast.error(
+        `No puedes ajustar "${adjustingMethod.name}" por debajo de ${formatCOP(netMovements)}, ya que tienes ingresos registrados sin gastar.`
+      );
+      return;
+    }
 
     setIsSavingAdjustment(true);
     try {
@@ -860,6 +872,11 @@ export default function AccountsPage() {
               <p className="text-[11px] text-foreground/50 leading-relaxed pt-1">
                 Ingresa el saldo exacto que tienes actualmente en tu banco o billetera física. La app generará automáticamente un movimiento contable de ajuste para calibrar la diferencia.
               </p>
+              {((adjustingMethod.total_income || 0) - (adjustingMethod.total_expense || 0)) > 0 && (
+                <p className="text-[11px] text-amber-400/90 bg-amber-500/10 border border-amber-500/20 p-2 rounded-xl">
+                  Nota: El saldo mínimo calibrable es {formatCOP((adjustingMethod.total_income || 0) - (adjustingMethod.total_expense || 0))} para proteger los ingresos registrados que aún no han sido gastados.
+                </p>
+              )}
             </div>
 
 

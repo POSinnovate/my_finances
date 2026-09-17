@@ -170,7 +170,9 @@ export default function BudgetsPage() {
     setIsSavingCategory(true);
     try {
       const isEdit = Boolean(editingCategory);
-      const itemsPayload = catHasMultiple
+      const isVariableExpense = catType === 'EXPENSE' && !catIsFixed;
+
+      const itemsPayload = (catHasMultiple && !isVariableExpense)
         ? catItems
             .filter(it => Number(it.amount) > 0)
             .map(it => ({
@@ -186,13 +188,13 @@ export default function BudgetsPage() {
         name: catName.trim(),
         type: catType,
         color: catColor,
-        monthly_budget: catHasMultiple ? undefined : (Number(catBudget) || 0),
+        monthly_budget: isVariableExpense ? 0 : (catHasMultiple ? undefined : (Number(catBudget) || 0)),
         is_fixed: catType === 'INCOME' ? 0 : (catIsFixed ? 1 : 0),
-        frequency: catFrequency,
-        due_day: catFrequency === 'MONTHLY' && catDueDay ? Number(catDueDay) : null,
-        specific_date: catFrequency === 'ONCE' && catSpecificDate ? catSpecificDate : null,
-        has_multiple_items: catHasMultiple ? 1 : 0,
-        items: itemsPayload,
+        frequency: isVariableExpense ? 'NONE' : catFrequency,
+        due_day: isVariableExpense ? null : (catFrequency === 'MONTHLY' && catDueDay ? Number(catDueDay) : null),
+        specific_date: isVariableExpense ? null : (catFrequency === 'ONCE' && catSpecificDate ? catSpecificDate : null),
+        has_multiple_items: isVariableExpense ? 0 : (catHasMultiple ? 1 : 0),
+        items: isVariableExpense ? [] : itemsPayload,
       };
 
       if (isEdit) {
@@ -547,228 +549,270 @@ export default function BudgetsPage() {
               autoFocus
             />
 
-            {/* Selector de Modalidad */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Modalidad de Programación
-              </label>
-              <div className="grid grid-cols-2 gap-2 p-1 bg-surface-elevated rounded-2xl border border-border">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={!catHasMultiple ? 'primary' : 'ghost'}
-                  onClick={() => setCatHasMultiple(false)}
-                  icon={Clock}
-                  className="w-full"
-                >
-                  Fecha Única
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={catHasMultiple ? 'primary' : 'ghost'}
-                  onClick={() => {
-                    setCatHasMultiple(true);
-                    if (catItems.length === 0) {
-                      setCatItems([
-                        { amount: catBudget || '', due_day: catDueDay || '15', frequency: 'MONTHLY' },
-                        { amount: '', due_day: '30', frequency: 'MONTHLY' },
-                      ]);
-                    }
-                  }}
-                  icon={Layers}
-                  className="w-full"
-                >
-                  Múltiples Fechas
-                </Button>
-              </div>
-            </div>
-
-            {!catHasMultiple ? (
-              <>
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-semibold text-slate-300">
-                      {catType === 'INCOME' ? 'Monto Mensual Estimado ($ COP)' : 'Presupuesto Mensual Estimado ($ COP)'}
-                    </label>
-                    {Number(catBudget) > 0 && (
-                      <span className="text-[11px] text-primary font-bold">
-                        {formatCOP(Number(catBudget))}
-                      </span>
-                    )}
-                  </div>
-                  <input
-                    type="number"
-                    value={catBudget}
-                    onChange={(e) => setCatBudget(e.target.value)}
-                    placeholder={catType === 'INCOME' ? 'Ej: 1500000' : 'Ej: 500000'}
-                    className="w-full bg-surface-elevated border border-border text-foreground text-xs px-3 py-2.5 rounded-xl focus:border-primary focus:outline-none placeholder:text-slate-500"
-                  />
-                  <span className="text-[10px] text-slate-400 mt-1 block">
-                    {catType === 'INCOME'
-                      ? 'Este valor alimentará tu verdadero ingreso mensual de manera dinámica.'
-                      : 'Tope máximo o compromiso para este grupo.'}
-                  </span>
+            {/* Tipo de Gasto (Exclusivo para Grupos de Gasto) */}
+            {catType === 'EXPENSE' && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Naturaleza del Gasto
+                </label>
+                <div className="grid grid-cols-2 gap-2 p-1 bg-surface-elevated rounded-2xl border border-border">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={!catIsFixed ? 'primary' : 'ghost'}
+                    onClick={() => {
+                      setCatIsFixed(false);
+                      setCatHasMultiple(false);
+                      setCatBudget('');
+                    }}
+                    className="w-full text-xs font-bold"
+                  >
+                    Gasto Variable
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={catIsFixed ? 'accent' : 'ghost'}
+                    onClick={() => setCatIsFixed(true)}
+                    className="w-full text-xs font-bold"
+                  >
+                    Gasto Fijo
+                  </Button>
                 </div>
+                <span className="text-[10px] text-slate-400 mt-1 block leading-relaxed">
+                  {!catIsFixed
+                    ? 'Variable: Sin presupuesto forzado ni fechas. No descuenta de tu gasto seguro por día y se audita comparando mes anterior vs este mes.'
+                    : 'Fijo: Compromiso obligatorio (arriendo, servicios, cuotas) con fecha y monto que protege tu flujo de caja.'}
+                </span>
+              </div>
+            )}
 
-                {/* Programación y Fechas Clave */}
-                <div className="p-3 rounded-2xl bg-surface-elevated/70 border border-border space-y-2.5">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-200">
-                    <Calendar className="w-4 h-4 text-primary" />
-                    <span>Programación y Fecha Clave</span>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-1.5">
+            {/* Presupuesto y Fechas (Sólo para Fuentes de Ingreso o Gastos Fijos) */}
+            {(catType === 'INCOME' || catIsFixed) ? (
+              <>
+                {/* Selector de Modalidad */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Modalidad de Programación
+                  </label>
+                  <div className="grid grid-cols-2 gap-2 p-1 bg-surface-elevated rounded-2xl border border-border">
                     <Button
                       type="button"
-                      size="xs"
-                      variant={catFrequency === 'MONTHLY' ? 'primary' : 'outline'}
-                      onClick={() => setCatFrequency('MONTHLY')}
-                    >
-                      Día Fijo Mes
-                    </Button>
-                    <Button
-                      type="button"
-                      size="xs"
-                      variant={catFrequency === 'ONCE' ? 'primary' : 'outline'}
-                      onClick={() => setCatFrequency('ONCE')}
+                      size="sm"
+                      variant={!catHasMultiple ? 'primary' : 'ghost'}
+                      onClick={() => setCatHasMultiple(false)}
+                      icon={Clock}
+                      className="w-full"
                     >
                       Fecha Única
                     </Button>
                     <Button
                       type="button"
-                      size="xs"
-                      variant={catFrequency === 'NONE' ? 'primary' : 'outline'}
-                      onClick={() => setCatFrequency('NONE')}
+                      size="sm"
+                      variant={catHasMultiple ? 'primary' : 'ghost'}
+                      onClick={() => {
+                        setCatHasMultiple(true);
+                        if (catItems.length === 0) {
+                          setCatItems([
+                            { amount: catBudget || '', due_day: catDueDay || '15', frequency: 'MONTHLY' },
+                            { amount: '', due_day: '30', frequency: 'MONTHLY' },
+                          ]);
+                        }
+                      }}
+                      icon={Layers}
+                      className="w-full"
                     >
-                      Sin Fecha
+                      Múltiples Fechas
                     </Button>
                   </div>
+                </div>
 
-                  {catFrequency === 'MONTHLY' && (
+                {!catHasMultiple ? (
+                  <>
                     <div>
-                      <label className="block text-[11px] font-medium text-slate-300 mb-1">
-                        Día del mes (1 al 31)
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-semibold text-slate-300">
+                          {catType === 'INCOME' ? 'Monto Mensual Estimado ($ COP)' : 'Presupuesto Mensual Estimado ($ COP)'}
+                        </label>
+                        {Number(catBudget) > 0 && (
+                          <span className="text-[11px] text-primary font-bold">
+                            {formatCOP(Number(catBudget))}
+                          </span>
+                        )}
+                      </div>
                       <input
                         type="number"
-                        min={1}
-                        max={31}
-                        value={catDueDay}
-                        onChange={(e) => setCatDueDay(e.target.value)}
-                        placeholder="Ej: 15 (quincena), 30 (fin de mes), 27 (plan)"
-                        className="w-full bg-surface border border-border text-foreground text-xs px-3 py-2 rounded-xl focus:border-primary focus:outline-none placeholder:text-slate-500"
+                        value={catBudget}
+                        onChange={(e) => setCatBudget(e.target.value)}
+                        placeholder={catType === 'INCOME' ? 'Ej: 1500000' : 'Ej: 500000'}
+                        className="w-full bg-surface-elevated border border-border text-foreground text-xs px-3 py-2.5 rounded-xl focus:border-primary focus:outline-none placeholder:text-slate-500"
                       />
                       <span className="text-[10px] text-slate-400 mt-1 block">
-                        Se proyectará cada mes en este día para calcular tu gasto diario inteligente.
+                        {catType === 'INCOME'
+                          ? 'Este valor alimentará tu verdadero ingreso mensual de manera dinámica.'
+                          : 'Tope máximo o compromiso para este grupo.'}
                       </span>
                     </div>
-                  )}
 
-                  {catFrequency === 'ONCE' && (
-                    <div>
-                      <label className="block text-[11px] font-medium text-slate-300 mb-1">
-                        Fecha exacta (Año-Mes-Día)
-                      </label>
-                      <input
-                        type="date"
-                        value={catSpecificDate}
-                        onChange={(e) => setCatSpecificDate(e.target.value)}
-                        className="w-full bg-surface border border-border text-foreground text-xs px-3 py-2 rounded-xl focus:border-primary focus:outline-none"
-                      />
-                      <span className="text-[10px] text-slate-400 mt-1 block">
-                        Para salidas, seguros, viajes o gastos puntuales con fecha definida.
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </>
-            ) : (
-              /* Múltiples Fechas */
-              <div className="space-y-3 p-3.5 rounded-2xl bg-surface-elevated/50 border border-border">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5 text-primary" />
-                      <span>Fechas del Grupo</span>
-                    </span>
-                    <p className="text-[10px] text-slate-400 mt-0.5">
-                      Monto y día de cada cobro o quincena. El total se calcula sumando los items.
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    size="xs"
-                    variant="primary"
-                    onClick={handleAddCatItem}
-                    icon={Plus}
-                    className="h-7 w-7 p-0"
-                  />
-                </div>
-
-                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                  {catItems.map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-2 bg-surface p-2 rounded-xl border border-border">
-                      <div className="flex-1 min-w-0">
-                        <label className="text-[9px] text-slate-400 font-bold block mb-0.5">Monto ($ COP)</label>
-                        <input
-                          type="number"
-                          placeholder="Ej: 1200000"
-                          value={item.amount}
-                          onChange={(e) => handleUpdateCatItem(idx, 'amount', e.target.value)}
-                          className="w-full bg-surface-elevated border border-border text-foreground text-xs px-2.5 py-1.5 rounded-lg focus:border-primary focus:outline-none placeholder:text-slate-500"
-                        />
+                    {/* Programación y Fechas Clave */}
+                    <div className="p-3 rounded-2xl bg-surface-elevated/70 border border-border space-y-2.5">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-200">
+                        <Calendar className="w-4 h-4 text-primary" />
+                        <span>Programación y Fecha Clave</span>
                       </div>
 
-                      <div className="w-24 shrink-0">
-                        <label className="text-[9px] text-slate-400 font-bold block mb-0.5">Día del mes</label>
-                        <input
-                          type="number"
-                          min={1}
-                          max={31}
-                          placeholder="1-31"
-                          value={item.due_day}
-                          onChange={(e) => handleUpdateCatItem(idx, 'due_day', e.target.value)}
-                          className="w-full bg-surface-elevated border border-border text-foreground text-xs px-2.5 py-1.5 rounded-lg focus:border-primary focus:outline-none text-center font-bold"
-                        />
-                      </div>
-
-                      {catItems.length > 1 && (
+                      <div className="grid grid-cols-3 gap-1.5">
                         <Button
                           type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={() => handleRemoveCatItem(idx)}
-                          className="mt-3 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10"
-                          title="Eliminar fecha"
+                          size="xs"
+                          variant={catFrequency === 'MONTHLY' ? 'primary' : 'outline'}
+                          onClick={() => setCatFrequency('MONTHLY')}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          Día Fijo Mes
                         </Button>
+                        <Button
+                          type="button"
+                          size="xs"
+                          variant={catFrequency === 'ONCE' ? 'primary' : 'outline'}
+                          onClick={() => setCatFrequency('ONCE')}
+                        >
+                          Fecha Única
+                        </Button>
+                        <Button
+                          type="button"
+                          size="xs"
+                          variant={catFrequency === 'NONE' ? 'primary' : 'outline'}
+                          onClick={() => setCatFrequency('NONE')}
+                        >
+                          Sin Fecha
+                        </Button>
+                      </div>
+
+                      {catFrequency === 'MONTHLY' && (
+                        <div>
+                          <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                            Día del mes (1 al 31)
+                          </label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={31}
+                            value={catDueDay}
+                            onChange={(e) => setCatDueDay(e.target.value)}
+                            placeholder="Ej: 15 (quincena), 30 (fin de mes), 27 (plan)"
+                            className="w-full bg-surface border border-border text-foreground text-xs px-3 py-2 rounded-xl focus:border-primary focus:outline-none placeholder:text-slate-500"
+                          />
+                          <span className="text-[10px] text-slate-400 mt-1 block">
+                            Se proyectará cada mes en este día para calcular tu gasto diario inteligente.
+                          </span>
+                        </div>
+                      )}
+
+                      {catFrequency === 'ONCE' && (
+                        <div>
+                          <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                            Fecha exacta (Año-Mes-Día)
+                          </label>
+                          <input
+                            type="date"
+                            value={catSpecificDate}
+                            onChange={(e) => setCatSpecificDate(e.target.value)}
+                            className="w-full bg-surface border border-border text-foreground text-xs px-3 py-2 rounded-xl focus:border-primary focus:outline-none"
+                          />
+                          <span className="text-[10px] text-slate-400 mt-1 block">
+                            Para salidas, seguros, viajes o gastos puntuales con fecha definida.
+                          </span>
+                        </div>
                       )}
                     </div>
-                  ))}
-                </div>
+                  </>
+                ) : (
+                  /* Múltiples Fechas */
+                  <div className="space-y-3 p-3.5 rounded-2xl bg-surface-elevated/50 border border-border">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-primary" />
+                          <span>Fechas del Grupo</span>
+                        </span>
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          Monto y día de cada cobro o quincena. El total se calcula sumando los items.
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        size="xs"
+                        variant="primary"
+                        onClick={handleAddCatItem}
+                        icon={Plus}
+                        className="h-7 w-7 p-0"
+                      />
+                    </div>
 
-                {/* Live Total */}
-                <div className="flex items-center justify-between pt-2 border-t border-border text-xs">
-                  <span className="text-slate-400 font-medium">Total mensual calculado:</span>
-                  <span className="text-emerald-400 font-mono font-black text-sm">
-                    {formatCOP(catItems.reduce((sum, it) => sum + (Number(it.amount) || 0), 0))}
-                  </span>
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {catItems.map((item, idx) => (
+                        <div key={idx} className="flex items-center gap-2 bg-surface p-2 rounded-xl border border-border">
+                          <div className="flex-1 min-w-0">
+                            <label className="text-[9px] text-slate-400 font-bold block mb-0.5">Monto ($ COP)</label>
+                            <input
+                              type="number"
+                              placeholder="Ej: 1200000"
+                              value={item.amount}
+                              onChange={(e) => handleUpdateCatItem(idx, 'amount', e.target.value)}
+                              className="w-full bg-surface-elevated border border-border text-foreground text-xs px-2.5 py-1.5 rounded-lg focus:border-primary focus:outline-none placeholder:text-slate-500"
+                            />
+                          </div>
+
+                          <div className="w-24 shrink-0">
+                            <label className="text-[9px] text-slate-400 font-bold block mb-0.5">Día del mes</label>
+                            <input
+                              type="number"
+                              min={1}
+                              max={31}
+                              placeholder="1-31"
+                              value={item.due_day}
+                              onChange={(e) => handleUpdateCatItem(idx, 'due_day', e.target.value)}
+                              className="w-full bg-surface-elevated border border-border text-foreground text-xs px-2.5 py-1.5 rounded-lg focus:border-primary focus:outline-none text-center font-bold"
+                            />
+                          </div>
+
+                          {catItems.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => handleRemoveCatItem(idx)}
+                              className="mt-3 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10"
+                              title="Eliminar fecha"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Live Total */}
+                    <div className="flex items-center justify-between pt-2 border-t border-border text-xs">
+                      <span className="text-slate-400 font-medium">Total mensual calculado:</span>
+                      <span className="text-emerald-400 font-mono font-black text-sm">
+                        {formatCOP(catItems.reduce((sum, it) => sum + (Number(it.amount) || 0), 0))}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              /* Vista para Gasto Variable: Sin presupuesto */
+              <div className="p-3.5 rounded-2xl bg-surface-elevated/70 border border-border space-y-1.5 text-xs text-foreground/80">
+                <div className="flex items-center gap-2 font-bold text-foreground">
+                  <Layers className="w-4 h-4 text-primary" />
+                  <span>Control por Comparativa Mensual</span>
                 </div>
+                <p className="text-[11px] text-foreground/60 leading-relaxed">
+                  Para este grupo no necesitas definir un presupuesto forzado ni fechas límite. El sistema auditará automáticamente cuánto gastas en el mes y lo comparará con el mes anterior, sin reducir tu gasto seguro por día.
+                </p>
               </div>
-            )}
-
-            {catType !== 'INCOME' && (
-              <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300 pt-1">
-                <input
-                  type="checkbox"
-                  checked={catIsFixed}
-                  onChange={(e) => setCatIsFixed(e.target.checked)}
-                  className="rounded border-border text-primary focus:ring-0"
-                />
-                <span>¿Es un compromiso fijo mensual obligatorio? (Ej: papás, arriendo)</span>
-              </label>
             )}
 
             <div>
