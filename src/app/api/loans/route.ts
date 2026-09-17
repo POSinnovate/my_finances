@@ -59,8 +59,12 @@ export async function GET(req: NextRequest) {
     }
 
     if (status && status !== 'ALL') {
-      whereClause += ' AND status = ?';
-      params.push(status);
+      if (status === 'OVERDUE') {
+        whereClause += " AND status = 'ACTIVE' AND due_date IS NOT NULL AND due_date < CURRENT_DATE";
+      } else {
+        whereClause += ' AND status = ?';
+        params.push(status);
+      }
     }
 
     if (search) {
@@ -229,6 +233,30 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Query overdue counts
+    const overdueCounts = (await db
+      .prepare(
+        `
+      SELECT 
+        COALESCE(loan_type, 'LENT') as l_type,
+        COUNT(*) as cnt
+      FROM loans
+      WHERE user_id = ? AND status = 'ACTIVE' AND due_date IS NOT NULL AND due_date < CURRENT_DATE
+      GROUP BY COALESCE(loan_type, 'LENT')
+    `
+      )
+      .all(auth.userId)) as any[];
+
+    let overdueLentCount = 0;
+    let overdueBorrowedCount = 0;
+    for (const oc of overdueCounts) {
+      if (oc.l_type === 'BORROWED') {
+        overdueBorrowedCount = Number(oc.cnt) || 0;
+      } else {
+        overdueLentCount += Number(oc.cnt) || 0;
+      }
+    }
+
     const netCapitalTotal = totalActiveLentCapital - totalActiveBorrowedCapital;
 
     const summary = {
@@ -248,6 +276,8 @@ export async function GET(req: NextRequest) {
       // Counts for UI tabs
       active_lent_count: activeLentCount,
       active_borrowed_count: activeBorrowedCount,
+      overdue_lent_count: overdueLentCount,
+      overdue_borrowed_count: overdueBorrowedCount,
     };
 
     return NextResponse.json({

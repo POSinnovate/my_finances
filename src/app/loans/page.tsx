@@ -50,7 +50,7 @@ export default function LoansPage() {
   // Mode: 'LENT' (Por Cobrar / Me deben) vs 'BORROWED' (Por Pagar / Yo debo)
   const [loanTypeTab, setLoanTypeTab] = useState<'LENT' | 'BORROWED'>('LENT');
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ACTIVE' | 'PAID' | 'ALL'>('ACTIVE');
+  const [statusFilter, setStatusFilter] = useState<'ACTIVE' | 'OVERDUE' | 'PAID' | 'ALL'>('ACTIVE');
 
   // Fetch loans with TanStack Query
   const { data: loansData, isLoading: loadingLoans, refetch: refetchLoans } = useLoans(
@@ -665,7 +665,7 @@ export default function LoansPage() {
             )}
           </div>
 
-          <div className="grid grid-cols-3 gap-1 bg-surface-elevated p-1 rounded-xl border border-border shrink-0">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 bg-surface-elevated p-1 rounded-xl border border-border shrink-0">
             <Button
               type="button"
               size="xs"
@@ -673,6 +673,22 @@ export default function LoansPage() {
               onClick={() => setStatusFilter('ACTIVE')}
             >
               Activos
+            </Button>
+            <Button
+              type="button"
+              size="xs"
+              variant={statusFilter === 'OVERDUE' ? 'danger' : 'ghost'}
+              onClick={() => setStatusFilter('OVERDUE')}
+              className={statusFilter !== 'OVERDUE' ? 'text-rose-400 hover:text-rose-300 hover:bg-rose-500/15' : ''}
+            >
+              <span>Vencidos</span>
+              {((isLentMode ? summary.overdue_lent_count : summary.overdue_borrowed_count) ?? 0) > 0 && (
+                <span className={`ml-1 text-[9px] px-1.5 py-0.2 rounded-full font-bold font-mono ${
+                  statusFilter === 'OVERDUE' ? 'bg-white text-rose-600' : 'bg-rose-500/20 text-rose-400'
+                }`}>
+                  {isLentMode ? summary.overdue_lent_count : summary.overdue_borrowed_count}
+                </span>
+              )}
             </Button>
             <Button
               type="button"
@@ -688,7 +704,7 @@ export default function LoansPage() {
               variant={statusFilter === 'ALL' ? 'primary' : 'ghost'}
               onClick={() => setStatusFilter('ALL')}
             >
-              Todos ({loans.length})
+              Todos
             </Button>
           </div>
         </div>
@@ -745,11 +761,17 @@ export default function LoansPage() {
               <HandCoins className="w-5 h-5" />
             </div>
             <h3 className="text-sm font-bold text-foreground">
-              {isLentMode ? 'No hay préstamos registrados' : 'No hay deudas registradas'}
+              {statusFilter === 'OVERDUE'
+                ? (isLentMode ? '¡Al día! No tienes préstamos vencidos' : '¡Excelente! No tienes deudas vencidas')
+                : (isLentMode ? 'No hay préstamos registrados' : 'No hay deudas registradas')}
             </h3>
             <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
               {search
                 ? `Sin resultados para "${search}".`
+                : statusFilter === 'OVERDUE'
+                ? (isLentMode
+                    ? 'Todos los clientes con préstamos activos están dentro de su fecha límite de pago.'
+                    : 'No tienes obligaciones con acreedores fuera de plazo.')
                 : isLentMode
                 ? 'Registra préstamos para controlar el capital prestado y tus cobros de interés.'
                 : 'Registra créditos para llevar el control de tus pagos a acreedores.'}
