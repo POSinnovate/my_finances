@@ -296,30 +296,58 @@ export default function LoansPage() {
     return Array.from(names);
   }, [loans]);
 
-  // Helper to build or resize installment schedule with default divided amounts & progressive dates
+  // Helper to build or resize installment schedule with default divided amounts & dynamic distributed dates
   const buildDefaultInstallmentSchedule = (
     count: number,
     total: number,
     startDateStr: string,
+    dueDateStr?: string,
     existingSchedule?: Array<{ number: number; amount: any; date: string }>,
-    recalculateAmounts: boolean = true
+    recalculateAmounts: boolean = true,
+    recalculateDates: boolean = false
   ) => {
     const n = Math.max(1, Math.min(120, count));
     const baseAmt = Math.floor(total / n);
     const remainder = total - (baseAmt * n);
     const sDate = startDateStr ? dayjs(startDateStr) : dayjs();
+    const eDate = dueDateStr && dayjs(dueDateStr).isValid() ? dayjs(dueDateStr) : null;
+    const diffDays = eDate ? eDate.diff(sDate, 'day') : 0;
 
     const result: Array<{ number: number; amount: string; date: string }> = [];
     for (let i = 1; i <= n; i++) {
       const prev = existingSchedule && existingSchedule[i - 1];
-      const defaultDate = sDate.add(i, 'month').format('YYYY-MM-DD');
+
+      // Calculate default distributed date
+      let defaultDate: string;
+      if (diffDays > 0 && eDate) {
+        if (i === n) {
+          defaultDate = eDate.format('YYYY-MM-DD');
+        } else {
+          const stepDays = Math.max(1, Math.round((diffDays / n) * i));
+          defaultDate = sDate.add(stepDays, 'day').format('YYYY-MM-DD');
+        }
+      } else {
+        defaultDate = sDate.add(i, 'month').format('YYYY-MM-DD');
+      }
+
       const calculatedAmt = baseAmt + (i <= remainder ? 1 : 0);
+
+      // Preserve date only if recalculateDates is false and it doesn't exceed dueDate
+      let finalDate = defaultDate;
+      if (!recalculateDates && prev && prev.date) {
+        if (dueDateStr && prev.date > dueDateStr) {
+          finalDate = defaultDate;
+        } else {
+          finalDate = prev.date;
+        }
+      }
+
       result.push({
         number: i,
         amount: recalculateAmounts
           ? String(calculatedAmt)
           : (prev && prev.amount !== undefined && prev.amount !== '' ? String(prev.amount) : String(calculatedAmt)),
-        date: prev && prev.date ? prev.date : defaultDate,
+        date: finalDate,
       });
     }
     return result;
@@ -403,7 +431,7 @@ export default function LoansPage() {
       setFormInstallmentSchedule(loadedSchedule);
     } else if (loan.has_installments) {
       const tot = (Number(loan.initial_amount) || 0) + (Number(loan.expected_interest) || 0);
-      setFormInstallmentSchedule(buildDefaultInstallmentSchedule(iCount, tot, sDate));
+      setFormInstallmentSchedule(buildDefaultInstallmentSchedule(iCount, tot, sDate, loan.due_date, undefined, false, false));
     } else {
       setFormInstallmentSchedule([]);
     }
@@ -1749,7 +1777,14 @@ export default function LoansPage() {
                             required
                             min={getTodayColombiaDate()}
                             value={formDueDate}
-                            onChange={(e) => setFormDueDate(e.target.value)}
+                            onChange={(e) => {
+                              const newDueDate = e.target.value;
+                              setFormDueDate(newDueDate);
+                              if (formHasInstallments && formInstallmentSchedule.length > 0) {
+                                const c = Math.max(1, Number(formInstallmentCount) || formInstallmentSchedule.length);
+                                setFormInstallmentSchedule(buildDefaultInstallmentSchedule(c, calculatedFormTotal, formStartDate, newDueDate, formInstallmentSchedule, false, true));
+                              }
+                            }}
                             className="w-full bg-surface border border-border focus:border-primary rounded-xl px-2.5 py-1.5 text-xs sm:text-sm text-white outline-none"
                           />
                         </div>
@@ -1767,7 +1802,7 @@ export default function LoansPage() {
                                 setFormHasInstallments(checked);
                                 if (checked) {
                                   const c = Math.max(1, Number(formInstallmentCount) || 3);
-                                  setFormInstallmentSchedule(buildDefaultInstallmentSchedule(c, calculatedFormTotal, formStartDate, formInstallmentSchedule, true));
+                                  setFormInstallmentSchedule(buildDefaultInstallmentSchedule(c, calculatedFormTotal, formStartDate, formDueDate, formInstallmentSchedule, true, true));
                                 }
                               }}
                               className="w-4 h-4 rounded border-border text-primary focus:ring-primary/40 bg-surface"
@@ -1785,7 +1820,7 @@ export default function LoansPage() {
                                 type="button"
                                 onClick={() => {
                                   const c = Math.max(1, Number(formInstallmentCount) || 1);
-                                  setFormInstallmentSchedule(buildDefaultInstallmentSchedule(c, calculatedFormTotal, formStartDate, formInstallmentSchedule, true));
+                                  setFormInstallmentSchedule(buildDefaultInstallmentSchedule(c, calculatedFormTotal, formStartDate, formDueDate, formInstallmentSchedule, true, true));
                                   toast.success('Cuotas recalculadas');
                                 }}
                                 className="text-[10px] text-accent hover:underline font-semibold bg-accent/10 px-1.5 py-0.5 rounded transition-colors"
@@ -1812,7 +1847,7 @@ export default function LoansPage() {
                                     variant={Number(formInstallmentCount) === num ? 'primary' : 'outline'}
                                     onClick={() => {
                                       setFormInstallmentCount(String(num));
-                                      setFormInstallmentSchedule(buildDefaultInstallmentSchedule(num, calculatedFormTotal, formStartDate, formInstallmentSchedule, true));
+                                      setFormInstallmentSchedule(buildDefaultInstallmentSchedule(num, calculatedFormTotal, formStartDate, formDueDate, formInstallmentSchedule, true, true));
                                     }}
                                     className="py-0.5 px-2 text-[10px] h-auto font-mono"
                                   >
@@ -1829,7 +1864,7 @@ export default function LoansPage() {
                                     setFormInstallmentCount(val);
                                     const num = Number(val);
                                     if (num >= 1 && num <= 60) {
-                                      setFormInstallmentSchedule(buildDefaultInstallmentSchedule(num, calculatedFormTotal, formStartDate, formInstallmentSchedule, true));
+                                      setFormInstallmentSchedule(buildDefaultInstallmentSchedule(num, calculatedFormTotal, formStartDate, formDueDate, formInstallmentSchedule, true, true));
                                     }
                                   }}
                                   className="w-12 bg-surface border border-border focus:border-primary rounded-lg px-1.5 py-0.5 text-center text-xs font-mono font-bold text-white outline-none"
@@ -1877,13 +1912,18 @@ export default function LoansPage() {
                                     />
                                   </div>
 
-                                  {/* Fecha de pago de la cuota (editable) */}
+                                  {/* Fecha de pago de la cuota (editable, capped at formDueDate) */}
                                   <input
                                     type="date"
                                     min={getTodayColombiaDate()}
+                                    max={formDueDate || undefined}
                                     value={inst.date}
                                     onChange={(e) => {
-                                      const newDate = e.target.value;
+                                      let newDate = e.target.value;
+                                      if (formDueDate && newDate > formDueDate) {
+                                        newDate = formDueDate;
+                                        toast.warning('La cuota no puede superar la fecha límite acordada');
+                                      }
                                       setFormInstallmentSchedule(prev => {
                                         const next = [...prev];
                                         if (next[idx]) {
