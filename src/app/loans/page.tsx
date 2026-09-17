@@ -6,29 +6,29 @@ import { BottomNav } from '@/components/layout/BottomNav';
 import { QuickExpenseModal } from '@/components/expenses/QuickExpenseModal';
 import { formatCOP } from '@/lib/utils';
 import dayjs, { formatShortDateSpanish, getTodayColombiaDate } from '@/lib/dayjs';
-import { 
-  useUser, 
-  useLoans, 
-  usePaymentMethods, 
+import {
+  useUser,
+  useLoans,
+  usePaymentMethods,
   useCategories,
-  useInvalidateFinance 
+  useInvalidateFinance
 } from '@/lib/api-hooks';
-import { 
-  HandCoins, 
-  Plus, 
-  Search, 
-  X, 
-  BadgePercent, 
-  CircleDollarSign, 
-  TrendingUp, 
-  Calendar, 
-  Clock, 
-  AlertCircle, 
-  ChevronDown, 
-  ChevronUp, 
-  Trash2, 
-  Edit3, 
-  DollarSign, 
+import {
+  HandCoins,
+  Plus,
+  Search,
+  X,
+  BadgePercent,
+  CircleDollarSign,
+  TrendingUp,
+  Calendar,
+  Clock,
+  AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  Trash2,
+  Edit3,
+  DollarSign,
   Receipt,
   ArrowDownLeft,
   ArrowUpRight,
@@ -54,8 +54,8 @@ export default function LoansPage() {
 
   // Fetch loans with TanStack Query
   const { data: loansData, isLoading: loadingLoans, refetch: refetchLoans } = useLoans(
-    search, 
-    statusFilter, 
+    search,
+    statusFilter,
     loanTypeTab
   );
   const loans = loansData?.loans || [];
@@ -429,8 +429,8 @@ export default function LoansPage() {
           isEditing
             ? 'Préstamo actualizado correctamente'
             : (formLoanType === 'BORROWED'
-                ? `Deuda con ${savedName} registrada`
-                : `Préstamo a ${savedName} registrado`)
+              ? `Deuda con ${savedName} registrada`
+              : `Préstamo a ${savedName} registrado`)
         );
         setIsLoanModalOpen(false);
         refetchLoans();
@@ -753,9 +753,8 @@ export default function LoansPage() {
             >
               <span>Vencidos</span>
               {((isLentMode ? summary.overdue_lent_count : summary.overdue_borrowed_count) ?? 0) > 0 && (
-                <span className={`ml-1 text-[9px] px-1.5 py-0.2 rounded-full font-bold font-mono ${
-                  statusFilter === 'OVERDUE' ? 'bg-white text-rose-600' : 'bg-rose-500/20 text-rose-400'
-                }`}>
+                <span className={`ml-1 text-[9px] px-1.5 py-0.2 rounded-full font-bold font-mono ${statusFilter === 'OVERDUE' ? 'bg-white text-rose-600' : 'bg-rose-500/20 text-rose-400'
+                  }`}>
                   {isLentMode ? summary.overdue_lent_count : summary.overdue_borrowed_count}
                 </span>
               )}
@@ -841,12 +840,12 @@ export default function LoansPage() {
               {search
                 ? `Sin resultados para "${search}".`
                 : statusFilter === 'OVERDUE'
-                ? (isLentMode
+                  ? (isLentMode
                     ? 'Todos los clientes con préstamos activos están dentro de su fecha límite de pago.'
                     : 'No tienes obligaciones con acreedores fuera de plazo.')
-                : isLentMode
-                ? 'Registra préstamos para controlar el capital prestado y tus cobros de interés.'
-                : 'Registra créditos para llevar el control de tus pagos a acreedores.'}
+                  : isLentMode
+                    ? 'Registra préstamos para controlar el capital prestado y tus cobros de interés.'
+                    : 'Registra créditos para llevar el control de tus pagos a acreedores.'}
             </p>
             <Button
               variant="primary"
@@ -887,13 +886,12 @@ export default function LoansPage() {
               return (
                 <div
                   key={debtor.borrower_name}
-                  className={`bg-surface border rounded-2xl overflow-hidden shadow-sm transition-all ${
-                    isAllPaid
-                      ? 'border-slate-800 opacity-90'
-                      : isOverdue
+                  className={`bg-surface border rounded-2xl overflow-hidden shadow-sm transition-all ${isAllPaid
+                    ? 'border-slate-800 opacity-90'
+                    : isOverdue
                       ? 'border-rose-500/40'
                       : 'border-border hover:border-primary/50'
-                  }`}
+                    }`}
                 >
                   {/* Clean Debtor Header */}
                   <div className="p-3 sm:p-3.5 flex items-center justify-between gap-2.5 select-none bg-surface-elevated/40">
@@ -1139,7 +1137,7 @@ export default function LoansPage() {
                                   title="Editar préstamo completo"
                                   aria-label="Editar préstamo"
                                 >
-                                  <Edit size={14}/>
+                                  <Edit size={14} />
                                 </Button>
 
                                 <Button
@@ -1151,7 +1149,7 @@ export default function LoansPage() {
                                   title="Eliminar préstamo y devolver capital a tu cuenta"
                                   aria-label="Eliminar préstamo"
                                 >
-                                  <Trash2 size={14}/>
+                                  <Trash2 size={14} />
                                 </Button>
                               </div>
                             </div>
@@ -1377,11 +1375,10 @@ export default function LoansPage() {
                     </label>
                     {Number(formInitialAmount) > 0 && (
                       <span
-                        className={`text-xs font-extrabold px-2 py-0.5 rounded-lg border transition-all ${
-                          formLoanType === 'LENT'
-                            ? 'bg-primary/10 text-primary border-primary/30'
-                            : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-                        }`}
+                        className={`text-xs font-extrabold px-2 py-0.5 rounded-lg border transition-all ${formLoanType === 'LENT'
+                          ? 'bg-primary/10 text-primary border-primary/30'
+                          : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                          }`}
                       >
                         {formatCOP(Number(formInitialAmount) || 0)}
                       </span>
@@ -1390,9 +1387,8 @@ export default function LoansPage() {
 
                   <div className="relative">
                     <span
-                      className={`absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-black ${
-                        formLoanType === 'LENT' ? 'text-primary' : 'text-amber-400'
-                      }`}
+                      className={`absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-black ${formLoanType === 'LENT' ? 'text-primary' : 'text-amber-400'
+                        }`}
                     >
                       $
                     </span>
@@ -1495,7 +1491,7 @@ export default function LoansPage() {
                           setFormDueDate(dayjs(formStartDate).add(m, 'month').format('YYYY-MM-DD'));
                         }}
                       >
-                        % Mensual (Caso 1)
+                        % Mensual
                       </Button>
                       <Button
                         type="button"
@@ -1508,7 +1504,7 @@ export default function LoansPage() {
                           }
                         }}
                       >
-                        $ Fijo (Caso 2)
+                        $ Fijo
                       </Button>
                     </div>
                   </div>
@@ -1857,8 +1853,8 @@ export default function LoansPage() {
                   {loanModalMode === 'edit'
                     ? 'Guardar Cambios del Préstamo'
                     : formLoanType === 'LENT'
-                    ? 'Guardar Préstamo por Cobrar'
-                    : 'Guardar Deuda por Pagar'}
+                      ? 'Guardar Préstamo por Cobrar'
+                      : 'Guardar Deuda por Pagar'}
                 </Button>
               </div>
             </form>
@@ -1955,7 +1951,7 @@ export default function LoansPage() {
                         }}
                         className="flex-1 min-w-[100px]"
                       >
-                        Pagar 1 Cuota ({formatCOP(instAmt)})
+                        Pagar 1 Cuota
                       </Button>
                     )}
 
