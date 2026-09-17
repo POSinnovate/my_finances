@@ -327,7 +327,7 @@ export function ScheduledItemsModal({ isOpen, onClose, category }: ScheduledItem
                 onChange={(e) => setAmount(e.target.value)}
                 required
                 min="0"
-                step="100"
+                step="any"
               />
             </div>
           </div>

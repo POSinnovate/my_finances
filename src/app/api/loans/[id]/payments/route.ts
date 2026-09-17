@@ -22,8 +22,16 @@ export async function POST(
       notes,
     } = body;
 
-    const capAmt = Math.max(0, Number(capital_amount) || 0);
-    const intAmt = Math.max(0, Number(interest_amount) || 0);
+    const capAmt = Number(capital_amount) || 0;
+    const intAmt = Number(interest_amount) || 0;
+
+    if (capAmt < 0 || intAmt < 0) {
+      return NextResponse.json(
+        { error: 'No se permiten montos negativos para abonos' },
+        { status: 400 }
+      );
+    }
+
     const totAmt = capAmt + intAmt;
 
     if (totAmt <= 0) {

@@ -603,6 +603,12 @@ export default function LoansPage() {
 
     const cap = Number(payCapital) || 0;
     const int = Number(payInterest) || 0;
+
+    if (cap < 0 || int < 0) {
+      toast.error('Los montos no pueden ser negativos');
+      return;
+    }
+
     const total = cap + int;
 
     if (total <= 0) {
@@ -1540,11 +1546,15 @@ export default function LoansPage() {
                       type="number"
                       inputMode="numeric"
                       required
-                      min="1000"
-                      step="500"
+                      min="1"
+                      step="any"
                       placeholder="0"
                       value={formInitialAmount}
-                      onChange={(e) => setFormInitialAmount(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val !== '' && Number(val) < 0) return;
+                        setFormInitialAmount(val);
+                      }}
                       className="w-full bg-surface-elevated border border-border focus:border-primary text-white text-2xl sm:text-3xl font-extrabold pl-10 pr-4 py-2 sm:py-2.5 rounded-2xl focus:outline-none transition-all placeholder:text-slate-600"
                     />
                   </div>
@@ -1889,10 +1899,11 @@ export default function LoansPage() {
                                     <input
                                       type="number"
                                       min="0"
-                                      step="500"
+                                      step="any"
                                       value={inst.amount}
                                       onChange={(e) => {
                                         const newAmt = e.target.value;
+                                        if (newAmt !== '' && Number(newAmt) < 0) return;
                                         setFormInstallmentSchedule(prev => {
                                           const next = [...prev];
                                           if (next[idx]) {
@@ -2314,10 +2325,12 @@ export default function LoansPage() {
                   label="Abono a Capital ($)"
                   type="number"
                   min="0"
-                  step="500"
+                  step="any"
                   value={payCapital}
                   onChange={(e) => {
-                    setPayCapital(e.target.value);
+                    const val = e.target.value;
+                    if (val !== '' && Number(val) < 0) return;
+                    setPayCapital(val);
                     setActivePaymentShortcut(null);
                   }}
                   placeholder="0"
@@ -2327,10 +2340,12 @@ export default function LoansPage() {
                   label="Interés del Mes"
                   type="number"
                   min="0"
-                  step="500"
+                  step="any"
                   value={payInterest}
                   onChange={(e) => {
-                    setPayInterest(e.target.value);
+                    const val = e.target.value;
+                    if (val !== '' && Number(val) < 0) return;
+                    setPayInterest(val);
                     setActivePaymentShortcut(null);
                   }}
                   placeholder="0"

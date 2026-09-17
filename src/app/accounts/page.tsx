@@ -714,7 +714,8 @@ export default function AccountsPage() {
             <Input
               label="Saldo Inicial"
               type="number"
-              step="1000"
+              min="0"
+              step="any"
               value={newMethodInitialBalance}
               onChange={(e) => setNewMethodInitialBalance(e.target.value)}
               placeholder="0"
@@ -862,7 +863,7 @@ export default function AccountsPage() {
               <Input
                 label="Nuevo Saldo Real Exacto"
                 type="number"
-                step="100"
+                step="any"
                 required
                 value={adjustTargetBalance}
                 onChange={(e) => setAdjustTargetBalance(e.target.value)}
@@ -923,7 +924,8 @@ export default function AccountsPage() {
               </div>
               <Input
                 type="number"
-                step="1000"
+                min="0"
+                step="any"
                 value={newPocketInitialFunding}
                 onChange={(e) => setNewPocketInitialFunding(e.target.value)}
                 placeholder="0"
@@ -937,7 +939,8 @@ export default function AccountsPage() {
               <Input
                 label="Meta Opcional"
                 type="number"
-                step="1000"
+                min="0"
+                step="any"
                 value={newPocketTargetAmount}
                 onChange={(e) => setNewPocketTargetAmount(e.target.value)}
                 placeholder="Ej: 1500000"
@@ -1030,7 +1033,8 @@ export default function AccountsPage() {
               <Input
                 label={`Monto a ${transferType === 'DEPOSIT' ? 'Meter' : 'Sacar'} ($ COP) *`}
                 type="number"
-                step="1000"
+                min="0"
+                step="any"
                 required
                 autoFocus
                 value={transferAmount}
