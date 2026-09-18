@@ -161,17 +161,31 @@ export async function GET(req: NextRequest) {
         const instCount = Math.max(1, Number(l.installment_count) || 1);
         const instFreq = l.installment_frequency || 'MONTHLY';
 
-        // Projected interest for the loan agreement
+        // Elapsed months and remaining months of the term
+        const now = new Date();
+        const todayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const sDate = l.start_date ? new Date(l.start_date) : new Date();
+        const diffDays = Math.max(0, (todayMs - sDate.getTime()) / (1000 * 60 * 60 * 24));
+        const elapsedMonths = Math.floor(diffDays / 30);
+        const remainingMonths = Math.max(1, durationMonths - elapsedMonths);
+
+        // Projected interest: in percentage loans, calculated on remaining capital, not initial principal
+        const remainingFutureInterest = remainingCapital > 0 && rate > 0
+          ? Math.round(remainingCapital * (rate / 100) * remainingMonths)
+          : (remainingCapital > 0 ? expInt : 0);
+
         const projectedInterest = isPercent
-          ? (rate > 0 ? Math.round(initAmt * (rate / 100) * durationMonths) : expInt)
+          ? (paidInt + remainingFutureInterest)
           : expInt;
 
         // Total money to collect (Principal + Projected Interest)
-        const totalToCollect = initAmt + projectedInterest;
+        const totalToCollect = isPercent ? (initAmt + projectedInterest) : (initAmt + expInt);
         // Money collected so far (Capital returned + Interest collected)
         const totalCollected = paidCap + paidInt;
-        // Remaining to collect in total
-        const remainingToCollect = Math.max(0, totalToCollect - totalCollected);
+        // Remaining to collect in total (remaining capital + remaining interest on balance)
+        const remainingToCollect = isPercent
+          ? (remainingCapital + remainingFutureInterest)
+          : Math.max(0, totalToCollect - totalCollected);
 
         // Parse custom installments schedule if provided
         let customSchedule: Array<{ number: number; amount: number; date: string }> = [];
@@ -221,9 +235,6 @@ export async function GET(req: NextRequest) {
         let overdueMonthsCount = 0;
         let overdueInstallmentsCount = 0;
         let amountToActivate = 0; // Amount needed to return to ACTIVE status
-
-        const now = new Date();
-        const todayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 
         if (!isPaidInFull) {
           // A. Term expiration check (due_date passed and still capital remaining)
@@ -351,7 +362,7 @@ export async function GET(req: NextRequest) {
           initial_amount: initAmt,
           interest_rate: rate,
           duration_months: durationMonths,
-          expected_interest: expInt,
+          expected_interest: isPercent ? monthlyInterest : expInt,
           monthly_interest: monthlyInterest,
           projected_interest: projectedInterest,
           total_expected: totalToCollect,

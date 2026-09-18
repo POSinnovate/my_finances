@@ -150,23 +150,23 @@ export async function PUT(
     const instCount = installment_count !== undefined ? Math.max(1, Number(installment_count) || 1) : Math.max(1, Number(existing.installment_count) || 1);
     const instFreq = installment_frequency !== undefined ? installment_frequency : (existing.installment_frequency || 'MONTHLY');
 
+    const paidCap = Number(existing.paid_capital) || 0;
+    const currentBalance = Math.max(0, principal - paidCap);
+    const calculatedStatus = status || (currentBalance <= 0 ? 'PAID' : 'ACTIVE');
+
     let monthlyInterest = expected_interest !== undefined ? Number(expected_interest) : Number(existing.expected_interest);
     if (isPercent && rate > 0) {
-      monthlyInterest = Math.round(principal * (rate / 100));
+      monthlyInterest = Math.round(currentBalance * (rate / 100));
     }
 
     const projectedInterest = isPercent
-      ? (rate > 0 ? Math.round(principal * (rate / 100) * durationMonths) : monthlyInterest)
+      ? (rate > 0 ? Math.round(currentBalance * (rate / 100) * durationMonths) : monthlyInterest)
       : monthlyInterest;
       
     const totalExpected = principal + projectedInterest;
     const instAmt = installment_amount !== undefined && Number(installment_amount) > 0 
       ? Number(installment_amount) 
       : (hasInst ? Math.round(totalExpected / instCount) : 0);
-
-    const paidCap = Number(existing.paid_capital) || 0;
-    const currentBalance = Math.max(0, principal - paidCap);
-    const calculatedStatus = status || (currentBalance <= 0 ? 'PAID' : 'ACTIVE');
 
     const startDate = start_date || existing.start_date;
     

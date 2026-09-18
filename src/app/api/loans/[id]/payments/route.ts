@@ -49,6 +49,9 @@ export async function POST(
         id, 
         borrower_name, 
         initial_amount, 
+        interest_type,
+        interest_rate,
+        duration_months,
         expected_interest, 
         total_expected, 
         paid_capital, 
@@ -110,6 +113,14 @@ export async function POST(
         cleanNotes
       );
 
+    const rate = Number(loan.interest_rate) || 0;
+    const isPercent = (loan.interest_type || (rate > 0 ? 'PERCENT' : 'FIXED')) === 'PERCENT';
+    
+    // When capital is paid, recalculate monthly interest on remaining capital
+    const newMonthlyInterest = isPercent && rate > 0
+      ? (remainingCapital > 0 ? Math.round(remainingCapital * (rate / 100)) : 0)
+      : Number(loan.expected_interest || 0);
+
     // 3. Update loan record
     await db
       .prepare(
@@ -119,11 +130,12 @@ export async function POST(
         paid_capital = ?,
         paid_interest = ?,
         current_balance = ?,
+        expected_interest = ?,
         status = ?
       WHERE id = ? AND user_id = ?
     `
       )
-      .run(newPaidCapital, newPaidInterest, newBalance, newStatus, id, auth.userId);
+      .run(newPaidCapital, newPaidInterest, newBalance, newMonthlyInterest, newStatus, id, auth.userId);
 
     // 4. Synchronize cash movements in expenses with professional accounting standards
     if (!isBorrowed) {

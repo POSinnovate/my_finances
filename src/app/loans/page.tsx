@@ -1319,7 +1319,7 @@ export default function LoansPage() {
                               <div className="bg-surface-elevated/50 border border-emerald-500/25 rounded-xl p-2.5 flex items-center justify-between sm:flex-col sm:items-start gap-1 shadow-xs">
                                 <div className="min-w-0">
                                   <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block">
-                                    {loan.interest_rate > 0 ? `Interés (${loan.interest_rate}%)` : 'Interés Fijo'}
+                                    {loan.interest_rate > 0 ? `Interés (${loan.interest_rate}% / mes)` : 'Interés Fijo'}
                                   </span>
                                   <div className="text-[11px] font-mono text-emerald-300/80 mt-0.5">
                                     Cobrado: <span className="font-semibold">{formatCOP(loan.paid_interest)}</span>
@@ -1327,8 +1327,15 @@ export default function LoansPage() {
                                 </div>
                                 <div className="text-right sm:text-left shrink-0">
                                   <div className="font-extrabold font-mono text-emerald-400 text-sm sm:text-base">
-                                    +{formatCOP(loan.projected_interest)}
+                                    {loan.interest_rate > 0
+                                      ? `+${formatCOP(loan.monthly_interest || Math.round(Number(loan.remaining_capital || 0) * (loan.interest_rate / 100)))}/mes`
+                                      : `+${formatCOP(loan.expected_interest || loan.projected_interest)}`}
                                   </div>
+                                  {loan.interest_rate > 0 && (
+                                    <span className="text-[9px] text-slate-400 block font-mono">
+                                      (sobre saldo restante)
+                                    </span>
+                                  )}
                                 </div>
                               </div>
 
@@ -1738,7 +1745,7 @@ export default function LoansPage() {
                         </div>
                       </div>
                       <p className="text-[10px] text-slate-400 italic">
-                        * En interés porcentual el plazo mínimo es 1 mes. El sistema calcula automáticamente la fecha de fin y acumulará el interés mensual si no se abona oportunamente.
+                        * En interés porcentual, el cobro de cada mes se calcula sobre el capital restante adeudado. Al abonar a capital, el interés del mes siguiente baja automáticamente.
                       </p>
                     </div>
                   ) : (
@@ -2168,7 +2175,7 @@ export default function LoansPage() {
 
                     {selectedLoanForPayment.interest_type === 'PERCENT' ? (
                       <div className="flex justify-between text-slate-300">
-                        <span>Interés del Mes ({selectedLoanForPayment.interest_rate}%):</span>
+                        <span>Interés del Mes ({selectedLoanForPayment.interest_rate}% sobre saldo):</span>
                         <span className="font-mono font-bold text-emerald-400">+{formatCOP(monthlyFee)}</span>
                       </div>
                     ) : (
