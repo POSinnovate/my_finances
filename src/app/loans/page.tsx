@@ -135,6 +135,7 @@ export default function LoansPage() {
       const key = (loan.borrower_name || 'Sin Nombre').trim().toLowerCase();
       const remainingCap = Number(loan.remaining_capital) || Number(loan.current_balance) || 0;
       const isPaid = loan.status === 'PAID' || remainingCap <= 0;
+      const effectiveRemainingCap = isPaid ? 0 : Math.max(0, remainingCap);
       const isOverdue =
         !isPaid &&
         loan.due_date &&
@@ -157,9 +158,9 @@ export default function LoansPage() {
           borrower_name: loan.borrower_name,
           loans: [loan],
           tags: loanTag ? [loanTag] : [],
-          total_current_balance: remainingCap,
+          total_current_balance: effectiveRemainingCap,
           total_initial_amount: Number(loan.initial_amount) || 0,
-          total_remaining_capital: remainingCap,
+          total_remaining_capital: effectiveRemainingCap,
           total_paid_capital: Number(loan.paid_capital) || 0,
           total_paid_interest: Number(loan.paid_interest) || 0,
           total_monthly_interest: isPaid ? 0 : loanMonthly,
@@ -175,9 +176,9 @@ export default function LoansPage() {
         if (loanTag && !existing.tags.includes(loanTag)) {
           existing.tags.push(loanTag);
         }
-        existing.total_current_balance += remainingCap;
+        existing.total_current_balance += effectiveRemainingCap;
         existing.total_initial_amount += Number(loan.initial_amount) || 0;
-        existing.total_remaining_capital += remainingCap;
+        existing.total_remaining_capital += effectiveRemainingCap;
         existing.total_paid_capital += Number(loan.paid_capital) || 0;
         existing.total_paid_interest += Number(loan.paid_interest) || 0;
         if (!isPaid) {
@@ -474,10 +475,9 @@ export default function LoansPage() {
       finalDueDate = dayjs(formStartDate).add(1, 'month').format('YYYY-MM-DD');
     }
 
-    // Validate that due_date cannot be in the past
-    const todayStr = getTodayColombiaDate();
-    if (finalDueDate < todayStr) {
-      toast.error('La fecha de vencimiento no puede ser anterior al día de hoy');
+    // Validate that due_date cannot be earlier than start_date
+    if (formStartDate && finalDueDate && finalDueDate < formStartDate) {
+      toast.error('La fecha de vencimiento no puede ser anterior a la fecha de inicio');
       return;
     }
 
@@ -1060,12 +1060,12 @@ export default function LoansPage() {
                       <div className="text-right text-xs">
                         <div className="flex items-center gap-1 justify-end font-mono">
                           <span className="text-slate-400 text-[10px]">Resta:</span>
-                          <span className="font-bold text-amber-300">
-                            {formatCOP(debtor.total_remaining_to_collect)}
+                          <span className={`font-bold ${isAllPaid ? 'text-emerald-400' : 'text-amber-300'}`}>
+                            {formatCOP(debtor.total_remaining_capital)}
                           </span>
                         </div>
                         <div className="text-[10px] text-slate-400 font-mono">
-                          Total {formatCOP(debtor.total_to_collect)}
+                          Total {formatCOP(debtor.total_initial_amount)}
                         </div>
                       </div>
 
@@ -1763,7 +1763,7 @@ export default function LoansPage() {
                         </div>
                       </div>
 
-                      {/* Flexible Date Picker (>= today) */}
+                      {/* Flexible Date Picker */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                         <div>
                           <label className="block text-xs font-semibold text-slate-400 mb-1">
@@ -1784,7 +1784,7 @@ export default function LoansPage() {
                           <input
                             type="date"
                             required
-                            min={getTodayColombiaDate()}
+                            min={formStartDate || undefined}
                             value={formDueDate}
                             onChange={(e) => {
                               const newDueDate = e.target.value;
@@ -1920,7 +1920,7 @@ export default function LoansPage() {
                                   {/* Fecha de pago de la cuota (editable, capped at formDueDate) */}
                                   <input
                                     type="date"
-                                    min={getTodayColombiaDate()}
+                                    min={formStartDate || undefined}
                                     max={formDueDate || undefined}
                                     value={inst.date}
                                     onChange={(e) => {
