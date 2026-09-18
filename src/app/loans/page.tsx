@@ -1319,7 +1319,7 @@ export default function LoansPage() {
                               <div className="bg-surface-elevated/50 border border-emerald-500/25 rounded-xl p-2.5 flex items-center justify-between sm:flex-col sm:items-start gap-1 shadow-xs">
                                 <div className="min-w-0">
                                   <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block">
-                                    {loan.interest_rate > 0 ? `Interés (${loan.interest_rate}% / mes)` : 'Interés Fijo'}
+                                    {loan.interest_rate > 0 ? `Interés ${loan.interest_rate}%` : 'Interés Fijo'}
                                   </span>
                                   <div className="text-[11px] font-mono text-emerald-300/80 mt-0.5">
                                     Cobrado: <span className="font-semibold">{formatCOP(loan.paid_interest)}</span>
