@@ -283,10 +283,10 @@ export function Header({ user }: HeaderProps) {
           {totalCalculatedPockets > 0 && (
             <div className="pt-2 border-t border-border/60 flex items-center justify-between text-xs font-mono">
               <span className="text-foreground/70 text-[11px]">
-                Apartado en bolsillos: <strong className="text-foreground">{formatCOP(totalCalculatedPockets)}</strong>
+                En bolsillos: <strong className="text-foreground">{formatCOP(totalCalculatedPockets)}</strong>
               </span>
               <span className="text-foreground/50 text-[10px]">
-                Saldo total en bancos: {formatCOP(totalCalculatedNetCash)}
+                Saldo total: {formatCOP(totalCalculatedNetCash)}
               </span>
             </div>
           )}
@@ -344,7 +344,7 @@ export function Header({ user }: HeaderProps) {
                     </span>
                     <span className="text-[9px] text-foreground/50 font-mono">
                       {(pm.pockets_balance ?? 0) > 0
-                        ? `Total: ${formatCOP(pm.net_balance)} (${formatCOP(pm.pockets_balance)} bolsillos)`
+                        ? `${formatCOP(pm.pockets_balance)} bolsillos`
                         : 'Libre'}
                     </span>
                   </div>
