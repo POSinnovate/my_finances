@@ -430,12 +430,51 @@ export default function AccountsPage() {
         <PageBanner
           icon={<Wallet className="w-5 h-5" />}
           title="Cuentas y Métodos de Pago"
-          description="Monitorea tus cuentas bancarias, billeteras digitales y efectivo. Tu fondo disponible general se calcula en tiempo real con la suma de estos balances."
+          description="Monitorea tus cuentas bancarias, billeteras digitales y efectivo. Tu fondo disponible general cuenta solo tu dinero libre sin incluir bolsillos apartados."
           badgeText={`${paymentMethods.length} ${paymentMethods.length === 1 ? 'cuenta' : 'cuentas'}`}
           actionText="Nueva Cuenta"
           onAction={() => setIsAddMethodOpen(true)}
           theme="cyan"
         />
+
+        {/* 3 Executive Balance Metrics */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <Card variant="default" padding="sm" className="bg-primary/10 border-primary/40 space-y-1">
+            <span className="text-[10px] font-bold text-primary uppercase tracking-wider block">
+              Fondo Libre Disponible
+            </span>
+            <span className="text-xl sm:text-2xl font-black text-primary font-mono block">
+              {formatCOP(totalFreeBalance)}
+            </span>
+            <span className="text-[10px] text-foreground/60 block">
+              Dinero disponible real para gastar
+            </span>
+          </Card>
+
+          <Card variant="default" padding="sm" className="bg-secondary/30 border-border space-y-1">
+            <span className="text-[10px] font-bold text-foreground/80 uppercase tracking-wider block">
+              Apartado en Bolsillos
+            </span>
+            <span className="text-xl sm:text-2xl font-black text-foreground font-mono block">
+              {formatCOP(totalPocketsBalance)}
+            </span>
+            <span className="text-[10px] text-foreground/60 block">
+              Reservado para metas o gastos específicos
+            </span>
+          </Card>
+
+          <Card variant="default" padding="sm" className="bg-surface-elevated border-border space-y-1">
+            <span className="text-[10px] font-bold text-foreground/60 uppercase tracking-wider block">
+              Saldo Total en Cuentas
+            </span>
+            <span className="text-xl sm:text-2xl font-black text-foreground/80 font-mono block">
+              {formatCOP(totalBalance)}
+            </span>
+            <span className="text-[10px] text-foreground/60 block">
+              Total contable en bancos y efectivo
+            </span>
+          </Card>
+        </div>
 
         {/* Payment Methods Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">

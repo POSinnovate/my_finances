@@ -39,6 +39,8 @@ export interface PaymentMethodBalance {
 export interface UserBalanceOverview {
   paymentMethods: PaymentMethodBalance[];
   totalAvailableCash: number;
+  totalNetCash: number;
+  totalPocketsCash: number;
 }
 
 /**
@@ -136,6 +138,8 @@ export async function calculatePaymentMethodsWithBalances(
   }
 
   let totalAvailableCash = 0;
+  let totalNetCash = 0;
+  let totalPocketsCash = 0;
 
   const paymentMethods: PaymentMethodBalance[] = methods.map((m) => {
     const methodName = (m.name || '').trim().toLowerCase();
@@ -215,7 +219,10 @@ export async function calculatePaymentMethodsWithBalances(
     const pockets_balance = pockets.reduce((acc, p) => acc + p.current_balance, 0);
     const free_balance = Math.max(0, net_balance - pockets_balance);
 
-    totalAvailableCash += net_balance;
+    // Only free balance (money not earmarked in pockets) counts as available cash to spend
+    totalAvailableCash += free_balance;
+    totalNetCash += net_balance;
+    totalPocketsCash += pockets_balance;
 
     return {
       ...m,
@@ -238,6 +245,8 @@ export async function calculatePaymentMethodsWithBalances(
   return {
     paymentMethods,
     totalAvailableCash,
+    totalNetCash,
+    totalPocketsCash,
   };
 }
 

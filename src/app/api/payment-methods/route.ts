@@ -11,10 +11,10 @@ import {
 export async function GET(req: NextRequest) {
   try {
     const auth = await requireAuth();
-    const { paymentMethods, totalAvailableCash } =
+    const { paymentMethods, totalAvailableCash, totalNetCash, totalPocketsCash } =
       await calculatePaymentMethodsWithBalances(auth.userId);
 
-    // Keep users.current_cash in sync
+    // Keep users.current_cash in sync with free available cash
     await db
       .prepare('UPDATE users SET current_cash = ?, updated_at = NOW() WHERE id = ?')
       .run(totalAvailableCash, auth.userId);
@@ -22,6 +22,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       paymentMethods,
       totalAvailableCash,
+      totalNetCash,
+      totalPocketsCash,
     });
   } catch (err: unknown) {
     if ((err as Error).message === 'UNAUTHORIZED') {

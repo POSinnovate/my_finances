@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db/client';
-import { calculatePaymentMethodsWithBalances } from '@/lib/finance-balance';
+import { calculatePaymentMethodsWithBalances, syncUserCurrentCash } from '@/lib/finance-balance';
 
 export async function PUT(
   req: NextRequest,
@@ -67,6 +67,8 @@ export async function PUT(
           )
           .run(amt, id);
 
+        await syncUserCurrentCash(auth.userId);
+
         return NextResponse.json({
           success: true,
           message: `$${amt.toLocaleString('es-CO')} ingresados al bolsillo "${pocket.name}"`,
@@ -92,6 +94,8 @@ export async function PUT(
         `
           )
           .run(amt, id);
+
+        await syncUserCurrentCash(auth.userId);
 
         return NextResponse.json({
           success: true,
@@ -178,6 +182,8 @@ export async function DELETE(
     await db
       .prepare('DELETE FROM account_pockets WHERE id = ? AND user_id = ?')
       .run(id, auth.userId);
+
+    await syncUserCurrentCash(auth.userId);
 
     return NextResponse.json({
       success: true,

@@ -93,11 +93,25 @@ export function Header({ user }: HeaderProps) {
     }
   };
 
-  // Calculate dynamic cash fund from the actual accounts
+  // Calculate dynamic cash fund from the actual accounts (free balance without pockets)
   const totalCalculatedCash =
+    paymentMethods.length > 0
+      ? paymentMethods.reduce(
+          (acc: number, m: any) =>
+            acc + (m.free_balance !== undefined ? m.free_balance : (m.net_balance ?? 0)),
+          0
+        )
+      : (user?.current_cash || 0);
+
+  const totalCalculatedNetCash =
     paymentMethods.length > 0
       ? paymentMethods.reduce((acc: number, m: any) => acc + (m.net_balance ?? 0), 0)
       : (user?.current_cash || 0);
+
+  const totalCalculatedPockets =
+    paymentMethods.length > 0
+      ? paymentMethods.reduce((acc: number, m: any) => acc + (m.pockets_balance ?? 0), 0)
+      : 0;
 
   return (
     <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border px-3 sm:px-4 py-2.5">
@@ -139,7 +153,7 @@ export function Header({ user }: HeaderProps) {
                 <Wallet className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
                 <div className="flex flex-col min-w-0">
                   <span className="text-[8px] sm:text-[9px] text-foreground/50 font-semibold uppercase tracking-wider leading-none">
-                    Fondo
+                    Fondo Libre
                   </span>
                   <div className="flex items-center gap-1 mt-0.5">
                     <span className="text-xs sm:text-sm font-black text-foreground group-hover:text-primary transition-colors leading-tight font-mono whitespace-nowrap">
@@ -247,27 +261,39 @@ export function Header({ user }: HeaderProps) {
         }}
         title="Desglose de Fondo Disponible"
         icon={<Wallet className="w-5 h-5 text-primary" />}
-        description="Calculado dinámicamente según tus cuentas reales"
+        description="Calculado dinámicamente: solo dinero libre de tus cuentas (excluye bolsillos)"
         maxWidth="lg"
       >
         {/* Total Balance Hero Card */}
-        <div className="my-3 p-4 rounded-2xl bg-linear-to-r from-surface-elevated to-surface border border-accent/30 flex items-center justify-between">
-          <div>
-            <span className="text-[10px] text-accent font-bold uppercase tracking-wider block">
-              Fondo Disponible Total
-            </span>
-            <span className="text-2xl sm:text-3xl font-black text-foreground font-mono tracking-tight">
-              {formatCOP(totalCalculatedCash)}
-            </span>
+        <div className="my-3 p-4 rounded-2xl bg-linear-to-r from-surface-elevated to-surface border border-accent/30 space-y-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-[10px] text-accent font-bold uppercase tracking-wider block">
+                Fondo Libre Disponible
+              </span>
+              <span className="text-2xl sm:text-3xl font-black text-foreground font-mono tracking-tight">
+                {formatCOP(totalCalculatedCash)}
+              </span>
+            </div>
+            <div className="text-right text-xs text-foreground/80">
+              <span className="block font-semibold">{paymentMethods.length} cuentas sumadas</span>
+              <span className="text-[10px] text-foreground/50">Excluye dinero en bolsillos</span>
+            </div>
           </div>
-          <div className="text-right text-xs text-foreground/80">
-            <span className="block font-semibold">{paymentMethods.length} cuentas sumadas</span>
-            <span className="text-[10px] text-foreground/50">100% sincronizado</span>
-          </div>
+          {totalCalculatedPockets > 0 && (
+            <div className="pt-2 border-t border-border/60 flex items-center justify-between text-xs font-mono">
+              <span className="text-foreground/70 text-[11px]">
+                Apartado en bolsillos: <strong className="text-foreground">{formatCOP(totalCalculatedPockets)}</strong>
+              </span>
+              <span className="text-foreground/50 text-[10px]">
+                Saldo total en bancos: {formatCOP(totalCalculatedNetCash)}
+              </span>
+            </div>
+          )}
         </div>
 
         <p className="text-xs text-foreground/70 leading-relaxed mb-3">
-          Tu saldo disponible ya no es un valor manual; es la <strong>suma viva de los balances</strong> de tus cuentas. Puedes calibrar o equilibrar cualquier cuenta aquí:
+          Tu fondo disponible cuenta <strong>únicamente el dinero libre para gastar</strong>. El dinero apartado en bolsillos para metas o gastos específicos se descuenta automáticamente para que no gastes de más.
         </p>
 
         {/* Accounts List (Scrollable) */}
@@ -309,12 +335,17 @@ export function Header({ user }: HeaderProps) {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex flex-col items-end">
                     <span
-                      className={`text-xs sm:text-sm font-black font-mono ${(pm.net_balance ?? 0) >= 0 ? 'text-accent' : 'text-danger'
+                      className={`text-xs sm:text-sm font-black font-mono ${(pm.free_balance !== undefined ? pm.free_balance : (pm.net_balance ?? 0)) >= 0 ? 'text-accent' : 'text-danger'
                         }`}
                     >
-                      {formatCOP(pm.net_balance ?? 0)}
+                      {formatCOP(pm.free_balance !== undefined ? pm.free_balance : (pm.net_balance ?? 0))}
+                    </span>
+                    <span className="text-[9px] text-foreground/50 font-mono">
+                      {(pm.pockets_balance ?? 0) > 0
+                        ? `Total: ${formatCOP(pm.net_balance)} (${formatCOP(pm.pockets_balance)} bolsillos)`
+                        : 'Libre'}
                     </span>
                   </div>
                 </div>
@@ -438,7 +469,7 @@ export function Header({ user }: HeaderProps) {
                     <Wallet className="w-4 h-4" />
                   </div>
                   <div className="text-left">
-                    <span className="block font-black text-foreground text-xs">Desglose de Fondo</span>
+                    <span className="block font-black text-foreground text-xs">Fondo Libre</span>
                     <span className="block text-[10px] text-accent font-mono font-bold">{formatCOP(totalCalculatedCash)}</span>
                   </div>
                 </div>

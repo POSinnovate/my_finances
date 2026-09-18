@@ -3,20 +3,22 @@ import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db/client';
 import { calculateFinancialHealth, formatCOP } from '@/lib/utils';
 import { computeCashFlow } from '@/lib/cash-flow';
+import { syncUserCurrentCash } from '@/lib/finance-balance';
 
 export async function GET() {
   try {
     const auth = await requireAuth();
     const currentMonth = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date()).slice(0, 7);
 
-    // 1. User available fund and payday
+    // 1. User available fund (synchronized free cash excluding pockets) and payday
+    const currentCash = await syncUserCurrentCash(auth.userId);
+
     const user = await db.prepare(`
-      SELECT current_cash, payday_day, monthly_income
+      SELECT payday_day, monthly_income
       FROM users
       WHERE id = ?
     `).get(auth.userId) as any;
 
-    const currentCash = Number(user?.current_cash) || 0;
     const paydayDay = Number(user?.payday_day) || 30;
     const userMonthlyIncome = Number(user?.monthly_income) || 0;
 

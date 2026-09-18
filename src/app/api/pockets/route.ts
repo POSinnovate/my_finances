@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db/client';
 import { randomUUID } from 'crypto';
-import { calculatePaymentMethodsWithBalances } from '@/lib/finance-balance';
+import { calculatePaymentMethodsWithBalances, syncUserCurrentCash } from '@/lib/finance-balance';
 
 export async function GET(req: NextRequest) {
   try {
@@ -121,6 +121,8 @@ export async function POST(req: NextRequest) {
     const createdPocket = (await db
       .prepare('SELECT * FROM account_pockets WHERE id = ?')
       .get(id)) as any;
+
+    await syncUserCurrentCash(auth.userId);
 
     return NextResponse.json({
       success: true,
