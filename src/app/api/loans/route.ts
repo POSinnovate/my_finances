@@ -123,6 +123,7 @@ export async function GET(req: NextRequest) {
       FROM loans
       ${whereClause}
       ORDER BY 
+        LOWER(borrower_name) ASC,
         CASE WHEN status = 'ACTIVE' THEN 0 ELSE 1 END,
         due_date ASC NULLS LAST,
         created_at DESC

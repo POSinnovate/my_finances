@@ -195,8 +195,9 @@ export default function AccountsPage() {
       return;
     }
 
-    if (transferType === 'WITHDRAW' && amt > pocket.current_balance) {
-      toast.error(`Solo tienes ${formatCOP(pocket.current_balance)} en este bolsillo`);
+    const currentBal = Number(pocket.current_balance) || 0;
+    if (transferType === 'WITHDRAW' && amt > currentBal) {
+      toast.error(`Solo tienes ${formatCOP(currentBal)} en este bolsillo`);
       return;
     }
 
@@ -207,6 +208,7 @@ export default function AccountsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'transfer',
+          type: transferType,
           transfer_type: transferType,
           amount: amt,
         }),

@@ -193,7 +193,9 @@ export default function LoansPage() {
       }
     });
 
-    return Array.from(map.values());
+    return Array.from(map.values()).sort((a, b) =>
+      (a.borrower_name || '').localeCompare(b.borrower_name || '', 'es', { sensitivity: 'base' })
+    );
   }, [loans]);
 
   // Dynamic tags extracted from existing loans
@@ -294,7 +296,7 @@ export default function LoansPage() {
     loans.forEach((l: any) => {
       if (l.borrower_name) names.add(l.borrower_name);
     });
-    return Array.from(names);
+    return Array.from(names).sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
   }, [loans]);
 
   // Helper to build or resize installment schedule with default divided amounts & dynamic distributed dates

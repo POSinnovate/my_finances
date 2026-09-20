@@ -32,8 +32,8 @@ export async function PUT(
 
     // 1. Transfer between Saldo Libre and Pocket
     if (body.action === 'transfer') {
-      const { type, amount } = body;
-      const amt = Number(amount);
+      const transferType = (body.type || body.transfer_type || '').toString().trim().toUpperCase();
+      const amt = Number(body.amount);
 
       if (isNaN(amt) || amt <= 0) {
         return NextResponse.json(
@@ -42,11 +42,11 @@ export async function PUT(
         );
       }
 
-      if (type === 'DEPOSIT') {
+      if (transferType === 'DEPOSIT') {
         // Meter dinero: Saldo Libre -> Bolsillo
         const { paymentMethods } = await calculatePaymentMethodsWithBalances(auth.userId);
         const method = paymentMethods.find((m) => m.id === pocket.payment_method_id);
-        const freeBalance = method ? method.free_balance : 0;
+        const freeBalance = method ? Number(method.free_balance) || 0 : 0;
 
         if (amt > freeBalance) {
           return NextResponse.json(
@@ -62,10 +62,10 @@ export async function PUT(
             `
           UPDATE account_pockets 
           SET current_balance = current_balance + ?, updated_at = NOW() 
-          WHERE id = ?
+          WHERE id = ? AND user_id = ?
         `
           )
-          .run(amt, id);
+          .run(amt, id, auth.userId);
 
         await syncUserCurrentCash(auth.userId);
 
@@ -73,7 +73,7 @@ export async function PUT(
           success: true,
           message: `$${amt.toLocaleString('es-CO')} ingresados al bolsillo "${pocket.name}"`,
         });
-      } else if (type === 'WITHDRAW') {
+      } else if (transferType === 'WITHDRAW') {
         // Sacar dinero: Bolsillo -> Saldo Libre
         const currentBal = Number(pocket.current_balance) || 0;
         if (amt > currentBal) {
@@ -90,10 +90,10 @@ export async function PUT(
             `
           UPDATE account_pockets 
           SET current_balance = current_balance - ?, updated_at = NOW() 
-          WHERE id = ?
+          WHERE id = ? AND user_id = ?
         `
           )
-          .run(amt, id);
+          .run(amt, id, auth.userId);
 
         await syncUserCurrentCash(auth.userId);
 
