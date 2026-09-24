@@ -276,7 +276,7 @@ export async function PUT(
           principal,
           method,
           startDate,
-          isBorrowed ? 'INCOME' : 'EXPENSE',
+          isBorrowed ? 'LOAN_BORROW' : 'LOAN',
           movementNote,
           existingExpense.id,
           auth.userId

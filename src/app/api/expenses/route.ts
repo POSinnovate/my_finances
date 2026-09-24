@@ -54,8 +54,8 @@ export async function GET(req: NextRequest) {
     const countQuery = `
       SELECT 
         COUNT(e.id) as total_count,
-        COALESCE(SUM(CASE WHEN e.type = 'INCOME' THEN e.amount ELSE 0 END), 0) as total_income,
-        COALESCE(SUM(CASE WHEN e.type = 'EXPENSE' OR e.type IS NULL THEN e.amount ELSE 0 END), 0) as total_expense
+        COALESCE(SUM(CASE WHEN e.type IN ('INCOME', 'LOAN_REPAY', 'LOAN_BORROW') THEN e.amount ELSE 0 END), 0) as total_income,
+        COALESCE(SUM(CASE WHEN e.type IN ('EXPENSE', 'LOAN', 'LOAN_DISBURSEMENT', 'LOAN_PAYMENT') OR e.type IS NULL THEN e.amount ELSE 0 END), 0) as total_expense
       FROM expenses e
       LEFT JOIN categories c ON c.id = e.category_id
       ${whereClause}
