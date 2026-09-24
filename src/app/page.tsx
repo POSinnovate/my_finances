@@ -26,7 +26,8 @@ import {
   ArrowRightLeft,
   ArrowDownRight,
   ArrowUpRight,
-  Layers
+  Layers,
+  HandCoins
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -145,8 +146,10 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-2.5">
               {recentExpenses.slice(0, 5).map((exp: any) => {
-                const isIncome = exp.type === 'INCOME';
                 const isTransfer = exp.type === 'TRANSFER';
+                const isLoan = exp.type === 'LOAN' || exp.type === 'LOAN_DISBURSEMENT' || exp.type === 'LOAN_PAYMENT' || exp.type === 'LOAN_REPAY' || exp.type === 'LOAN_BORROW';
+                const isLoanOut = exp.type === 'LOAN' || exp.type === 'LOAN_DISBURSEMENT' || exp.type === 'LOAN_PAYMENT';
+                const isIncome = exp.type === 'INCOME' || exp.type === 'LOAN_REPAY' || exp.type === 'LOAN_BORROW';
                 return (
                   <div
                     key={exp.id}
@@ -156,14 +159,18 @@ export default function DashboardPage() {
                     <div className="flex items-center gap-3 min-w-0">
                       <div
                         className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${
-                          isTransfer
+                          isLoan
+                            ? 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
+                            : isTransfer
                             ? 'bg-accent/15 text-accent border border-accent/30'
                             : isIncome
                             ? 'bg-success/15 text-success border border-success/30'
                             : 'bg-danger/15 text-danger border border-danger/30'
                         }`}
                       >
-                        {isTransfer ? (
+                        {isLoan ? (
+                          <HandCoins className="w-4 h-4" />
+                        ) : isTransfer ? (
                           <ArrowRightLeft className="w-4 h-4" />
                         ) : isIncome ? (
                           <ArrowUpCircle className="w-4 h-4" />
@@ -174,14 +181,21 @@ export default function DashboardPage() {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-bold text-foreground group-hover:text-primary transition-colors truncate">
-                            {isTransfer
+                            {isLoan
+                              ? (exp.category_name || (isLoanOut ? 'Desembolso de Préstamo' : 'Abono / Retorno de Capital'))
+                              : isTransfer
                               ? 'Transferencia entre Cuentas'
                               : isIncome
                               ? (exp.category_name || 'Ingreso de Dinero')
                               : exp.category_name}
                           </span>
                           {/* Payment method badge */}
-                          {isTransfer ? (
+                          {isLoan ? (
+                            <Badge variant="accent" size="sm" className="whitespace-nowrap shrink-0 flex items-center gap-1 bg-purple-500/15 text-purple-300 border-purple-500/30">
+                              <HandCoins className="w-3 h-3 text-purple-400 shrink-0" />
+                              <span>{exp.payment_method || 'Cuenta'}</span>
+                            </Badge>
+                          ) : isTransfer ? (
                             <Badge variant="accent" size="sm">
                               <span>{exp.payment_method}</span>
                               <ArrowRight className="w-3 h-3 text-accent shrink-0" />
@@ -197,7 +211,7 @@ export default function DashboardPage() {
                               <span>{exp.payment_method || (isIncome ? 'Fondo' : 'Efectivo')}</span>
                             </Badge>
                           )}
-                          {!isIncome && !isTransfer && exp.is_fixed === 1 && (
+                          {!isIncome && !isTransfer && !isLoan && exp.is_fixed === 1 && (
                             <Badge variant="primary" size="sm">
                               Fijo
                             </Badge>
@@ -212,9 +226,21 @@ export default function DashboardPage() {
 
                     <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                       <span className={`text-sm sm:text-base font-extrabold whitespace-nowrap shrink-0 ${
-                        isTransfer ? 'text-accent' : isIncome ? 'text-success' : 'text-danger'
+                        isLoan
+                          ? (isLoanOut ? 'text-purple-400' : 'text-emerald-400')
+                          : isTransfer 
+                          ? 'text-accent' 
+                          : isIncome 
+                          ? 'text-success' 
+                          : 'text-danger'
                       }`}>
-                        {isTransfer ? formatCOP(exp.amount) : isIncome ? `+${formatCOP(exp.amount)}` : `-${formatCOP(exp.amount)}`}
+                        {isLoan
+                          ? (isLoanOut ? `-${formatCOP(exp.amount)}` : `+${formatCOP(exp.amount)}`)
+                          : isTransfer
+                          ? formatCOP(exp.amount)
+                          : isIncome
+                          ? `+${formatCOP(exp.amount)}`
+                          : `-${formatCOP(exp.amount)}`}
                       </span>
                       <Button
                         variant="ghost"
