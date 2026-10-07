@@ -3,7 +3,7 @@ import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db/client';
 import { randomUUID } from 'crypto';
 import { syncUserCurrentCash } from '@/lib/finance-balance';
-import { getTodayColombiaDate } from '@/lib/dayjs';
+import dayjs, { getTodayColombiaDate } from '@/lib/dayjs';
 
 export async function GET(req: NextRequest) {
   try {
@@ -131,6 +131,9 @@ export async function GET(req: NextRequest) {
 
     const rows = (await db.prepare(query).all(...params)) as any[];
 
+    const todayYmd = getTodayColombiaDate();
+    const todayDayjs = dayjs(todayYmd);
+
     // Fetch payments for each loan to show summary and recent payments
     const loansWithDetails = await Promise.all(
       rows.map(async (l) => {
@@ -142,45 +145,60 @@ export async function GET(req: NextRequest) {
 
         // Debt is the remaining principal
         const remainingCapital = Math.max(0, initAmt - paidCap);
+
+        const cleanIntType = l.interest_type || (rate > 0 ? 'PERCENT' : 'FIXED');
+        const isPercent = cleanIntType === 'PERCENT';
         // Monthly interest charged per period/cobro based on current remaining capital
-        const monthlyInterest = rate > 0 ? Math.round(remainingCapital * (rate / 100)) : expInt;
+        const monthlyInterest = isPercent && rate > 0
+          ? Math.round(remainingCapital * (rate / 100))
+          : expInt;
         const curBal = remainingCapital;
+
+        const sDateStr = l.start_date ? String(l.start_date).split('T')[0] : todayYmd;
+        const dDateStr = l.due_date ? String(l.due_date).split('T')[0] : null;
+
+        const startDayjs = dayjs(sDateStr);
+        const dueDayjs = dDateStr ? dayjs(dDateStr) : null;
+
+        const isDueToday = Boolean(dueDayjs && todayDayjs.isSame(dueDayjs, 'day'));
+        const isPastDue = Boolean(dueDayjs && todayDayjs.isAfter(dueDayjs, 'day'));
+        const isTermExpired = isPastDue || isDueToday;
 
         // Duration in months (stored or calculated from start_date to due_date)
         let durationMonths = Number(l.duration_months) || 1;
-        if (durationMonths <= 1 && l.start_date && l.due_date) {
-          const s = new Date(l.start_date);
-          const d = new Date(l.due_date);
-          const diffDays = Math.max(0, (d.getTime() - s.getTime()) / (1000 * 60 * 60 * 24));
+        if (durationMonths <= 1 && sDateStr && dDateStr && dueDayjs) {
+          const diffDays = Math.max(0, dueDayjs.diff(startDayjs, 'day'));
           const m = Math.round(diffDays / 30);
           if (m > 1) durationMonths = m;
         }
 
-        const cleanIntType = l.interest_type || (rate > 0 ? 'PERCENT' : 'FIXED');
-        const isPercent = cleanIntType === 'PERCENT';
         const hasInst = Boolean(l.has_installments);
         const instCount = Math.max(1, Number(l.installment_count) || 1);
         const instFreq = l.installment_frequency || 'MONTHLY';
 
-        // Elapsed months and remaining months of the term
-        const now = new Date();
-        const todayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-        const sDate = l.start_date ? new Date(l.start_date) : new Date();
-        const diffDays = Math.max(0, (todayMs - sDate.getTime()) / (1000 * 60 * 60 * 24));
-        const elapsedMonths = Math.floor(diffDays / 30);
+        // Elapsed calendar days and months since start_date
+        const diffDaysSinceStart = Math.max(0, todayDayjs.diff(startDayjs, 'day'));
+        const elapsedMonths = Math.max(
+          isTermExpired ? 1 : 0,
+          Math.floor(diffDaysSinceStart / 30)
+        );
         const remainingMonths = Math.max(1, durationMonths - elapsedMonths);
 
-        // Projected interest: in percentage loans, calculated on remaining capital, not initial principal
-        const remainingFutureInterest = remainingCapital > 0 && rate > 0
-          ? Math.round(remainingCapital * (rate / 100) * remainingMonths)
-          : (remainingCapital > 0 ? expInt : 0);
+        // Projected interest:
+        // For PERCENT: paidInt + remaining future interest on current balance
+        // For FIXED: each month in durationMonths charges monthlyInterest!
+        const remainingFutureInterest = remainingCapital > 0
+          ? (isPercent && rate > 0
+              ? Math.round(remainingCapital * (rate / 100) * remainingMonths)
+              : (monthlyInterest * Math.max(1, remainingMonths)))
+          : 0;
 
         const projectedInterest = isPercent
           ? (paidInt + remainingFutureInterest)
-          : expInt;
+          : Math.max(paidInt + (remainingCapital > 0 && !isTermExpired ? monthlyInterest : 0), monthlyInterest * durationMonths);
 
         // Total money to collect (Principal + Projected Interest)
-        const totalToCollect = isPercent ? (initAmt + projectedInterest) : (initAmt + expInt);
+        const totalToCollect = initAmt + projectedInterest;
         // Money collected so far (Capital returned + Interest collected)
         const totalCollected = paidCap + paidInt;
         // Remaining to collect in total (remaining capital + remaining interest on balance)
@@ -238,8 +256,7 @@ export async function GET(req: NextRequest) {
         let amountToActivate = 0; // Amount needed to return to ACTIVE status
 
         if (!isPaidInFull) {
-          // A. Term expiration check (due_date passed and still capital remaining)
-          const isTermExpired = l.due_date && new Date(l.due_date).getTime() < todayMs;
+          const todayMs = dayjs(todayYmd).valueOf();
 
           if (hasInst) {
             // Case 2 with Installments: Check overdue installments according to custom schedule or frequency
@@ -247,7 +264,7 @@ export async function GET(req: NextRequest) {
               let expectedPaidByNow = 0;
               let dueInstallmentsCount = 0;
               for (const item of customSchedule) {
-                const itemDateMs = item.date ? new Date(item.date).getTime() : 0;
+                const itemDateMs = item.date ? dayjs(item.date).valueOf() : 0;
                 if (itemDateMs && itemDateMs <= todayMs) {
                   dueInstallmentsCount++;
                   expectedPaidByNow += Number(item.amount) || 0;
@@ -298,20 +315,18 @@ export async function GET(req: NextRequest) {
                 amountToActivate = remainingToCollect;
               }
             }
-          } else if (isPercent && monthlyInterest > 0) {
-            // Case 1: Monthly percentage interest
-            // Calculate how many months have elapsed since start_date
-            const sDate = l.start_date ? new Date(l.start_date) : new Date();
-            const diffDays = Math.max(0, (todayMs - sDate.getTime()) / (1000 * 60 * 60 * 24));
-            const elapsedMonths = Math.floor(diffDays / 30);
+          } else if (monthlyInterest > 0) {
+            // Case 1: Loans with recurring monthly interest (PERCENT or FIXED per month)
+            // Number of months completed or due
+            const monthsDue = Math.max(isTermExpired ? 1 : 0, elapsedMonths);
 
-            if (elapsedMonths >= 1) {
-              const expectedInterestByNow = elapsedMonths * monthlyInterest;
+            if (monthsDue >= 1) {
+              const expectedInterestByNow = Math.min(durationMonths, monthsDue) * monthlyInterest;
               if (paidInt < expectedInterestByNow) {
                 isOverdue = true;
                 overdueReason = 'INTEREST_OVERDUE';
                 const unpaidInterest = expectedInterestByNow - paidInt;
-                overdueMonthsCount = Math.ceil(unpaidInterest / monthlyInterest);
+                overdueMonthsCount = Math.max(1, Math.ceil(unpaidInterest / (monthlyInterest || 1)));
                 amountToActivate = unpaidInterest;
               }
             }
@@ -319,14 +334,14 @@ export async function GET(req: NextRequest) {
             if (!isOverdue && isTermExpired) {
               isOverdue = true;
               overdueReason = 'TERM_EXPIRED';
-              amountToActivate = remainingCapital + Math.max(0, monthlyInterest - (paidInt % (monthlyInterest || 1)));
+              amountToActivate = remainingCapital;
             }
           } else {
-            // Standard loan without installments or percentage: overdue only if due_date passed
+            // Standard 0% interest loan: overdue only if due_date reached/passed
             if (isTermExpired) {
               isOverdue = true;
               overdueReason = 'TERM_EXPIRED';
-              amountToActivate = remainingToCollect;
+              amountToActivate = remainingCapital;
             }
           }
         }
@@ -379,6 +394,8 @@ export async function GET(req: NextRequest) {
           remaining_capital: remainingCapital,
           remaining_interest: monthlyInterest,
           is_overdue: isOverdue,
+          is_due_today: isDueToday,
+          is_past_due: isPastDue,
           overdue_reason: overdueReason,
           overdue_months_count: overdueMonthsCount,
           overdue_installments_count: overdueInstallmentsCount,

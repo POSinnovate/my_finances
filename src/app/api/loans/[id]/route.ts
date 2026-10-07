@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db/client';
 import { syncUserCurrentCash } from '@/lib/finance-balance';
+import dayjs, { getTodayColombiaDate } from '@/lib/dayjs';
 
 export async function GET(
   req: NextRequest,
@@ -161,7 +162,7 @@ export async function PUT(
 
     const projectedInterest = isPercent
       ? (rate > 0 ? Math.round(currentBalance * (rate / 100) * durationMonths) : monthlyInterest)
-      : monthlyInterest;
+      : (monthlyInterest * durationMonths);
       
     const totalExpected = principal + projectedInterest;
     const instAmt = installment_amount !== undefined && Number(installment_amount) > 0 
@@ -170,17 +171,15 @@ export async function PUT(
 
     const startDate = start_date || existing.start_date;
     
-    // If extending months, automatically advance due_date by extend_months
+    // If extending months, automatically advance due_date by extend_months using dayjs
     let dueDate = due_date !== undefined ? due_date : existing.due_date;
     if (extend_months && Number(extend_months) > 0) {
-      const baseDate = dueDate ? new Date(dueDate) : new Date();
-      baseDate.setMonth(baseDate.getMonth() + Number(extend_months));
-      dueDate = baseDate.toISOString().split('T')[0];
+      const baseDate = dueDate ? dayjs(String(dueDate).split('T')[0]) : dayjs(getTodayColombiaDate());
+      dueDate = baseDate.add(Number(extend_months), 'month').format('YYYY-MM-DD');
     } else if (isPercent && (!dueDate || duration_months !== undefined)) {
       // For percentage loan, recalculate due_date from start_date + durationMonths
-      const s = startDate ? new Date(startDate) : new Date();
-      s.setMonth(s.getMonth() + durationMonths);
-      dueDate = s.toISOString().split('T')[0];
+      const s = startDate ? dayjs(String(startDate).split('T')[0]) : dayjs(getTodayColombiaDate());
+      dueDate = s.add(durationMonths, 'month').format('YYYY-MM-DD');
     }
 
     const method = payment_method || existing.payment_method || 'Efectivo';

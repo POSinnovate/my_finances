@@ -36,7 +36,8 @@ import {
   Edit2,
   Edit,
   ListCheck,
-  Tag
+  Tag,
+  CheckCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageBanner, Pagination, Button, Badge, Modal, Input, Select } from '@/components/ui';
@@ -110,6 +111,7 @@ export default function LoansPage() {
   const [payNotes, setPayNotes] = useState('');
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
   const [activePaymentShortcut, setActivePaymentShortcut] = useState<'INTEREST_ONLY' | 'SETTLE_ALL' | 'HALF_CAPITAL' | 'INSTALLMENT' | null>(null);
+  const [payExtendTerm, setPayExtendTerm] = useState(false);
 
   // Group loans by debtor (borrower_name)
   const groupedDebtors = useMemo(() => {
@@ -128,6 +130,7 @@ export default function LoansPage() {
       total_collected: number;
       total_remaining_to_collect: number;
       has_overdue: boolean;
+      has_due_today: boolean;
       all_paid: boolean;
     }>();
 
@@ -136,10 +139,8 @@ export default function LoansPage() {
       const remainingCap = Number(loan.remaining_capital) || Number(loan.current_balance) || 0;
       const isPaid = loan.status === 'PAID' || remainingCap <= 0;
       const effectiveRemainingCap = isPaid ? 0 : Math.max(0, remainingCap);
-      const isOverdue =
-        !isPaid &&
-        loan.due_date &&
-        new Date(loan.due_date).getTime() < new Date().setHours(0, 0, 0, 0);
+      const isOverdue = !isPaid && Boolean(loan.is_overdue);
+      const isDueToday = !isPaid && Boolean(loan.is_due_today);
       const loanMonthly =
         loan.monthly_interest ||
         (loan.interest_rate > 0
@@ -169,6 +170,7 @@ export default function LoansPage() {
           total_collected: totCollected,
           total_remaining_to_collect: isPaid ? 0 : remToCollect,
           has_overdue: Boolean(isOverdue),
+          has_due_today: Boolean(isDueToday),
           all_paid: isPaid,
         });
       } else {
@@ -189,6 +191,7 @@ export default function LoansPage() {
         existing.total_to_collect += totToCollect;
         existing.total_collected += totCollected;
         if (isOverdue) existing.has_overdue = true;
+        if (isDueToday) existing.has_due_today = true;
         if (!isPaid) existing.all_paid = false;
       }
     });
@@ -570,7 +573,7 @@ export default function LoansPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        toast.success(`Plazo extendido +${monthsToAdd} mes(es). El acuerdo vuelve a estar Activo.`);
+        toast.success(`Capital aplazado +${monthsToAdd} mes(es). Se ha programado de forma congruente el nuevo interés bajo el saldo de capital.`);
         refetchLoans();
         invalidateFinance();
       } else {
@@ -584,7 +587,7 @@ export default function LoansPage() {
   };
 
   // Open Payment Modal
-  const handleOpenPayment = (loan: any) => {
+  const handleOpenPayment = (loan: any, defaultExtend = false) => {
     setSelectedLoanForPayment(loan);
     const remCap = Number(loan.remaining_capital) || Number(loan.current_balance) || 0;
     const monthlyFee =
@@ -595,7 +598,8 @@ export default function LoansPage() {
     setActivePaymentShortcut(monthlyFee > 0 ? 'INTEREST_ONLY' : null);
     setPayMethod(paymentMethods[0]?.name || 'Nequi');
     setPayDate(getTodayColombiaDate());
-    setPayNotes('');
+    setPayNotes(defaultExtend ? 'Cobro de interés mensual + aplazamiento de capital (+1 mes)' : '');
+    setPayExtendTerm(defaultExtend);
   };
 
   // Handle Submit Payment
@@ -629,14 +633,16 @@ export default function LoansPage() {
           payment_method: payMethod || 'Nequi',
           payment_date: payDate,
           notes: payNotes.trim() || null,
+          extend_term_months: payExtendTerm ? 1 : 0,
         }),
       });
 
       const data = await res.json();
       if (res.ok) {
-        toast.success(data.message || 'Abono registrado');
+        toast.success(data.message || (payExtendTerm ? 'Abono registrado y capital aplazado +1 mes con nuevo interés programado' : 'Abono registrado'));
         const borrower = selectedLoanForPayment?.borrower_name;
         setSelectedLoanForPayment(null);
+        setPayExtendTerm(false);
         refetchLoans();
         invalidateFinance();
         if (borrower) {
@@ -995,6 +1001,7 @@ export default function LoansPage() {
               const isDebtorExpanded = expandedDebtorKeys.has(debtorKey);
               const isAllPaid = debtor.all_paid;
               const isOverdue = debtor.has_overdue;
+              const isDueToday = debtor.has_due_today;
               const isMultiLoan = debtor.loans.length > 1;
 
               return (
@@ -1004,7 +1011,9 @@ export default function LoansPage() {
                     ? 'border-slate-800 opacity-90'
                     : isOverdue
                       ? 'border-rose-500/40'
-                      : 'border-border hover:border-primary/50'
+                      : isDueToday
+                        ? 'border-amber-500/40'
+                        : 'border-border hover:border-primary/50'
                     }`}
                 >
                   {/* Clean Debtor Header */}
@@ -1027,6 +1036,11 @@ export default function LoansPage() {
                         <Badge variant="danger" size="sm" className="flex items-center gap-1">
                           <AlertCircle className="w-2.5 h-2.5" />
                           Vencido
+                        </Badge>
+                      ) : isDueToday ? (
+                        <Badge variant="warning" size="sm" className="flex items-center gap-1 text-amber-300 border-amber-500/40 bg-amber-500/10">
+                          <Clock className="w-2.5 h-2.5" />
+                          Vence Hoy
                         </Badge>
                       ) : (
                         <Badge variant="primary" size="sm">
@@ -1104,43 +1118,72 @@ export default function LoansPage() {
                         const isLoanPaid = loan.status === 'PAID' || (Number(loan.remaining_capital) <= 0);
                         const isLoanExpanded = expandedLoanId === loan.id;
                         const isLoanOverdue = Boolean(loan.is_overdue);
+                        const isLoanDueToday = Boolean(loan.is_due_today);
+                        const hasAlert = (isLoanOverdue || isLoanDueToday) && !isLoanPaid;
 
                         return (
                           <div key={loan.id} className="p-3 sm:p-3.5 space-y-2.5 bg-background/40">
-                            {/* Overdue Alert Banner if loan is overdue */}
-                            {isLoanOverdue && !isLoanPaid && (
-                              <div className="bg-rose-500/15 border border-rose-500/40 rounded-xl p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                            {/* Overdue / Due Today Alert Banner if loan has pending action */}
+                            {hasAlert && (
+                              <div className={`${isLoanOverdue ? 'bg-rose-500/15 border-rose-500/40' : 'bg-amber-500/15 border-amber-500/40'} border rounded-xl p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs`}>
                                 <div className="flex items-start gap-2">
-                                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                                  {isLoanOverdue ? (
+                                    <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                                  ) : (
+                                    <Clock className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                                  )}
                                   <div>
-                                    <span className="font-bold text-rose-300 block">
+                                    <span className={`font-bold block ${isLoanOverdue ? 'text-rose-300' : 'text-amber-300'}`}>
                                       {loan.overdue_reason === 'INTEREST_OVERDUE' && (
-                                        <>Interés en Mora ({loan.overdue_months_count} {loan.overdue_months_count === 1 ? 'mes' : 'meses'})</>
+                                        isLoanDueToday && !loan.is_past_due
+                                          ? '📅 Mes Cumplido: Interés por Cobrar'
+                                          : `⚠️ Interés en Mora (${loan.overdue_months_count} ${loan.overdue_months_count === 1 ? 'mes' : 'meses'})`
                                       )}
                                       {loan.overdue_reason === 'INSTALLMENT_OVERDUE' && (
-                                        <>Cuotas Atrasadas ({loan.overdue_installments_count} {loan.overdue_installments_count === 1 ? 'cuota' : 'cuotas'})</>
+                                        isLoanDueToday && !loan.is_past_due
+                                          ? '📅 Cuota para Cobro Hoy'
+                                          : `⚠️ Cuotas Atrasadas (${loan.overdue_installments_count} ${loan.overdue_installments_count === 1 ? 'cuota' : 'cuotas'})`
                                       )}
                                       {loan.overdue_reason === 'TERM_EXPIRED' && (
-                                        <>Plazo Vencido sin Retorno de Capital</>
+                                        isLoanDueToday && !loan.is_past_due
+                                          ? '📅 Plazo Cumplido Hoy'
+                                          : '⚠️ Plazo Vencido sin Retorno de Capital'
                                       )}
-                                      {(!loan.overdue_reason || loan.overdue_reason === 'NONE') && 'Préstamo Vencido'}
+                                      {(!loan.overdue_reason || loan.overdue_reason === 'NONE') && (
+                                        isLoanDueToday ? '📅 Vence Hoy' : '⚠️ Préstamo Vencido'
+                                      )}
                                     </span>
-                                    <p className="text-[11px] text-rose-200/90 mt-0.5">
+                                    <p className={`text-[11px] mt-0.5 ${isLoanOverdue ? 'text-rose-200/90' : 'text-amber-200/90'}`}>
                                       {loan.overdue_reason === 'INTEREST_OVERDUE' && (
-                                        <>Debe abonar <strong>{formatCOP(loan.amount_to_activate)}</strong> en intereses acumulados para volver a estar al día.</>
+                                        <>Cumplió el periodo pactado. Debe abonar <strong>{formatCOP(loan.amount_to_activate)}</strong> en intereses. Puedes cobrarlo y aplazar la capital otro mes, o saldar el total.</>
                                       )}
                                       {loan.overdue_reason === 'INSTALLMENT_OVERDUE' && (
-                                        <>Debe pagar <strong>{formatCOP(loan.amount_to_activate)}</strong> para ponerse al día con las cuotas vencidas.</>
+                                        <>Debe pagar <strong>{formatCOP(loan.amount_to_activate)}</strong> para ponerse al día con las cuotas.</>
                                       )}
                                       {loan.overdue_reason === 'TERM_EXPIRED' && (
-                                        <>El plazo pactado finalizó. Puedes saldar el capital o extender el plazo un mes más.</>
+                                        <>El plazo pactado finalizó. Puedes saldar el capital o aplazar el pago un mes más (generando el nuevo interés bajo la capital).</>
+                                      )}
+                                      {(!loan.overdue_reason || loan.overdue_reason === 'NONE') && (
+                                        <>Revisa los acuerdos pactados o registra un abono para poner al día.</>
                                       )}
                                     </p>
                                   </div>
                                 </div>
 
-                                <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
-                                  {/* 1-Click Extend Term */}
+                                <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center flex-wrap">
+                                  {/* 1. Cobrar Interés y Aplazar (+1 mes) */}
+                                  <Button
+                                    type="button"
+                                    size="xs"
+                                    variant="primary"
+                                    onClick={() => handleOpenPayment(loan, true)}
+                                    className="text-[10px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white"
+                                    title="Cobrar interés del mes y aplazar el capital por 1 mes más"
+                                  >
+                                    Cobrar Interés y Aplazar (+1 mes)
+                                  </Button>
+
+                                  {/* 2. Aplazar Capital (+1 mes) */}
                                   <Button
                                     type="button"
                                     size="xs"
@@ -1149,19 +1192,20 @@ export default function LoansPage() {
                                     isLoading={isExtendingLoanId === loan.id}
                                     onClick={() => handleExtendTerm(loan, 1)}
                                     className="text-amber-300 border-amber-500/40 hover:bg-amber-500/20 text-[10px] font-bold"
-                                    title="Extender plazo por 1 mes más para volver a Activos"
+                                    title="Aplazar capital 1 mes más (se programará de forma congruente el nuevo interés)"
                                   >
-                                    Extender Plazo (+1 mes)
+                                    Aplazar Capital (+1 mes)
                                   </Button>
 
+                                  {/* 3. Poner al Día / Abonar */}
                                   <Button
                                     type="button"
                                     size="xs"
-                                    variant="danger"
-                                    onClick={() => handleOpenPayment(loan)}
+                                    variant={isLoanOverdue ? 'danger' : 'secondary'}
+                                    onClick={() => handleOpenPayment(loan, false)}
                                     className="text-[10px] font-bold"
                                   >
-                                    Poner al Día
+                                    {isLoanOverdue ? 'Poner al Día' : 'Abonar'}
                                   </Button>
                                 </div>
                               </div>
@@ -2149,7 +2193,10 @@ export default function LoansPage() {
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                onClick={() => setSelectedLoanForPayment(null)}
+                onClick={() => {
+                  setSelectedLoanForPayment(null);
+                  setPayExtendTerm(false);
+                }}
               >
                 <X className="w-5 h-5" />
               </Button>
@@ -2279,7 +2326,7 @@ export default function LoansPage() {
                       </Button>
                     )}
 
-                    {selectedLoanForPayment.interest_type === 'PERCENT' && (
+                    {(selectedLoanForPayment.interest_type === 'PERCENT' || monthlyFee > 0) && (
                       <Button
                         type="button"
                         size="xs"
@@ -2394,6 +2441,27 @@ export default function LoansPage() {
                 onChange={(e) => setPayNotes(e.target.value)}
                 placeholder="Ej: Transferencia #4892"
               />
+
+              {/* Rollover / Postpone Capital Checkbox */}
+              <label className="flex items-start gap-2.5 p-2.5 rounded-xl border border-border bg-surface-elevated/70 cursor-pointer select-none hover:border-primary/40 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={payExtendTerm}
+                  onChange={(e) => setPayExtendTerm(e.target.checked)}
+                  className="mt-0.5 rounded border-slate-700 text-primary focus:ring-primary w-4 h-4 bg-slate-900 cursor-pointer"
+                />
+                <div className="flex-1 text-xs">
+                  <div className="flex items-center gap-1.5 font-bold text-white">
+                    <span>Aplazar pago de capital otro mes (+1 mes)</span>
+                    <Badge variant="accent" size="sm" className="text-[9px] py-0 px-1 font-mono">
+                      +1 Mes
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                    Mueve el vencimiento al siguiente mes y programa de forma congruente el cobro del nuevo interés del periodo sobre el saldo de capital.
+                  </p>
+                </div>
+              </label>
 
               <div className="pt-2">
                 <Button

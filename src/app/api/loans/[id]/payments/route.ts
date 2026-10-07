@@ -3,7 +3,7 @@ import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db/client';
 import { randomUUID } from 'crypto';
 import { syncUserCurrentCash } from '@/lib/finance-balance';
-import { getTodayColombiaDate } from '@/lib/dayjs';
+import dayjs, { getTodayColombiaDate } from '@/lib/dayjs';
 
 export async function POST(
   req: NextRequest,
@@ -20,6 +20,7 @@ export async function POST(
       payment_date,
       payment_method,
       notes,
+      extend_term_months,
     } = body;
 
     const capAmt = Number(capital_amount) || 0;
@@ -57,6 +58,7 @@ export async function POST(
         paid_capital, 
         paid_interest, 
         current_balance, 
+        due_date,
         status,
         COALESCE(loan_type, 'LENT') as loan_type
       FROM loans
@@ -121,6 +123,20 @@ export async function POST(
       ? (remainingCapital > 0 ? Math.round(remainingCapital * (rate / 100)) : 0)
       : Number(loan.expected_interest || 0);
 
+    const extendMonths = Number(extend_term_months) || 0;
+    let newDurationMonths = Number(loan.duration_months) || 1;
+    let newDueDate = loan.due_date;
+    if (extendMonths > 0) {
+      newDurationMonths += extendMonths;
+      const baseDueDate = loan.due_date ? dayjs(String(loan.due_date).split('T')[0]) : dayjs(getTodayColombiaDate());
+      newDueDate = baseDueDate.add(extendMonths, 'month').format('YYYY-MM-DD');
+    }
+
+    const projectedInterest = isPercent
+      ? (rate > 0 ? Math.round(remainingCapital * (rate / 100) * newDurationMonths) : newMonthlyInterest)
+      : (newMonthlyInterest * newDurationMonths);
+    const newTotalExpected = initialAmt + projectedInterest;
+
     // 3. Update loan record
     await db
       .prepare(
@@ -131,11 +147,14 @@ export async function POST(
         paid_interest = ?,
         current_balance = ?,
         expected_interest = ?,
+        total_expected = ?,
+        duration_months = ?,
+        due_date = ?,
         status = ?
       WHERE id = ? AND user_id = ?
     `
       )
-      .run(newPaidCapital, newPaidInterest, newBalance, newMonthlyInterest, newStatus, id, auth.userId);
+      .run(newPaidCapital, newPaidInterest, newBalance, newMonthlyInterest, newTotalExpected, newDurationMonths, newDueDate, newStatus, id, auth.userId);
 
     // 4. Synchronize cash movements in expenses with professional accounting standards
     if (!isBorrowed) {

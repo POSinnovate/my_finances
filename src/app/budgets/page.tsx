@@ -851,7 +851,7 @@ export default function BudgetsPage() {
                 disabled={isSavingCategory}
                 isLoading={isSavingCategory}
               >
-                <Check className="w-3.5 h-3.5 stroke-[3px]" />
+                <Check className="w-3.5 h-3.5  stroke-[3px]" />
                 <span>
                   {isSavingCategory 
                     ? 'Guardando...' 
