@@ -5,6 +5,15 @@ import { randomUUID } from 'crypto';
 import { syncUserCurrentCash } from '@/lib/finance-balance';
 import dayjs, { getTodayColombiaDate } from '@/lib/dayjs';
 
+function toYmd(val: any): string {
+  if (!val) return '';
+  if (val instanceof Date) return dayjs(val).format('YYYY-MM-DD');
+  const s = String(val).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const parsed = dayjs(val);
+  return parsed.isValid() ? parsed.format('YYYY-MM-DD') : '';
+}
+
 export async function GET(req: NextRequest) {
   try {
     const auth = await requireAuth();
@@ -154,8 +163,8 @@ export async function GET(req: NextRequest) {
           : expInt;
         const curBal = remainingCapital;
 
-        const sDateStr = l.start_date ? String(l.start_date).split('T')[0] : todayYmd;
-        const dDateStr = l.due_date ? String(l.due_date).split('T')[0] : null;
+        const sDateStr = toYmd(l.start_date) || todayYmd;
+        const dDateStr = toYmd(l.due_date) || null;
 
         const startDayjs = dayjs(sDateStr);
         const dueDayjs = dDateStr ? dayjs(dDateStr) : null;
@@ -176,35 +185,41 @@ export async function GET(req: NextRequest) {
         const instCount = Math.max(1, Number(l.installment_count) || 1);
         const instFreq = l.installment_frequency || 'MONTHLY';
 
-        // Elapsed calendar days and months since start_date
-        const diffDaysSinceStart = Math.max(0, todayDayjs.diff(startDayjs, 'day'));
-        const elapsedMonths = Math.max(
-          isTermExpired ? 1 : 0,
-          Math.floor(diffDaysSinceStart / 30)
-        );
-        const remainingMonths = Math.max(1, durationMonths - elapsedMonths);
+        // Exact completed monthly periods since start_date
+        let completedMonths = 0;
+        if (sDateStr) {
+          while (
+            startDayjs.add(completedMonths + 1, 'month').isBefore(todayDayjs, 'day') ||
+            startDayjs.add(completedMonths + 1, 'month').isSame(todayDayjs, 'day')
+          ) {
+            completedMonths++;
+          }
+        }
+        const monthsDue = Math.max(isTermExpired ? 1 : 0, completedMonths);
 
-        // Projected interest:
-        // For PERCENT: paidInt + remaining future interest on current balance
-        // For FIXED: each month in durationMonths charges monthlyInterest!
+        // Expected interest accrued up to today across all completed monthly periods
+        const expectedInterestByNow = hasInst ? expInt : (monthsDue * monthlyInterest);
+        const unpaidAccumulatedInterest = hasInst ? 0 : Math.max(0, expectedInterestByNow - paidInt);
+
+        // Future remaining months within scheduled duration (if duration > months already due)
+        const futureMonths = Math.max(0, durationMonths - monthsDue);
         const remainingFutureInterest = remainingCapital > 0
-          ? (isPercent && rate > 0
-              ? Math.round(remainingCapital * (rate / 100) * remainingMonths)
-              : (monthlyInterest * Math.max(1, remainingMonths)))
+          ? (hasInst ? 0 : monthlyInterest * futureMonths)
           : 0;
 
-        const projectedInterest = isPercent
-          ? (paidInt + remainingFutureInterest)
-          : Math.max(paidInt + (remainingCapital > 0 && !isTermExpired ? monthlyInterest : 0), monthlyInterest * durationMonths);
+        // Total interest across the life of the loan (paid + unpaid overdue + future scheduled)
+        const projectedInterest = hasInst
+          ? (isPercent ? (paidInt + remainingFutureInterest) : expInt)
+          : (paidInt + unpaidAccumulatedInterest + remainingFutureInterest);
 
         // Total money to collect (Principal + Projected Interest)
         const totalToCollect = initAmt + projectedInterest;
         // Money collected so far (Capital returned + Interest collected)
         const totalCollected = paidCap + paidInt;
-        // Remaining to collect in total (remaining capital + remaining interest on balance)
-        const remainingToCollect = isPercent
-          ? (remainingCapital + remainingFutureInterest)
-          : Math.max(0, totalToCollect - totalCollected);
+        // Remaining to collect in total (remaining capital + unpaid overdue interest + future scheduled interest)
+        const remainingToCollect = hasInst
+          ? Math.max(0, totalToCollect - totalCollected)
+          : (remainingCapital + unpaidAccumulatedInterest + remainingFutureInterest);
 
         // Parse custom installments schedule if provided
         let customSchedule: Array<{ number: number; amount: number; date: string }> = [];
@@ -317,17 +332,12 @@ export async function GET(req: NextRequest) {
             }
           } else if (monthlyInterest > 0) {
             // Case 1: Loans with recurring monthly interest (PERCENT or FIXED per month)
-            // Number of months completed or due
-            const monthsDue = Math.max(isTermExpired ? 1 : 0, elapsedMonths);
-
             if (monthsDue >= 1) {
-              const expectedInterestByNow = Math.min(durationMonths, monthsDue) * monthlyInterest;
               if (paidInt < expectedInterestByNow) {
                 isOverdue = true;
                 overdueReason = 'INTEREST_OVERDUE';
-                const unpaidInterest = expectedInterestByNow - paidInt;
-                overdueMonthsCount = Math.max(1, Math.ceil(unpaidInterest / (monthlyInterest || 1)));
-                amountToActivate = unpaidInterest;
+                overdueMonthsCount = Math.max(1, Math.ceil(unpaidAccumulatedInterest / (monthlyInterest || 1)));
+                amountToActivate = unpaidAccumulatedInterest;
               }
             }
 
@@ -400,6 +410,9 @@ export async function GET(req: NextRequest) {
           overdue_months_count: overdueMonthsCount,
           overdue_installments_count: overdueInstallmentsCount,
           amount_to_activate: amountToActivate,
+          accumulated_unpaid_interest: unpaidAccumulatedInterest,
+          months_due: monthsDue,
+          completed_months: completedMonths,
           payment_count: recentPayments.length,
           payments: recentPayments.map((p) => ({
             ...p,

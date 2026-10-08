@@ -5,6 +5,15 @@ import { randomUUID } from 'crypto';
 import { syncUserCurrentCash } from '@/lib/finance-balance';
 import dayjs, { getTodayColombiaDate } from '@/lib/dayjs';
 
+function toYmd(val: any): string {
+  if (!val) return '';
+  if (val instanceof Date) return dayjs(val).format('YYYY-MM-DD');
+  const s = String(val).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const parsed = dayjs(val);
+  return parsed.isValid() ? parsed.format('YYYY-MM-DD') : '';
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -127,13 +136,28 @@ export async function POST(
     let newDurationMonths = Number(loan.duration_months) || 1;
     let newDueDate = loan.due_date;
     if (extendMonths > 0) {
-      newDurationMonths += extendMonths;
-      const baseDueDate = loan.due_date ? dayjs(String(loan.due_date).split('T')[0]) : dayjs(getTodayColombiaDate());
-      newDueDate = baseDueDate.add(extendMonths, 'month').format('YYYY-MM-DD');
+      const sDateStr = toYmd(loan.start_date);
+      const sDayjs = sDateStr ? dayjs(sDateStr) : dayjs(getTodayColombiaDate());
+      const tDayjs = dayjs(getTodayColombiaDate());
+      let compM = 0;
+      while (
+        sDayjs.add(compM + 1, 'month').isBefore(tDayjs, 'day') ||
+        sDayjs.add(compM + 1, 'month').isSame(tDayjs, 'day')
+      ) {
+        compM++;
+      }
+      newDurationMonths = Math.max(newDurationMonths, compM) + extendMonths;
+      const dDateStr = toYmd(loan.due_date);
+      const baseDueDate = dDateStr ? dayjs(dDateStr) : tDayjs;
+      if (baseDueDate.isBefore(tDayjs, 'day') || baseDueDate.isSame(tDayjs, 'day')) {
+        newDueDate = sDayjs.add(newDurationMonths, 'month').format('YYYY-MM-DD');
+      } else {
+        newDueDate = baseDueDate.add(extendMonths, 'month').format('YYYY-MM-DD');
+      }
     }
 
     const projectedInterest = isPercent
-      ? (rate > 0 ? Math.round(remainingCapital * (rate / 100) * newDurationMonths) : newMonthlyInterest)
+      ? (rate > 0 ? Math.round(remainingCapital * (rate / 100) * newDurationMonths) : (newMonthlyInterest * newDurationMonths))
       : (newMonthlyInterest * newDurationMonths);
     const newTotalExpected = initialAmt + projectedInterest;
 

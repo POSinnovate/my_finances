@@ -593,12 +593,22 @@ export default function LoansPage() {
     const monthlyFee =
       loan.monthly_interest ||
       (loan.interest_rate > 0 ? Math.round(remCap * (loan.interest_rate / 100)) : Number(loan.expected_interest) || 0);
+    const pendingInterest = Number(loan.accumulated_unpaid_interest || loan.amount_to_activate || 0);
+    const intToFill = pendingInterest > 0 ? pendingInterest : (monthlyFee > 0 ? monthlyFee : 0);
+
     setPayCapital('');
-    setPayInterest(String(monthlyFee > 0 ? monthlyFee : ''));
-    setActivePaymentShortcut(monthlyFee > 0 ? 'INTEREST_ONLY' : null);
+    setPayInterest(intToFill > 0 ? String(intToFill) : '');
+    setActivePaymentShortcut(intToFill > 0 ? (pendingInterest > 0 && pendingInterest !== monthlyFee ? 'SETTLE_ALL' : 'INTEREST_ONLY') : null);
     setPayMethod(paymentMethods[0]?.name || 'Nequi');
     setPayDate(getTodayColombiaDate());
-    setPayNotes(defaultExtend ? 'Cobro de interés mensual + aplazamiento de capital (+1 mes)' : '');
+    const overdueMonths = loan.overdue_months_count || 1;
+    setPayNotes(
+      defaultExtend
+        ? (loan.overdue_reason === 'INTEREST_OVERDUE' && overdueMonths > 1
+            ? `Cobro de intereses acumulados (${overdueMonths} meses) + aplazamiento de capital (+1 mes)`
+            : 'Cobro de interés mensual + aplazamiento de capital (+1 mes)')
+        : ''
+    );
     setPayExtendTerm(defaultExtend);
   };
 
@@ -1155,7 +1165,11 @@ export default function LoansPage() {
                                     </span>
                                     <p className={`text-[11px] mt-0.5 ${isLoanOverdue ? 'text-rose-200/90' : 'text-amber-200/90'}`}>
                                       {loan.overdue_reason === 'INTEREST_OVERDUE' && (
-                                        <>Cumplió el periodo pactado. Debe abonar <strong>{formatCOP(loan.amount_to_activate)}</strong> en intereses. Puedes cobrarlo y aplazar la capital otro mes, o saldar el total.</>
+                                        <>
+                                          Cumplió {loan.overdue_months_count > 1 ? `${loan.overdue_months_count} periodos pactados` : 'el periodo pactado'}.
+                                          Debe abonar <strong>{formatCOP(loan.amount_to_activate)}</strong> en intereses acumulados{loan.overdue_months_count > 1 ? ` (${loan.overdue_months_count} meses)` : ''}.
+                                          Puedes cobrarlo y aplazar la capital otro mes, o saldar el total.
+                                        </>
                                       )}
                                       {loan.overdue_reason === 'INSTALLMENT_OVERDUE' && (
                                         <>Debe pagar <strong>{formatCOP(loan.amount_to_activate)}</strong> para ponerse al día con las cuotas.</>
@@ -1370,6 +1384,12 @@ export default function LoansPage() {
                                   <div className="text-[11px] font-mono text-emerald-300/80 mt-0.5">
                                     Cobrado: <span className="font-semibold">{formatCOP(loan.paid_interest)}</span>
                                   </div>
+                                  {Number(loan.accumulated_unpaid_interest || 0) > 0 && (
+                                    <div className="text-[10px] font-mono text-rose-300 mt-0.5">
+                                      Pendiente: <span className="font-bold">{formatCOP(loan.accumulated_unpaid_interest)}</span>
+                                      {loan.overdue_months_count > 1 && ` (${loan.overdue_months_count}m)`}
+                                    </div>
+                                  )}
                                 </div>
                                 <div className="text-right sm:text-left shrink-0">
                                   <div className="font-extrabold font-mono text-emerald-400 text-sm sm:text-base">
@@ -2262,14 +2282,27 @@ export default function LoansPage() {
 
                     {selectedLoanForPayment.is_overdue && amountToActivate > 0 && (
                       <div className="flex justify-between text-rose-300 bg-rose-500/10 p-1.5 rounded-lg border border-rose-500/25">
-                        <span className="font-semibold">Monto para ponerse al día:</span>
+                        <span className="font-semibold">
+                          {selectedLoanForPayment.overdue_reason === 'INTEREST_OVERDUE'
+                            ? `Intereses acumulados en mora (${selectedLoanForPayment.overdue_months_count || 1} mes${(selectedLoanForPayment.overdue_months_count || 1) === 1 ? '' : 'es'}):`
+                            : 'Monto para ponerse al día:'}
+                        </span>
                         <span className="font-mono font-bold">{formatCOP(amountToActivate)}</span>
                       </div>
                     )}
 
                     <div className="flex justify-between font-bold pt-1 border-t border-border text-amber-300">
                       <span>Total para saldar hoy:</span>
-                      <span className="font-mono">{formatCOP(remCap + (selectedLoanForPayment.interest_type === 'PERCENT' ? monthlyFee : Math.max(0, (selectedLoanForPayment.expected_interest || 0) - (selectedLoanForPayment.paid_interest || 0))))}</span>
+                      <span className="font-mono">
+                        {formatCOP(
+                          remCap +
+                            (selectedLoanForPayment.overdue_reason === 'INTEREST_OVERDUE' && amountToActivate > 0
+                              ? amountToActivate
+                              : selectedLoanForPayment.interest_type === 'PERCENT'
+                              ? monthlyFee
+                              : Math.max(0, (selectedLoanForPayment.expected_interest || 0) - (selectedLoanForPayment.paid_interest || 0)))
+                        )}
+                      </span>
                     </div>
                   </div>
 
@@ -2347,8 +2380,11 @@ export default function LoansPage() {
                       size="xs"
                       variant={activePaymentShortcut === 'SETTLE_ALL' ? 'primary' : 'outline'}
                       onClick={() => {
+                        const intToSettle = (selectedLoanForPayment.overdue_reason === 'INTEREST_OVERDUE' && amountToActivate > 0)
+                          ? amountToActivate
+                          : (monthlyFee > 0 ? monthlyFee : 0);
                         setPayCapital(String(remCap));
-                        setPayInterest(String(monthlyFee > 0 ? monthlyFee : ''));
+                        setPayInterest(String(intToSettle > 0 ? intToSettle : ''));
                         setActivePaymentShortcut('SETTLE_ALL');
                       }}
                       className="flex-1 min-w-[90px]"

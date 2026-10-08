@@ -4,6 +4,15 @@ import { db } from '@/lib/db/client';
 import { syncUserCurrentCash } from '@/lib/finance-balance';
 import dayjs, { getTodayColombiaDate } from '@/lib/dayjs';
 
+function toYmd(val: any): string {
+  if (!val) return '';
+  if (val instanceof Date) return dayjs(val).format('YYYY-MM-DD');
+  const s = String(val).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const parsed = dayjs(val);
+  return parsed.isValid() ? parsed.format('YYYY-MM-DD') : '';
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -140,9 +149,22 @@ export async function PUT(
     const principal = initial_amount !== undefined ? Math.max(0, Number(initial_amount) || 0) : Number(existing.initial_amount);
     const rate = interest_rate !== undefined ? Number(interest_rate) || 0 : Number(existing.interest_rate) || 0;
     
+    const startDate = start_date || existing.start_date;
+    const sDateStr = toYmd(startDate) || getTodayColombiaDate();
+    const sDayjs = dayjs(sDateStr);
+    const tDayjs = dayjs(getTodayColombiaDate());
+
+    let completedMonths = 0;
+    while (
+      sDayjs.add(completedMonths + 1, 'month').isBefore(tDayjs, 'day') ||
+      sDayjs.add(completedMonths + 1, 'month').isSame(tDayjs, 'day')
+    ) {
+      completedMonths++;
+    }
+
     let durationMonths = duration_months !== undefined ? Math.max(1, Number(duration_months) || 1) : Number(existing.duration_months) || 1;
     if (extend_months && Number(extend_months) > 0) {
-      durationMonths += Number(extend_months);
+      durationMonths = Math.max(durationMonths, completedMonths) + Number(extend_months);
     }
 
     const cleanIntType = interest_type !== undefined ? (interest_type === 'FIXED' ? 'FIXED' : 'PERCENT') : (existing.interest_type || (rate > 0 ? 'PERCENT' : 'FIXED'));
@@ -168,18 +190,19 @@ export async function PUT(
     const instAmt = installment_amount !== undefined && Number(installment_amount) > 0 
       ? Number(installment_amount) 
       : (hasInst ? Math.round(totalExpected / instCount) : 0);
-
-    const startDate = start_date || existing.start_date;
     
-    // If extending months, automatically advance due_date by extend_months using dayjs
+    // If extending months, advance due_date cleanly
     let dueDate = due_date !== undefined ? due_date : existing.due_date;
     if (extend_months && Number(extend_months) > 0) {
-      const baseDate = dueDate ? dayjs(String(dueDate).split('T')[0]) : dayjs(getTodayColombiaDate());
-      dueDate = baseDate.add(Number(extend_months), 'month').format('YYYY-MM-DD');
+      const dDateStr = toYmd(dueDate);
+      const baseDueDate = dDateStr ? dayjs(dDateStr) : tDayjs;
+      if (baseDueDate.isBefore(tDayjs, 'day') || baseDueDate.isSame(tDayjs, 'day')) {
+        dueDate = sDayjs.add(durationMonths, 'month').format('YYYY-MM-DD');
+      } else {
+        dueDate = baseDueDate.add(Number(extend_months), 'month').format('YYYY-MM-DD');
+      }
     } else if (isPercent && (!dueDate || duration_months !== undefined)) {
-      // For percentage loan, recalculate due_date from start_date + durationMonths
-      const s = startDate ? dayjs(String(startDate).split('T')[0]) : dayjs(getTodayColombiaDate());
-      dueDate = s.add(durationMonths, 'month').format('YYYY-MM-DD');
+      dueDate = sDayjs.add(durationMonths, 'month').format('YYYY-MM-DD');
     }
 
     const method = payment_method || existing.payment_method || 'Efectivo';
